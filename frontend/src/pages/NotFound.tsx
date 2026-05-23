@@ -6,7 +6,7 @@ export function NotFound() {
     <div className="container mx-auto px-4 py-24 text-center">
       <h1 className="text-6xl font-bold text-muted-foreground mb-4">404</h1>
       <p className="text-xl mb-8">Aradığınız sayfa bulunamadı.</p>
-      <Button asChild><Link to="/">Ana Sayfaya Dön</Link></Button>
+      <Button render={<Link to="/" />}>Ana Sayfaya Dön</Button>
     </div>
   );
 }

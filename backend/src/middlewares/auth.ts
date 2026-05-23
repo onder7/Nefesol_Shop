@@ -27,6 +27,22 @@ export function authenticate(req: AuthRequest, _res: Response, next: NextFunctio
   }
 }
 
+export function optionalAuthenticate(req: AuthRequest, _res: Response, next: NextFunction): void {
+  const token =
+    req.cookies?.access_token ??
+    req.headers.authorization?.replace('Bearer ', '');
+
+  if (token) {
+    try {
+      const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+      req.user = { id: payload.id, email: payload.email, role: payload.role };
+    } catch {
+      // invalid token — continue as guest
+    }
+  }
+  next();
+}
+
 export function requireAdmin(req: AuthRequest, _res: Response, next: NextFunction): void {
   if (req.user?.role !== 'ADMIN') {
     return next(new AppError('Bu işlem için admin yetkisi gerekli', 403));

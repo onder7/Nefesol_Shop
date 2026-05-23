@@ -22,7 +22,9 @@ export interface Category {
   id: string;
   name: string;
   slug: string;
+  description?: string;
   parentId?: string;
+  parent?: Category;
   children?: Category[];
   imageUrl?: string;
 }
@@ -48,12 +50,14 @@ export interface Product {
   name: string;
   slug: string;
   description?: string;
+  isFeatured?: boolean;
   category: Category;
   brand?: Brand;
   variants: ProductVariant[];
   images: { id: string; url: string; altText?: string; isPrimary: boolean }[];
   tags: { tag: string }[];
   reviews?: { rating: number }[];
+  _count?: { reviews?: number };
 }
 
 export interface CartItem {
@@ -77,7 +81,17 @@ export interface Order {
   discount: number;
   total: number;
   createdAt: string;
+  address?: Address;
   items: { id: string; quantity: number; unitPrice: number; variant: ProductVariant & { product: Pick<Product, 'name' | 'slug'> } }[];
+}
+
+export interface CheckoutInitResponse {
+  checkoutFormContent: string;
+  token: string;
+  conversationId: string;
+  subtotal: number;
+  shippingFee: number;
+  total: number;
 }
 
 export interface Address {

@@ -1,22 +1,26 @@
 import { Router } from 'express';
 import healthRouter from './health';
+import authRouter from './auth';
+import productsRouter from './products';
+import categoriesRouter from './categories';
+import brandsRouter from './brands';
+import cartRouter from './cart';
+import addressesRouter from './addresses';
+import checkoutRouter from './checkout';
+import wishlistRouter from './wishlist';
+import adminRouter from './admin';
 
 const router = Router();
 
 router.use('/health', healthRouter);
-
-// Aşama 3: auth.routes.ts eklenecek
-// router.use('/auth', authRouter);
-
-// Aşama 4: product.routes.ts eklenecek
-// router.use('/products', productRouter);
-// router.use('/categories', categoryRouter);
-
-// Aşama 5: cart.routes.ts eklenecek
-// router.use('/cart', cartRouter);
-
-// Aşama 6: order.routes.ts, payment.routes.ts eklenecek
-// router.use('/orders', orderRouter);
-// router.use('/payments', paymentRouter);
+router.use('/auth', authRouter);
+router.use('/products', productsRouter);
+router.use('/categories', categoriesRouter);
+router.use('/brands', brandsRouter);
+router.use('/cart', cartRouter);
+router.use('/addresses', addressesRouter);
+router.use('/checkout', checkoutRouter);
+router.use('/wishlist', wishlistRouter);
+router.use('/admin', adminRouter);
 
 export default router;

@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -23,7 +24,7 @@ app.use(
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: env.NODE_ENV === 'development' ? 10000 : 100,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, error: 'Çok fazla istek. Lütfen 15 dakika bekleyin.' },
@@ -40,6 +41,12 @@ app.use(
   }),
 );
 
+app.use('/uploads', (_req, res, next) => {
+  // Helmet sets CORP: same-origin by default, which blocks cross-origin <img> loads.
+  // Uploaded product images are embedded by frontend (3000) and admin (3001).
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api', apiRoutes);
 
 app.use(notFound);

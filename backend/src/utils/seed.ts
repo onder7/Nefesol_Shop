@@ -1,18 +1,95 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log('Seed başlıyor...');
+// ─── JSON veri tipleri ───────────────────────────────────────────────────────
+interface MockCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
 
-  // Admin kullanıcı
+interface MockVariant {
+  sku: string;
+  color: string;
+  price: number;
+  stock: number;
+}
+
+interface MockProduct {
+  id: string;
+  categoryId: string;
+  brandId: string;
+  name: string;
+  slug: string;
+  description: string;
+  isActive: boolean;
+  isFeatured: boolean;
+  createdAt: string;
+  updatedAt: string;
+  variants: MockVariant[];
+  images: string[];
+  tags: string[];
+  reviews: any[];
+}
+
+interface MockData {
+  categories: MockCategory[];
+  products: MockProduct[];
+}
+
+// ─── Kategori açıklamaları ──────────────────────────────────────────────────
+const categoryDescriptions: Record<string, string> = {
+  'nevresim-takimlari': '%100 Pamuklu, 3D baskılı, çift ve tek kişilik modern nevresim takımları.',
+  'ceyizlik-urunler': 'Evlilik hazırlığı yapanlar için özenle seçilmiş çeyizlik ürünler.',
+  'yatak-ortuleri': 'Çift ve tek kişilik, kapitoneli, jakarlı ve dantelli lüks yatak örtüsü modelleri.',
+  'pike-takimlari': 'Yaz ve bahar aylarına uygun günlük ve çeyizlik şık pike modelleri.',
+  'banyo': 'Havlu, bornoz ve banyo aksesuarları.',
+  'masa-ortuleri': 'Şık ve kaliteli masa örtüsü modelleri.',
+  'battaniye': 'Sıcak ve yumuşak battaniye çeşitleri.',
+  'carsaf-alez': 'Pamuklu çarşaflar ve koruyucu alezler.',
+  'hali': 'Modern ve klasik halı modelleri.',
+  'yastik-yorgan': 'Konforlu uyku için yastık ve yorgan çeşitleri.',
+};
+
+async function main() {
+  console.log('🧹 Veritabanı temizleniyor...');
+
+  // Tüm verileri sil (sıralama önemli - foreign key constraints)
+  await prisma.review.deleteMany({});
+  await prisma.wishlistItem.deleteMany({});
+  await prisma.wishlist.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.discountUsage.deleteMany({});
+  await prisma.discount.deleteMany({});
+  await prisma.shipping.deleteMany({});
+  await prisma.payment.deleteMany({});
+  await prisma.orderStatusLog.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+  await prisma.productTag.deleteMany({});
+  await prisma.productImage.deleteMany({});
+  await prisma.productVariant.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.category.deleteMany({});
+  await prisma.brand.deleteMany({});
+  await prisma.address.deleteMany({});
+  await prisma.userProfile.deleteMany({});
+  await prisma.user.deleteMany({});
+
+  console.log('✅ Veritabanı temizlendi\n');
+  console.log('🌱 Seed başlıyor...\n');
+
+  // ─── Kullanıcılar ─────────────────────────────────────────────────────────
   const adminHash = await bcrypt.hash('Admin123!', 12);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@ecommerce.com' },
-    update: {},
-    create: {
+  const admin = await prisma.user.create({
+    data: {
       email: 'admin@ecommerce.com',
       passwordHash: adminHash,
       role: 'ADMIN',
@@ -21,14 +98,11 @@ async function main() {
       },
     },
   });
-  console.log(`Admin: ${admin.email}`);
+  console.log(`👤 Admin: ${admin.email}`);
 
-  // Test müşterisi
   const customerHash = await bcrypt.hash('Test123!', 12);
-  const customer = await prisma.user.upsert({
-    where: { email: 'test@ecommerce.com' },
-    update: {},
-    create: {
+  const customer = await prisma.user.create({
+    data: {
       email: 'test@ecommerce.com',
       passwordHash: customerHash,
       role: 'CUSTOMER',
@@ -37,125 +111,122 @@ async function main() {
       },
     },
   });
-  console.log(`Müşteri: ${customer.email}`);
+  console.log(`👤 Müşteri: ${customer.email}\n`);
 
-  // Markalar
-  const brands = await Promise.all([
-    prisma.brand.upsert({
-      where: { slug: 'apple' },
-      update: {},
-      create: { name: 'Apple', slug: 'apple' },
-    }),
-    prisma.brand.upsert({
-      where: { slug: 'samsung' },
-      update: {},
-      create: { name: 'Samsung', slug: 'samsung' },
-    }),
-    prisma.brand.upsert({
-      where: { slug: 'nike' },
-      update: {},
-      create: { name: 'Nike', slug: 'nike' },
-    }),
-  ]);
-  console.log(`${brands.length} marka eklendi`);
+  // ─── JSON dosyasını oku ───────────────────────────────────────────────────
+  const jsonPath = path.resolve(__dirname, '../../../ceyiz_diyari_mock_db-v2.json');
+  console.log(`📄 JSON dosyası okunuyor: ${jsonPath}`);
+  
+  if (!fs.existsSync(jsonPath)) {
+    console.error('❌ JSON dosyası bulunamadı:', jsonPath);
+    process.exit(1);
+  }
 
-  // Ana kategoriler
-  const elektronik = await prisma.category.upsert({
-    where: { slug: 'elektronik' },
-    update: {},
-    create: { name: 'Elektronik', slug: 'elektronik', sortOrder: 1 },
-  });
-  const giyim = await prisma.category.upsert({
-    where: { slug: 'giyim' },
-    update: {},
-    create: { name: 'Giyim', slug: 'giyim', sortOrder: 2 },
-  });
+  const rawData = fs.readFileSync(jsonPath, 'utf-8');
+  const mockData: MockData = JSON.parse(rawData);
+  console.log(`   → ${mockData.categories.length} kategori, ${mockData.products.length} ürün bulundu\n`);
 
-  // Alt kategoriler
-  const telefon = await prisma.category.upsert({
-    where: { slug: 'telefon' },
-    update: {},
-    create: { name: 'Telefon', slug: 'telefon', parentId: elektronik.id, sortOrder: 1 },
+  // ─── Markalar ─────────────────────────────────────────────────────────────
+  const tacBrand = await prisma.brand.create({
+    data: { name: 'TAÇ', slug: 'tac' },
   });
-  const laptop = await prisma.category.upsert({
-    where: { slug: 'laptop' },
-    update: {},
-    create: { name: 'Laptop', slug: 'laptop', parentId: elektronik.id, sortOrder: 2 },
+  const karacaBrand = await prisma.brand.create({
+    data: { name: 'Karaca', slug: 'karaca' },
   });
-  const erkek = await prisma.category.upsert({
-    where: { slug: 'erkek-giyim' },
-    update: {},
-    create: { name: 'Erkek Giyim', slug: 'erkek-giyim', parentId: giyim.id, sortOrder: 1 },
+  const englishHomeBrand = await prisma.brand.create({
+    data: { name: 'English Home', slug: 'english-home' },
   });
-  console.log('Kategoriler eklendi');
+  const ceyizDiyariBrand = await prisma.brand.create({
+    data: { name: 'Çeyiz Diyarı', slug: 'ceyiz-diyari' },
+  });
+  console.log('🏷️  4 marka eklendi (TAÇ, Karaca, English Home, Çeyiz Diyarı)\n');
 
-  // Ürünler
-  const iphone = await prisma.product.upsert({
-    where: { slug: 'iphone-15-pro' },
-    update: {},
-    create: {
-      name: 'iPhone 15 Pro',
-      slug: 'iphone-15-pro',
-      description: 'Apple iPhone 15 Pro, titanyum gövde, A17 Pro çip.',
-      categoryId: telefon.id,
-      brandId: brands[0].id, // Apple
-      variants: {
-        create: [
-          { sku: 'IPH15P-128-BLK', price: 59999, stockQty: 50, attributes: { renk: 'Siyah Titanyum', depolama: '128GB' } },
-          { sku: 'IPH15P-256-BLK', price: 64999, stockQty: 30, attributes: { renk: 'Siyah Titanyum', depolama: '256GB' } },
-          { sku: 'IPH15P-256-WHT', price: 64999, stockQty: 20, attributes: { renk: 'Beyaz Titanyum', depolama: '256GB' } },
-        ],
+  // ─── Kategoriler (JSON'dan) ───────────────────────────────────────────────
+  const categoryMap = new Map<string, string>(); // JSON id → DB id
+
+  for (let i = 0; i < mockData.categories.length; i++) {
+    const cat = mockData.categories[i];
+    const created = await prisma.category.create({
+      data: {
+        name: cat.name,
+        slug: cat.slug,
+        description: categoryDescriptions[cat.slug] || `${cat.name} kategorisi.`,
+        sortOrder: i + 1,
       },
-      tags: { create: [{ tag: 'telefon' }, { tag: 'apple' }, { tag: 'ios' }] },
-    },
-  });
+    });
+    categoryMap.set(cat.id, created.id);
+    console.log(`   📂 ${i + 1}. ${cat.name} (${cat.slug})`);
+  }
+  console.log(`\n✅ ${mockData.categories.length} kategori eklendi\n`);
 
-  const galaxy = await prisma.product.upsert({
-    where: { slug: 'samsung-galaxy-s24' },
-    update: {},
-    create: {
-      name: 'Samsung Galaxy S24',
-      slug: 'samsung-galaxy-s24',
-      description: 'Samsung Galaxy S24, Snapdragon 8 Gen 3, 50MP kamera.',
-      categoryId: telefon.id,
-      brandId: brands[1].id, // Samsung
-      variants: {
-        create: [
-          { sku: 'SGS24-128-PHT', price: 34999, stockQty: 40, attributes: { renk: 'Phantom Black', depolama: '128GB' } },
-          { sku: 'SGS24-256-PHT', price: 39999, stockQty: 25, attributes: { renk: 'Phantom Black', depolama: '256GB' } },
-        ],
+  // ─── Ürünler (JSON'dan) ───────────────────────────────────────────────────
+  let productCount = 0;
+  let variantCount = 0;
+  let imageCount = 0;
+  let tagCount = 0;
+
+  for (const prod of mockData.products) {
+    // Kategori ID'sini map'ten al
+    const dbCategoryId = categoryMap.get(prod.categoryId);
+    if (!dbCategoryId) {
+      console.warn(`⚠️  Ürün atlandı (kategori bulunamadı): ${prod.name}`);
+      continue;
+    }
+
+    // Ürünü oluştur (varyantlar, görseller, etiketler dahil)
+    await prisma.product.create({
+      data: {
+        name: prod.name,
+        slug: prod.slug,
+        description: prod.description,
+        isActive: prod.isActive,
+        isFeatured: prod.isFeatured,
+        categoryId: dbCategoryId,
+        brandId: ceyizDiyariBrand.id,  // Tüm ürünler Çeyiz Diyarı markasına ait
+        variants: {
+          create: prod.variants.map((v) => ({
+            sku: v.sku,
+            price: v.price,
+            stockQty: v.stock,
+            attributes: { color: v.color },
+          })),
+        },
+        images: {
+          create: prod.images.map((url, idx) => ({
+            url: url,
+            altText: `${prod.name} - Görsel ${idx + 1}`,
+            sortOrder: idx,
+            isPrimary: idx === 0,
+          })),
+        },
+        tags: {
+          create: prod.tags.map((tag) => ({
+            tag: tag,
+          })),
+        },
       },
-      tags: { create: [{ tag: 'telefon' }, { tag: 'samsung' }, { tag: 'android' }] },
-    },
-  });
+    });
 
-  await prisma.product.upsert({
-    where: { slug: 'nike-air-max-270' },
-    update: {},
-    create: {
-      name: 'Nike Air Max 270',
-      slug: 'nike-air-max-270',
-      description: 'Nike Air Max 270 erkek spor ayakkabı.',
-      categoryId: erkek.id,
-      brandId: brands[2].id, // Nike
-      variants: {
-        create: [
-          { sku: 'NAM270-40-BLK', price: 3499, stockQty: 15, attributes: { beden: '40', renk: 'Siyah' } },
-          { sku: 'NAM270-41-BLK', price: 3499, stockQty: 18, attributes: { beden: '41', renk: 'Siyah' } },
-          { sku: 'NAM270-42-BLK', price: 3499, stockQty: 12, attributes: { beden: '42', renk: 'Siyah' } },
-          { sku: 'NAM270-43-WHT', price: 3499, stockQty: 10, attributes: { beden: '43', renk: 'Beyaz' } },
-        ],
-      },
-      tags: { create: [{ tag: 'ayakkabı' }, { tag: 'nike' }, { tag: 'spor' }] },
-    },
-  });
-  console.log('Ürünler eklendi');
+    productCount++;
+    variantCount += prod.variants.length;
+    imageCount += prod.images.length;
+    tagCount += prod.tags.length;
 
-  // İndirim kuponu
-  await prisma.discount.upsert({
-    where: { code: 'HOSGELDIN10' },
-    update: {},
-    create: {
+    // Her 10 üründe bir ilerleme göster
+    if (productCount % 10 === 0) {
+      console.log(`   🛍️  ${productCount}/${mockData.products.length} ürün eklendi...`);
+    }
+  }
+
+  console.log(`\n✅ Ürün verileri eklendi:`);
+  console.log(`   🛍️  ${productCount} ürün`);
+  console.log(`   📦 ${variantCount} varyant`);
+  console.log(`   🖼️  ${imageCount} görsel`);
+  console.log(`   🏷️  ${tagCount} etiket\n`);
+
+  // ─── İndirim kuponları ────────────────────────────────────────────────────
+  await prisma.discount.create({
+    data: {
       code: 'HOSGELDIN10',
       type: 'PERCENT',
       value: 10,
@@ -164,10 +235,18 @@ async function main() {
       isActive: true,
     },
   });
-  await prisma.discount.upsert({
-    where: { code: 'INDIRIM100' },
-    update: {},
-    create: {
+  await prisma.discount.create({
+    data: {
+      code: 'CEYIZ15',
+      type: 'PERCENT',
+      value: 15,
+      minOrder: 2000,
+      maxUses: 200,
+      isActive: true,
+    },
+  });
+  await prisma.discount.create({
+    data: {
       code: 'INDIRIM100',
       type: 'FIXED',
       value: 100,
@@ -176,30 +255,28 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('İndirim kuponları eklendi');
+  console.log('🎟️  3 indirim kuponu eklendi\n');
 
-  // Test değerlendirmesi
-  const variant = await prisma.productVariant.findFirst({ where: { productId: iphone.id } });
-  if (variant) {
-    await prisma.review.upsert({
-      where: { productId_userId: { productId: iphone.id, userId: customer.id } },
-      update: {},
-      create: {
-        productId: iphone.id,
-        userId: customer.id,
-        rating: 5,
-        title: 'Mükemmel telefon',
-        body: 'iPhone 15 Pro gerçekten harika bir telefon. Kamera kalitesi üstün.',
-        isApproved: true,
-      },
-    });
-  }
-
-  console.log('\n✅ Seed tamamlandı!');
-  console.log('─────────────────────────────────');
-  console.log('Admin   → admin@ecommerce.com / Admin123!');
-  console.log('Müşteri → test@ecommerce.com  / Test123!');
-  console.log('Kuponlar → HOSGELDIN10 (%10) | INDIRIM100 (100₺)');
+  // ─── Özet ─────────────────────────────────────────────────────────────────
+  console.log('═══════════════════════════════════════════════');
+  console.log('✅ Seed tamamlandı!');
+  console.log('═══════════════════════════════════════════════');
+  console.log('');
+  console.log('👤 Kullanıcılar:');
+  console.log('   Admin   → admin@ecommerce.com / Admin123!');
+  console.log('   Müşteri → test@ecommerce.com  / Test123!');
+  console.log('');
+  console.log(`📂 Kategoriler: ${mockData.categories.length} adet`);
+  console.log(`🛍️  Ürünler: ${productCount} ürün, ${variantCount} varyant`);
+  console.log(`🖼️  Görseller: ${imageCount} adet`);
+  console.log(`🏷️  Etiketler: ${tagCount} adet`);
+  console.log(`🏢 Markalar: 4 adet`);
+  console.log('');
+  console.log('🎟️  Kuponlar:');
+  console.log('   HOSGELDIN10 → %10 indirim (min. 500₺)');
+  console.log('   CEYIZ15     → %15 indirim (min. 2000₺)');
+  console.log('   INDIRIM100  → 100₺ indirim (min. 1000₺)');
+  console.log('═══════════════════════════════════════════════');
 }
 
 main()

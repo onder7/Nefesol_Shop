@@ -27,10 +27,12 @@ model User {
   addresses       Address[]
   carts           Cart[]
   orders          Order[]
-  reviews         Review[]
-  wishlists       Wishlist[]
-  notifications   Notification[]
-  discountUsages  DiscountUsage[]
+  reviews          Review[]
+  wishlists        Wishlist[]
+  notifications    Notification[]
+  discountUsages   DiscountUsage[]
+  productQuestions ProductQuestion[]
+  productAnswers   ProductAnswer[]
 
   @@map("users")
 }
@@ -120,15 +122,17 @@ model Product {
   slug        String   @unique
   description String?
   isActive    Boolean  @default(true) @map("is_active")
+  isFeatured  Boolean  @default(false) @map("is_featured")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   category Category        @relation(fields: [categoryId], references: [id])
   brand    Brand?          @relation(fields: [brandId], references: [id])
-  variants ProductVariant[]
-  images   ProductImage[]
-  tags     ProductTag[]
-  reviews  Review[]
+  variants  ProductVariant[]
+  images    ProductImage[]
+  tags      ProductTag[]
+  reviews   Review[]
+  questions ProductQuestion[]
 
   @@map("products")
 }
@@ -404,4 +408,35 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+// ─── Soru & Cevap ─────────────────────────────────────────────────────────────
+
+model ProductQuestion {
+  id         String   @id @default(cuid())
+  productId  String   @map("product_id")
+  userId     String?  @map("user_id")
+  guestName  String?  @map("guest_name")
+  body       String
+  isAnswered Boolean  @default(false) @map("is_answered")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  answers ProductAnswer[]
+
+  @@map("product_questions")
+}
+
+model ProductAnswer {
+  id         String   @id @default(cuid())
+  questionId String   @map("question_id")
+  userId     String   @map("user_id")
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  question ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id])
+
+  @@map("product_answers")
 }

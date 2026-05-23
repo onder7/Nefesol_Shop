@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
 
 import Loader from './common/Loader';
 import PageTitle from './components/PageTitle';
 import SignIn from './pages/Authentication/SignIn';
-import SignUp from './pages/Authentication/SignUp';
-import Calendar from './pages/Calendar';
-import Chart from './pages/Chart';
-import ECommerce from './pages/Dashboard/ECommerce';
-import FormElements from './pages/Form/FormElements';
-import FormLayout from './pages/Form/FormLayout';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Tables from './pages/Tables';
-import Alerts from './pages/UiElements/Alerts';
-import Buttons from './pages/UiElements/Buttons';
+import Dashboard from './pages/Dashboard/ECommerce';
+import Products from './pages/Products';
+import Orders from './pages/Orders';
+import Customers from './pages/Customers';
 import DefaultLayout from './layout/DefaultLayout';
+import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 
-function App() {
-  const [loading, setLoading] = useState<boolean>(true);
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAdminAuth();
+  if (!user) return <Navigate to="/auth/signin" replace />;
+  return <>{children}</>;
+}
+
+function AppRoutes() {
+  const [loading, setLoading] = useState(true);
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -26,125 +26,81 @@ function App() {
   }, [pathname]);
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 1000);
+    setTimeout(() => setLoading(false), 500);
   }, []);
 
-  return loading ? (
-    <Loader />
-  ) : (
-    <DefaultLayout>
-      <Routes>
-        <Route
-          index
-          element={
-            <>
-              <PageTitle title="eCommerce Dashboard | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <ECommerce />
-            </>
-          }
-        />
-        <Route
-          path="/calendar"
-          element={
-            <>
-              <PageTitle title="Calendar | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <Calendar />
-            </>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <>
-              <PageTitle title="Profile | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <Profile />
-            </>
-          }
-        />
-        <Route
-          path="/forms/form-elements"
-          element={
-            <>
-              <PageTitle title="Form Elements | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <FormElements />
-            </>
-          }
-        />
-        <Route
-          path="/forms/form-layout"
-          element={
-            <>
-              <PageTitle title="Form Layout | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <FormLayout />
-            </>
-          }
-        />
-        <Route
-          path="/tables"
-          element={
-            <>
-              <PageTitle title="Tables | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <Tables />
-            </>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <>
-              <PageTitle title="Settings | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <Settings />
-            </>
-          }
-        />
-        <Route
-          path="/chart"
-          element={
-            <>
-              <PageTitle title="Basic Chart | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <Chart />
-            </>
-          }
-        />
-        <Route
-          path="/ui/alerts"
-          element={
-            <>
-              <PageTitle title="Alerts | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <Alerts />
-            </>
-          }
-        />
-        <Route
-          path="/ui/buttons"
-          element={
-            <>
-              <PageTitle title="Buttons | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <Buttons />
-            </>
-          }
-        />
-        <Route
-          path="/auth/signin"
-          element={
-            <>
-              <PageTitle title="Signin | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <SignIn />
-            </>
-          }
-        />
-        <Route
-          path="/auth/signup"
-          element={
-            <>
-              <PageTitle title="Signup | TailAdmin - Tailwind CSS Admin Dashboard Template" />
-              <SignUp />
-            </>
-          }
-        />
-      </Routes>
-    </DefaultLayout>
+  if (loading) return <Loader />;
+
+  return (
+    <Routes>
+      <Route path="/auth/signin" element={<SignIn />} />
+
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <DefaultLayout>
+              <Routes>
+                <Route
+                  index
+                  element={
+                    <>
+                      <PageTitle title="Dashboard | MaBridge Admin" />
+                      <Dashboard />
+                    </>
+                  }
+                />
+                <Route
+                  path="products"
+                  element={
+                    <>
+                      <PageTitle title="Ürünler | MaBridge Admin" />
+                      <Products />
+                    </>
+                  }
+                />
+                <Route
+                  path="orders"
+                  element={
+                    <>
+                      <PageTitle title="Siparişler | MaBridge Admin" />
+                      <Orders />
+                    </>
+                  }
+                />
+                <Route
+                  path="customers"
+                  element={
+                    <>
+                      <PageTitle title="Mü��teriler | MaBridge Admin" />
+                      <Customers />
+                    </>
+                  }
+                />
+              </Routes>
+            </DefaultLayout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 
-export default App;
+function TestModeBanner() {
+  return (
+    <div className="fixed top-0 left-0 z-[9999] pointer-events-none overflow-hidden w-28 h-28">
+      <div className="absolute bg-amber-500 text-white text-[10px] font-bold text-center py-1 left-[-28px] top-[18px] w-[120px] -rotate-45 shadow tracking-widest">
+        TEST MODU
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AdminAuthProvider>
+      <TestModeBanner />
+      <AppRoutes />
+    </AdminAuthProvider>
+  );
+}

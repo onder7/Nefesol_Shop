@@ -298,115 +298,119 @@ Kullanıcı: root
 
 ## 🔐 AŞAMA 3 — Kimlik Doğrulama Sistemi
 
-- [ ] `POST /api/auth/register` — kullanıcı kaydı (bcrypt hash)
-- [ ] `POST /api/auth/login` — JWT access + refresh token üret
-- [ ] `POST /api/auth/logout` — refresh token geçersiz kıl (Redis blacklist)
-- [ ] `POST /api/auth/refresh-token` — access token yenile
+- [x] `POST /api/auth/register` — kullanıcı kaydı (bcrypt hash)
+- [x] `POST /api/auth/login` — JWT access + refresh token üret
+- [x] `POST /api/auth/logout` — refresh token geçersiz kıl (Redis blacklist)
+- [x] `POST /api/auth/refresh-token` — access token yenile
 - [ ] `POST /api/auth/forgot-password` — reset link emaille gönder
 - [ ] `POST /api/auth/reset-password` — token doğrula, şifreyi güncelle
-- [ ] `GET /api/auth/me` — aktif kullanıcı bilgisi
-- [ ] JWT middleware (korunan route'lar için)
-- [ ] Admin role guard middleware
-- [ ] Frontend: Login / Register sayfaları (shadcn/ui Form + Input + Button)
-- [ ] Frontend: Auth context ve token yönetimi (Zustand store)
-- [ ] Frontend: Axios interceptor — her isteğe token ekle, 401'de refresh
-- [ ] Frontend: Protected route bileşeni
+- [x] `GET /api/auth/me` — aktif kullanıcı bilgisi
+- [x] `PUT /api/auth/profile` — profil güncelle (ad, soyad, telefon)
+- [x] `PUT /api/auth/change-password` — şifre değiştir
+- [x] JWT middleware (korunan route'lar için)
+- [x] Admin role guard middleware
+- [x] Frontend: Login / Register sayfaları (shadcn/ui Form + Input + Button)
+- [x] Frontend: Auth context ve token yönetimi (Zustand store)
+- [x] Frontend: Axios interceptor — her isteğe token ekle, 401'de refresh
+- [x] Frontend: Protected route bileşeni
 
 ---
 
 ## 🛍️ AŞAMA 4 — Ürün Kataloğu
 
 ### Backend
-- [ ] Kategori CRUD API (hiyerarşik yapı destekli)
-- [ ] Marka CRUD API
-- [ ] Ürün CRUD API (varyant, görsel, stok dahil)
-- [ ] Ürün arama API (PostgreSQL full-text search veya pg_trgm)
-- [ ] Filtreleme: fiyat aralığı, kategori, marka, değerlendirme
-- [ ] Sayfalama: limit/offset veya cursor-based
-- [ ] Ürün slug'ı otomatik oluştur (türkçe karakter desteği)
+- [x] Kategori CRUD API (hiyerarşik yapı destekli)
+- [x] Marka CRUD API
+- [x] Ürün CRUD API (varyant, görsel, stok dahil)
+- [x] Ürün arama API (PostgreSQL full-text search)
+- [x] Filtreleme: fiyat aralığı, kategori, marka
+- [x] Sayfalama: limit/offset
 - [ ] Redis cache: ürün listesi (5 dk TTL)
 
 ### Frontend (shadcn/ui tabanlı)
-- [ ] Ana sayfa tasarımı (hero banner, featured ürünler, kategoriler)
-  - Renk paleti ve fontlar: referans HTML temadan Tailwind config'e aktar
-  - Banner: Swiper slider bileşeni
-- [ ] Ürün listesi sayfası (grid/liste görünümü toggle)
-- [ ] Filtre sidebar — shadcn/ui Checkbox, Slider, Badge bileşenleri
-- [ ] Sıralama — shadcn/ui Select bileşeni
-- [ ] Ürün kartı bileşeni (shadcn/ui Card + Badge)
-- [ ] Ürün detay sayfası (react-image-gallery + varyant seçici)
-- [ ] Breadcrumb navigasyonu
-- [ ] Sayfalama bileşeni (shadcn/ui Pagination)
-- [ ] TanStack Query ile API veri çekme (useQuery hook'ları)
+- [x] Ana sayfa (hero banner, featured ürünler API'den, kategoriler)
+- [x] Ürün listesi / kategori sayfası (sıralama, sayfalama)
+- [x] Ürün arama sayfası
+- [x] Sıralama — shadcn/ui Select
+- [x] Ürün kartı bileşeni (Badge, stok, indirim)
+- [x] Ürün detay sayfası (varyant seçici, miktar, sepete ekle butonu)
+- [x] Breadcrumb navigasyonu
+- [x] TanStack Query ile API veri çekme
 
 ---
 
 ## 🛒 AŞAMA 5 — Sepet Sistemi
 
-- [ ] Backend: Misafir + üye sepet (session_id veya user_id)
-- [ ] `GET /api/cart` — sepet getir
-- [ ] `POST /api/cart/items` — ürün ekle
-- [ ] `PUT /api/cart/items/:id` — miktar güncelle
-- [ ] `DELETE /api/cart/items/:id` — ürün kaldır
+- [x] Backend: Misafir + üye sepet (session_id veya user_id)
+- [x] `GET /api/cart` — sepet getir
+- [x] `POST /api/cart/items` — ürün ekle
+- [x] `PUT /api/cart/items/:id` — miktar güncelle
+- [x] `DELETE /api/cart/items/:id` — ürün kaldır
 - [ ] `POST /api/cart/apply-discount` — kupon kodu uygula
 - [ ] Redis: sepet verilerini geçici sakla (TTL: 7 gün)
-- [ ] Giriş yapılınca misafir sepetini birleştir
-- [ ] Frontend: Sepet sayfası
+- [x] Giriş yapılınca misafir sepetini birleştir (`POST /api/cart/merge`)
+- [x] Frontend: Sepet sayfası
 - [ ] Frontend: Mini sepet (header dropdown)
-- [ ] Frontend: Sepet adedi badge
+- [x] Frontend: Sepet adedi badge (Header'da itemCount)
 
 ---
 
 ## 💳 AŞAMA 6 — Checkout & Ödeme
 
-- [ ] Backend: Sipariş oluşturma işlemi (transaction ile)
-- [ ] Adres seçimi / yeni adres ekleme
-- [ ] Kargo seçenekleri (sabit ücret veya kargo entegrasyonu)
-- [ ] İyziCo entegrasyonu (test ortamı önce)
-  - [ ] Ödeme formu (3D Secure)
-  - [ ] Callback webhook endpoint
-  - [ ] Ödeme başarılı/başarısız yönetimi
-- [ ] Stok düşme işlemi (atomik)
-- [ ] Sipariş onay emaili (Nodemailer)
-- [ ] Frontend: Checkout wizard (adres → kargo → ödeme)
-- [ ] Frontend: Sipariş tamamlandı sayfası
+- [x] Backend: Sipariş oluşturma işlemi (transaction ile)
+- [x] Adres seçimi / yeni adres ekleme (addressService.ts — CRUD)
+- [x] Kargo seçenekleri (49.90₺ sabit, 500₺ üzeri ücretsiz)
+- [x] İyziCo entegrasyonu (manual HMAC-SHA1, iyzipay paketi olmadan)
+  - [x] Ödeme formu (Checkout Form — 3D Secure destekli)
+  - [x] Callback webhook endpoint (`POST /api/checkout/callback`)
+  - [x] Ödeme başarılı/başarısız yönetimi + dev bypass modu
+- [x] Stok düşme işlemi (atomik — Prisma `$transaction`)
+- [x] Sipariş onay emaili (Nodemailer — SMTP yoksa log'a yazar)
+- [x] Frontend: Checkout wizard (adres → özet → ödeme)
+- [x] Frontend: Sipariş tamamlandı sayfası (OrderSuccess.tsx)
 
 ---
 
 ## 📦 AŞAMA 7 — Sipariş Yönetimi
 
-- [ ] `GET /api/orders` — kullanıcının siparişleri
-- [ ] `GET /api/orders/:id` — sipariş detayı
+- [x] `GET /api/checkout/orders` — kullanıcının siparişleri
+- [x] `GET /api/checkout/orders/:id` — sipariş detayı
 - [ ] Admin: sipariş durum güncelleme (pending → processing → shipped → delivered)
 - [ ] Kargo takip numarası girişi
 - [ ] Sipariş durum değişikliğinde email bildirimi
-- [ ] Frontend: Sipariş geçmişi sayfası
-- [ ] Frontend: Sipariş detay sayfası (timeline)
+- [x] Frontend: Sipariş geçmişi sayfası (Orders.tsx)
+- [x] Frontend: Sipariş detay sayfası (timeline + statusHistory)
 
 ---
 
 ## ⭐ AŞAMA 8 — Ek Özellikler
 
-- [ ] Ürün değerlendirme sistemi (5 yıldız + yorum)
-- [ ] Favori listesi (wishlist)
+- [x] Ürün değerlendirme sistemi (5 yıldız + yorum)
+- [x] Favori listesi (wishlist)
 - [ ] Ürün karşılaştırma
 - [ ] Son görüntülenen ürünler (localStorage + Redis)
 - [ ] İndirim/kupon sistemi (yüzde, sabit tutar, min sepet)
 - [ ] Bildirim sistemi (sipariş güncellemeleri)
-- [ ] Kullanıcı profil sayfası
+- [x] Kullanıcı profil sayfası (Profile.tsx — ad/soyad/tel + şifre değiştir)
+- [x] Soru & Cevap sistemi (ProductQA — misafir soru, admin cevap)
+- [x] `POST /api/auth/forgot-password` — şifre sıfırlama linki emaile gönder
+- [x] `POST /api/auth/reset-password` — token doğrula, şifreyi güncelle
+- [x] Son görüntülenen ürünler (localStorage + zustand/persist)
 
 ---
 
 ## 🎛️ AŞAMA 9 — Admin Paneli
 
-- [ ] Dashboard: KPI kartları (günlük satış, sipariş sayısı, yeni üye)
-- [ ] Dashboard: Satış grafiği (Recharts/ApexCharts)
-- [ ] Ürün yönetimi: listele, ekle, düzenle, sil
+- [x] Dashboard: KPI kartları (günlük satış, sipariş sayısı, yeni üye)
+- [x] Dashboard: Satış grafiği (ApexCharts — son 30 gün)
+- [x] Ürün yönetimi: listele, aktif/pasif toggle, öne çıkan toggle, sil
+- [ ] Ürün ekleme/düzenleme formu
 - [ ] Toplu ürün yükleme (Excel/CSV import)
 - [ ] Görsel yükleme (Cloudinary entegrasyonu)
 - [ ] Kategori ve marka yönetimi
-- [ ] Sipariş listesi: filtreleme, durum güncelleme, fatura
-- [ ] Müşteri listesi: görüntüle, aktif/pasif
+- [x] Sipariş listesi: filtreleme, durum güncelleme
+- [x] Müşteri listesi: görüntüle, aktif/pasif toggle
+- [x] Admin login sistemi (JWT, korumalı layout)
 - [ ] İndirim yönetimi: kupon oluştur, kullanım raporu
 - [ ] Raporlar: satış, ürün, müşteri bazlı
 - [ ] Site ayarları: iletişim, kargo ücretleri, SEO
@@ -513,3 +517,17 @@ theme: {
   }
 }
 ```
+Aşama 5 (Sepet): 7/11 tamamlandı
+
+Kalan: apply-discount, Redis cache, mini sepet dropdown
+Aşama 6 (Checkout & Ödeme): Tümü tamamlandı ✓
+
+Iyzico entegrasyonu (manual), adres yönetimi, atomik stok düşme, email, wizard, başarı sayfası
+Aşama 7 (Sipariş Yönetimi): 4/7 tamamlandı
+
+Kalan: Admin durum güncelleme, kargo takip no, durum değişim email'i
+Aşama 8 (Ek Özellikler): Profil sayfası tamamlandı, geri kalanlar bekliyor
+
+Aşama 3 (Auth): PUT /profile ve PUT /change-password de işaretlendi
+
+Sıradaki adım için ne yapmak istersiniz — Aşama 8 (değerlendirme/favori/kupon) veya Aşama 9 (Admin panel API bağlantısı)?

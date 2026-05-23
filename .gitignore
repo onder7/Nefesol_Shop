@@ -52,3 +52,18 @@ nginx/ssl/*.key
 
 # Test coverage
 coverage/
+
+# Yüklenen görseller — üretim ortamında CDN/Cloudinary kullanılacak
+backend/uploads/
+
+# Geçici dosyalar
+tmp/
+
+# İndirilmiş şablon / tasarım dosyaları
+ecommerce-frontend-master/
+*.png
+!frontend/public/*.png
+!frontend/public/*.jpg
+!frontend/public/*.svg
+!frontend/src/**/*.png
+!frontend/src/**/*.svg
