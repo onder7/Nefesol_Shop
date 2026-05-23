@@ -213,37 +213,37 @@ Kullanıcı: root
 
 ## 🏗️ AŞAMA 1 — Proje İskeleti & Docker Compose
 
-- [ ] Monorepo dizin yapısını oluştur (`frontend/`, `admin/`, `backend/`)
-- [ ] `docker-compose.yml` yaz (tüm servisleri tanımla)
+- [x] Monorepo dizin yapısını oluştur (`frontend/`, `admin/`, `backend/`)
+- [x] `docker-compose.yml` yaz (tüm servisleri tanımla)
 - [ ] Her servis için `Dockerfile` oluştur
-- [ ] `.env.example` dosyası hazırla
-- [ ] `.gitignore` ve `.dockerignore` dosyaları ekle
-- [ ] Backend: Express + TypeScript temel kurulum
+- [x] `.env.example` dosyası hazırla
+- [x] `.gitignore` ve `.dockerignore` dosyaları ekle
+- [x] Backend: Express + TypeScript temel kurulum
   ```bash
   cd backend && npm init -y
   npm install express typescript ts-node @types/node @types/express
   npx tsc --init
   ```
-- [ ] Frontend: Vite + React + TypeScript kurulum
+- [x] Frontend: Vite + React + TypeScript kurulum
   ```bash
   npm create vite@latest frontend -- --template react-ts
   cd frontend && npm install
   npm install -D tailwindcss postcss autoprefixer
   npx tailwindcss init -p
   ```
-- [ ] Frontend: shadcn/ui kur ve yapılandır
+- [x] Frontend: shadcn/ui kur ve yapılandır
   ```bash
   cd frontend
   npx shadcn@latest init
   # Prompted sorulara: TypeScript=yes, style=default, baseColor=slate, cssVariables=yes
   ```
-- [ ] Frontend: Temel shadcn/ui bileşenlerini ekle
+- [x] Frontend: Temel shadcn/ui bileşenlerini ekle
   ```bash
   npx shadcn@latest add button input card badge dialog
   npx shadcn@latest add table form select textarea
   npx shadcn@latest add dropdown-menu sheet toast
   ```
-- [ ] Frontend: Diğer paketleri kur
+- [x] Frontend: Diğer paketleri kur
   ```bash
   npm install lucide-react                   # İkon kütüphanesi
   npm install @tanstack/react-query          # Server state (API cache)
@@ -266,33 +266,33 @@ Kullanıcı: root
   npm install @tanstack/react-query react-router-dom zustand axios
   npm install react-hook-form @hookform/resolvers zod
   ```
-- [ ] Prisma ORM kurulumu ve `schema.prisma` taslağı
+- [x] Prisma ORM kurulumu ve `schema.prisma` taslağı
   ```bash
   cd backend
   npm install @prisma/client
   npm install -D prisma
   npx prisma init
   ```
-- [ ] İlk `docker-compose up` testi — tüm servisler ayağa kalkmalı
+- [x] İlk `docker-compose up` testi — tüm servisler ayağa kalkmalı
 
 ---
 
 ## 🔧 AŞAMA 2 — Backend Temel Altyapı
 
-- [ ] Express uygulama yapısını kur (controllers/routes/services/middlewares)
-- [ ] Error handling middleware (merkezi hata yönetimi)
-- [ ] Logger kurulumu (Winston)
-- [ ] Zod ile request validation middleware
-- [ ] PostgreSQL bağlantısı (Prisma client)
-- [ ] Redis bağlantısı (ioredis)
-- [ ] Health check endpoint: `GET /health`
+- [x] Express uygulama yapısını kur (controllers/routes/services/middlewares)
+- [x] Error handling middleware (merkezi hata yönetimi)
+- [x] Logger kurulumu (Winston)
+- [x] Zod ile request validation middleware
+- [x] PostgreSQL bağlantısı (Prisma client)
+- [x] Redis bağlantısı (ioredis)
+- [x] Health check endpoint: `GET /api/health`
 - [ ] Swagger / OpenAPI dokümantasyonu (swagger-jsdoc + swagger-ui-express)
-- [ ] Prisma şeması tüm tablolarla tamamla
-- [ ] İlk migration çalıştır: `npx prisma migrate dev --name init`
-- [ ] Seed script yaz (test kategorileri, ürünler, admin kullanıcı)
-- [ ] Rate limiting middleware (express-rate-limit)
-- [ ] Helmet.js kurulumu
-- [ ] CORS yapılandırması
+- [x] Prisma şeması tüm tablolarla tamamla
+- [x] İlk migration çalıştır: `npx prisma migrate dev --name init`
+- [x] Seed script yaz (test kategorileri, ürünler, admin kullanıcı)
+- [x] Rate limiting middleware (express-rate-limit)
+- [x] Helmet.js kurulumu
+- [x] CORS yapılandırması
 
 ---
 
