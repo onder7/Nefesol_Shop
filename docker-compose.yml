@@ -6,61 +6,54 @@ services:
       - '443:443'
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
     depends_on:
       - frontend
       - admin
       - backend
     restart: unless-stopped
+    networks:
+      - app
 
   frontend:
     build:
       context: ./frontend
       dockerfile: ../docker/frontend.Dockerfile
-    ports:
-      - '3000:3000'
-    environment:
-      - VITE_API_URL=http://localhost:5000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     restart: unless-stopped
+    networks:
+      - app
 
   admin:
     build:
       context: ./admin
       dockerfile: ../docker/admin.Dockerfile
-    ports:
-      - '3001:3001'
-    environment:
-      - VITE_API_URL=http://localhost:5000
-    volumes:
-      - ./admin:/app
-      - /app/node_modules
+      args:
+        VITE_BASE_URL: /admin/
+        VITE_API_URL: /api
     restart: unless-stopped
+    networks:
+      - app
 
   backend:
     build:
       context: ./backend
       dockerfile: ../docker/backend.Dockerfile
-    ports:
-      - '5000:5000'
     env_file:
       - .env
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app
 
   postgres:
     image: postgres:16-alpine
-    ports:
-      - '5433:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ecom}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecom_pass}
@@ -73,11 +66,12 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - app
 
   redis:
     image: redis:7-alpine
-    ports:
-      - '6379:6379'
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     healthcheck:
@@ -86,7 +80,24 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      - app
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
+  certbot_conf:
+  certbot_www:
+
+networks:
+  app:
+    driver: bridge

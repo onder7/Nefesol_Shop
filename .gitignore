@@ -42,10 +42,10 @@ desktop.ini
 postgres_data/
 redis_data/
 
-# SSL sertifikaları (sunucudan alınır, repoya girmez)
-nginx/ssl/*.pem
-nginx/ssl/*.crt
-nginx/ssl/*.key
+# SSL sertifikaları ve nginx geçici dosyaları (sunucudan alınır, repoya girmez)
+nginx/ssl/
+nginx/conf.d/*.bak
+nginx/conf.d/*.ssl.bak
 
 # Prisma migrations (geliştirme sırasında geçici)
 # backend/prisma/migrations/ — bu satırı açma, migrationları commit et

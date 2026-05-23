@@ -77,7 +77,7 @@ async function uploadRequest<T>(path: string, file: File, retry = true): Promise
     } catch (err) {
       flushQueue(null, err);
       clearToken();
-      window.location.href = '/auth/signin';
+      window.location.href = `${import.meta.env.BASE_URL}auth/signin`;
       throw new Error('Oturum süresi doldu, lütfen tekrar giriş yapın');
     } finally {
       isRefreshing = false;
@@ -125,7 +125,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
     } catch (err) {
       flushQueue(null, err);
       clearToken();
-      window.location.href = '/auth/signin';
+      window.location.href = `${import.meta.env.BASE_URL}auth/signin`;
       throw new Error('Oturum süresi doldu, lütfen tekrar giriş yapın');
     } finally {
       isRefreshing = false;

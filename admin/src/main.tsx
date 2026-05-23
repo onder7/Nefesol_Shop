@@ -9,7 +9,7 @@ import 'flatpickr/dist/flatpickr.min.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <Router>
+    <Router basename={import.meta.env.BASE_URL}>
       <App />
     </Router>
   </React.StrictMode>,
