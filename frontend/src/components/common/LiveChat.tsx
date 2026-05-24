@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, X, Send, Bot, User, ChevronDown, Sparkles } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, ChevronDown } from 'lucide-react';
 
 // ─── Tip tanımları ────────────────────────────────────────────────────────────
 
