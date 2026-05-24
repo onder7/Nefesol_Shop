@@ -23,13 +23,26 @@ app.use(
   }),
 );
 
+// Global limiter — genel koruma (admin dahil)
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: env.NODE_ENV === 'development' ? 10000 : 100,
+    max: env.NODE_ENV === 'development' ? 50000 : 1000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, error: 'Çok fazla istek. Lütfen 15 dakika bekleyin.' },
+  }),
+);
+
+// Auth endpoint'lerine sıkı brute-force koruması
+app.use(
+  '/api/auth',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: env.NODE_ENV === 'development' ? 1000 : 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Çok fazla giriş denemesi. Lütfen 15 dakika bekleyin.' },
   }),
 );
 
