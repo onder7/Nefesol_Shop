@@ -11,8 +11,8 @@ interface JwtPayload {
 
 export function authenticate(req: AuthRequest, _res: Response, next: NextFunction): void {
   const token =
-    req.cookies?.access_token ??
-    req.headers.authorization?.replace('Bearer ', '');
+    req.headers.authorization?.replace('Bearer ', '') ??
+    req.cookies?.access_token;
 
   if (!token) {
     return next(new AppError('Kimlik doğrulama gerekli', 401));
@@ -29,8 +29,8 @@ export function authenticate(req: AuthRequest, _res: Response, next: NextFunctio
 
 export function optionalAuthenticate(req: AuthRequest, _res: Response, next: NextFunction): void {
   const token =
-    req.cookies?.access_token ??
-    req.headers.authorization?.replace('Bearer ', '');
+    req.headers.authorization?.replace('Bearer ', '') ??
+    req.cookies?.access_token;
 
   if (token) {
     try {
