@@ -28,7 +28,9 @@ async function delPending(conversationId: string) {
 }
 
 function apiBase(req: Request) {
-  return `${req.protocol}://${req.hostname}:${env.PORT}`;
+  // req.protocol respects X-Forwarded-Proto when trust proxy is enabled.
+  // req.get('host') gives the original Host header (no internal port) behind nginx.
+  return `${req.protocol}://${req.get('host') ?? req.hostname}`;
 }
 
 // ─── POST /api/checkout/initialize ───────────────────────────────────────────
