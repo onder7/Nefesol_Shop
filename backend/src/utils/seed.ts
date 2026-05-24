@@ -114,7 +114,8 @@ async function main() {
   console.log(`👤 Müşteri: ${customer.email}\n`);
 
   // ─── JSON dosyasını oku ───────────────────────────────────────────────────
-  const jsonPath = path.resolve(__dirname, '../../../ceyiz_diyari_mock_db-v2.json');
+  // Docker'da process.cwd() = /app, geliştirmede backend/ klasörü
+  const jsonPath = path.resolve(process.cwd(), 'ceyiz_diyari_mock_db-v2.json');
   console.log(`📄 JSON dosyası okunuyor: ${jsonPath}`);
   
   if (!fs.existsSync(jsonPath)) {
