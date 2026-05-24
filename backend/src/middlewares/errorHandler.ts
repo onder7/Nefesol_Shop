@@ -26,6 +26,22 @@ export function errorHandler(
     return;
   }
 
+  if (err.name === 'MulterError' || (err as any).code?.startsWith('LIMIT_')) {
+    let message = 'Dosya yükleme hatası';
+    if (err.message === 'File too large' || (err as any).code === 'LIMIT_FILE_SIZE') {
+      message = 'Yüklenen dosya çok büyük. Maksimum limit 50MB\'dır.';
+    } else if (err.message === 'Unexpected field' || (err as any).code === 'LIMIT_UNEXPECTED_FILE') {
+      message = 'Geçersiz form alanı veya beklenmeyen dosya.';
+    } else {
+      message = err.message;
+    }
+    res.status(400).json({
+      success: false,
+      error: message,
+    });
+    return;
+  }
+
   logger.error('Beklenmeyen hata', {
     error: err.message,
     stack: err.stack,

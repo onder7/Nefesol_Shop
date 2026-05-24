@@ -22,6 +22,13 @@ Kullanıcı: root
   adduser deploy
   usermod -aG sudo deploy
   şifre : =nd3r1379!1Qa
+
+domain https://mabridgeglobal.com/
+ip  adresi : 109.236.48.221
+kullanıcı : deploy
+şifre : =nd3r1379!1Qa
+
+***REMOVED-REVOKED-TOKEN***
   ```
 - [x] SSH key-based authentication kur, root SSH girişini kapat
   ```bash
@@ -375,7 +382,7 @@ Kullanıcı: root
 
 - [x] `GET /api/checkout/orders` — kullanıcının siparişleri
 - [x] `GET /api/checkout/orders/:id` — sipariş detayı
-- [ ] Admin: sipariş durum güncelleme (pending → processing → shipped → delivered)
+- [x] Admin: sipariş durum güncelleme (pending → processing → shipped → delivered)
 - [ ] Kargo takip numarası girişi
 - [ ] Sipariş durum değişikliğinde email bildirimi
 - [x] Frontend: Sipariş geçmişi sayfası (Orders.tsx)
@@ -404,16 +411,45 @@ Kullanıcı: root
 - [x] Dashboard: KPI kartları (günlük satış, sipariş sayısı, yeni üye)
 - [x] Dashboard: Satış grafiği (ApexCharts — son 30 gün)
 - [x] Ürün yönetimi: listele, aktif/pasif toggle, öne çıkan toggle, sil
-- [ ] Ürün ekleme/düzenleme formu
+- [x] Ürün ekleme/düzenleme formu (varyant, görsel, etiket, drawer)
 - [ ] Toplu ürün yükleme (Excel/CSV import)
-- [ ] Görsel yükleme (Cloudinary entegrasyonu)
-- [ ] Kategori ve marka yönetimi
-- [x] Sipariş listesi: filtreleme, durum güncelleme
+- [x] Görsel yükleme (sunucu lokal depolama — /uploads)
+- [x] Kategori ve marka yönetimi (CRUD, drawer form, ürün sayısı kontrolü)
+- [x] Ürün filtreleme: kategori ve marka dropdown'ları
+- [x] Sipariş listesi: filtreleme, durum güncelleme, sipariş detay sayfası
+- [x] Sipariş detay: kargo bilgisi girişi, durum timeline
 - [x] Müşteri listesi: görüntüle, aktif/pasif toggle
 - [x] Admin login sistemi (JWT, korumalı layout)
 - [ ] İndirim yönetimi: kupon oluştur, kullanım raporu
-- [ ] Raporlar: satış, ürün, müşteri bazlı
-- [ ] Site ayarları: iletişim, kargo ücretleri, SEO
+- [x] Raporlar & Analitik sayfası:
+  - [x] KPI kartları (ciro, sipariş, AOV karşılaştırmalı)
+  - [x] Günlük satış grafiği (alan + bar combo — ApexCharts)
+  - [x] Şehir dağılımı donut grafiği
+  - [x] Yeni kullanıcı bar grafiği
+  - [x] Kargo firması performans grafiği
+  - [x] En çok satan ürünler tablosu
+  - [x] Liste görünümü (filtre, arama, sipariş detay linki)
+  - [x] Excel CSV export (BOM — Türkçe karakter desteği)
+  - [x] PDF yazdır export (sidebar/header gizlenir)
+- [x] Sistem Ayarları sayfası (5 tab — sidebar navigasyon):
+  - [x] Genel: firma bilgisi, iletişim, yerelleştirme, logo
+  - [x] Ödeme: iyzico toggle+API, PayTR toggle+API, kapıda ödeme+ücret
+  - [x] Kargo: kargo ücreti/limiti + 4 kargo firması API bölümü
+  - [x] Ekip: admin kullanıcı tablosu, sub-rol yönetimi, davet formu
+  - [x] Bildirimler: SMTP ayarları, admin uyarı toggleları, e-posta şablonları
+  - [x] **Bakım Modu**: büyük toggle, uyarı kutusu, duyuru mesajı textarea
+- [x] Admin Header modernizasyonu:
+  - [x] Bildirimler: gerçek PENDING sipariş sayısı badge + 48s sipariş listesi
+  - [x] Mesajlar: ContactMessage modeli, müşteri mesajları, okundu işaretleme
+  - [x] Kullanıcı popup: gerçek admin kullanıcı adı/e-postası, logout
+  - [x] Global Arama: ürün/sipariş/müşteri arama, debounce, sonuç dropdown'u
+- [x] **Bakım Modu** sistemi (tam uçtan uca):
+  - [x] Backend: `maintenance_mode` / `maintenance_message` SiteSettings kayıtları
+  - [x] Backend: `GET /api/maintenance-status` public endpoint
+  - [x] Admin Settings: toggle + duyuru mesajı bölümü (Genel tab)
+  - [x] Frontend: sayfa yüklenirken bakım durumu kontrolü
+  - [x] Frontend: Admin paneli oturumu olan kişiler bypass eder
+  - [x] Frontend Maintenance.tsx: modern bakım ekranı (animasyonlu dişli, custom mesaj)
 
 ---
 
@@ -517,17 +553,23 @@ theme: {
   }
 }
 ```
-Aşama 5 (Sepet): 7/11 tamamlandı
+## 📊 Durum Özeti (Güncellendi — 2026-05-24)
 
-Kalan: apply-discount, Redis cache, mini sepet dropdown
-Aşama 6 (Checkout & Ödeme): Tümü tamamlandı ✓
+| Aşama | Durum | Notlar |
+|-------|-------|--------|
+| Aşama 5 (Sepet) | 7/11 | Kalan: apply-discount, Redis cache, mini sepet |
+| Aşama 6 (Checkout) | ✅ Tamamlandı | Iyzico, adres, stok, email, wizard |
+| Aşama 7 (Sipariş Yönetimi) | 6/7 | Kalan: durum değişikliği email bildirimi |
+| Aşama 8 (Ek Özellikler) | Kısmi | Profil, Q&A, wishlist, şifre sıfırlama tamamlandı |
+| Aşama 9 (Admin Panel) | ✅ Büyük çoğunluk | Kalan: kupon yönetimi, CSV toplu ürün yükleme |
 
-Iyzico entegrasyonu (manual), adres yönetimi, atomik stok düşme, email, wizard, başarı sayfası
-Aşama 7 (Sipariş Yönetimi): 4/7 tamamlandı
+### ⚠️ Bekleyen / Önemli Görevler
 
-Kalan: Admin durum güncelleme, kargo takip no, durum değişim email'i
-Aşama 8 (Ek Özellikler): Profil sayfası tamamlandı, geri kalanlar bekliyor
-
-Aşama 3 (Auth): PUT /profile ve PUT /change-password de işaretlendi
-
-Sıradaki adım için ne yapmak istersiniz — Aşama 8 (değerlendirme/favori/kupon) veya Aşama 9 (Admin panel API bağlantısı)?
+- [ ] **GÜVENLİK**: Sunucu şifresi git geçmişinde var — deploy kullanıcısı şifresini değiştir, GitHub PAT rotasyonu yap
+- [ ] Sipariş durum değişikliğinde müşteriye e-posta bildirimi (Nodemailer / SMTP)
+- [ ] Kupon / indirim yönetimi admin paneline ekle
+- [ ] Toplu ürün yükleme (Excel/CSV import) admin ürünler sayfasına ekle
+- [ ] Mini sepet (header dropdown, ürün sayısı badge zaten var)
+- [ ] Redis cache: ürün listesi 5 dk TTL
+- [ ] Production: docker-compose.prod.yml + multi-stage Dockerfile + Nginx SSL
+- [ ] İletişim formu → bakım modu aktifken de erişilebilir olmalı (`/iletisim` bypass ekle)

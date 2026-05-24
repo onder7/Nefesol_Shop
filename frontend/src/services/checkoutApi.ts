@@ -10,6 +10,22 @@ export interface CheckoutInitResponse {
   total: number;
 }
 
+export interface PaymentMethodsResponse {
+  card:   { enabled: boolean };
+  cod:    { enabled: boolean; fee: number };
+  havale: { enabled: boolean; bankName: string; iban: string; accountName: string; description: string };
+}
+
+export interface PlaceOrderResponse {
+  orderId: string;
+  havale?: {
+    bankName: string;
+    iban: string;
+    accountName: string;
+    description: string;
+  };
+}
+
 export const checkoutApi = {
   // Address CRUD
   listAddresses: () =>
@@ -27,9 +43,16 @@ export const checkoutApi = {
   setDefaultAddress: (id: string) =>
     api.patch<{ success: boolean; data: Address }>(`/addresses/${id}/default`),
 
+  // Payment methods (public)
+  getPaymentMethods: () =>
+    api.get<{ success: boolean; data: PaymentMethodsResponse }>('/checkout/payment-methods'),
+
   // Checkout
   initialize: (addressId: string) =>
     api.post<{ success: boolean; data: CheckoutInitResponse }>('/checkout/initialize', { addressId }),
+
+  placeOrder: (addressId: string, method: 'cod' | 'havale') =>
+    api.post<{ success: boolean; data: PlaceOrderResponse }>('/checkout/place-order', { addressId, method }),
 
   // Orders
   listOrders: () =>

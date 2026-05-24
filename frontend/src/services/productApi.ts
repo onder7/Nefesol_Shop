@@ -41,4 +41,7 @@ export const productApi = {
 
   brands: () =>
     api.get<{ success: boolean; data: Brand[] }>('/brands'),
+
+  shippingConfig: () =>
+    api.get<{ success: boolean; data: { shippingFee: number; freeShippingThreshold: number } }>('/shipping-config'),
 };

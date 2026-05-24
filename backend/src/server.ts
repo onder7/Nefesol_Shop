@@ -1,14 +1,46 @@
 import 'dotenv/config';
+import * as cron from 'node-cron';
 import app from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
+import { getBackupSchedule, createBackup, pruneOldBackups, setScheduleReloadHook } from './services/backupService';
+
+let backupCronTask: cron.ScheduledTask | null = null;
+
+function buildCronExpr(hour: number, frequency: 'daily' | 'weekly', weekday: number): string {
+  if (frequency === 'weekly') return `0 ${hour} * * ${weekday}`;
+  return `0 ${hour} * * *`;
+}
+
+async function scheduleBackup() {
+  if (backupCronTask) { backupCronTask.stop(); backupCronTask = null; }
+
+  const cfg = await getBackupSchedule();
+  if (!cfg.enabled) return;
+
+  const expr = buildCronExpr(cfg.hour, cfg.frequency, cfg.weekday);
+  backupCronTask = cron.schedule(expr, async () => {
+    try {
+      logger.info('Zamanlanmış yedek başlıyor...');
+      await createBackup();
+      pruneOldBackups(cfg.keepCount);
+      logger.info('Zamanlanmış yedek tamamlandı');
+    } catch (err) {
+      logger.error('Zamanlanmış yedek hatası', { err: (err as Error).message });
+    }
+  });
+  logger.info(`Yedekleme zamanlandı: ${expr}`);
+}
 
 async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
     await connectRedis();
+
+    await scheduleBackup();
+    setScheduleReloadHook(() => { scheduleBackup().catch(() => {}); });
 
     const server = app.listen(env.PORT, () => {
       logger.info(`Server çalışıyor → http://localhost:${env.PORT}`);

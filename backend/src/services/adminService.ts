@@ -95,8 +95,14 @@ export interface AdminProductInput {
   tags?: string[];
 }
 
-export async function adminListProducts(params: { page?: number; limit?: number; search?: string }) {
-  const { page = 1, limit = 20, search } = params;
+export async function adminListProducts(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  brandId?: string;
+}) {
+  const { page = 1, limit = 20, search, categoryId, brandId } = params;
   const skip = (page - 1) * limit;
 
   const where: Prisma.ProductWhereInput = {};
@@ -106,6 +112,8 @@ export async function adminListProducts(params: { page?: number; limit?: number;
       { slug: { contains: search, mode: 'insensitive' } },
     ];
   }
+  if (categoryId) where.categoryId = categoryId;
+  if (brandId) where.brandId = brandId;
 
   const [products, total] = await Promise.all([
     prisma.product.findMany({
@@ -289,12 +297,20 @@ export async function adminListOrders(params: {
   limit?: number;
   status?: string;
   search?: string;
+  startDate?: Date;
+  endDate?: Date;
+  all?: boolean;
 }) {
-  const { page = 1, limit = 20, status, search } = params;
+  const { page = 1, limit = 20, status, search, startDate, endDate, all = false } = params;
   const skip = (page - 1) * limit;
 
   const where: Prisma.OrderWhereInput = {};
   if (status) where.status = status as never;
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) (where.createdAt as Record<string, Date>).gte = startDate;
+    if (endDate) (where.createdAt as Record<string, Date>).lte = endDate;
+  }
   if (search) {
     where.OR = [
       { id: { contains: search, mode: 'insensitive' } },
@@ -302,18 +318,21 @@ export async function adminListOrders(params: {
     ];
   }
 
+  const include = {
+    user: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true } } } },
+    items: { select: { quantity: true, unitPrice: true } },
+    address: { select: { city: true, district: true } },
+    payment: { select: { status: true } },
+    shipping: { select: { carrier: true, trackingNumber: true } },
+  };
+
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
       where,
-      skip,
-      take: limit,
+      skip: all ? 0 : skip,
+      take: all ? undefined : limit,
       orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true } } } },
-        items: { select: { quantity: true, unitPrice: true } },
-        address: { select: { city: true, district: true } },
-        payment: { select: { status: true } },
-      },
+      include,
     }),
     prisma.order.count({ where }),
   ]);
@@ -340,7 +359,30 @@ export async function adminUpdateOrderStatus(
     await tx.orderStatusLog.create({
       data: { orderId, status: status as never, note },
     });
+    if (status === 'SHIPPED') {
+      await tx.shipping.upsert({
+        where: { orderId },
+        update: {},
+        create: { orderId, status: 'SHIPPED' },
+      });
+    }
     return updated;
+  });
+}
+
+export async function adminUpdateOrderShipping(
+  orderId: string,
+  data: { carrier?: string; trackingNumber?: string }
+) {
+  const existing = await prisma.shipping.findUnique({ where: { orderId } });
+  if (!existing) throw new AppError('Kargo kaydı bulunamadı. Önce siparişi "Kargoda" durumuna alın.', 404);
+
+  return prisma.shipping.update({
+    where: { orderId },
+    data: {
+      carrier: data.carrier ?? existing.carrier,
+      trackingNumber: data.trackingNumber ?? existing.trackingNumber,
+    },
   });
 }
 
@@ -444,9 +486,522 @@ export async function adminListCategories() {
   });
 }
 
+export interface AdminCategoryInput {
+  name: string;
+  slug: string;
+  description?: string;
+  parentId?: string;
+  imageUrl?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export async function adminCreateCategory(data: AdminCategoryInput) {
+  const existing = await prisma.category.findUnique({ where: { slug: data.slug } });
+  if (existing) throw new AppError('Bu slug zaten kullanılıyor', 409);
+  return prisma.category.create({ data: { ...data, sortOrder: data.sortOrder ?? 0 } });
+}
+
+export async function adminUpdateCategory(id: string, data: Partial<AdminCategoryInput>) {
+  const category = await prisma.category.findUnique({ where: { id } });
+  if (!category) throw new AppError('Kategori bulunamadı', 404);
+  if (data.slug && data.slug !== category.slug) {
+    const existing = await prisma.category.findUnique({ where: { slug: data.slug } });
+    if (existing) throw new AppError('Bu slug zaten kullanılıyor', 409);
+  }
+  return prisma.category.update({ where: { id }, data });
+}
+
+export async function adminDeleteCategory(id: string) {
+  const category = await prisma.category.findUnique({
+    where: { id },
+    include: { _count: { select: { products: true, children: true } } },
+  });
+  if (!category) throw new AppError('Kategori bulunamadı', 404);
+  if (category._count.products > 0)
+    throw new AppError(`Bu kategoriye bağlı ${category._count.products} ürün var. Önce ürünleri taşıyın.`, 409);
+  if (category._count.children > 0)
+    throw new AppError(`Bu kategorinin ${category._count.children} alt kategorisi var. Önce alt kategorileri silin.`, 409);
+  await prisma.category.delete({ where: { id } });
+}
+
 export async function adminListBrands() {
   return prisma.brand.findMany({
     orderBy: { name: 'asc' },
     include: { _count: { select: { products: true } } },
   });
 }
+
+export interface AdminBrandInput {
+  name: string;
+  slug: string;
+  logoUrl?: string;
+  isActive?: boolean;
+}
+
+export async function adminCreateBrand(data: AdminBrandInput) {
+  const existing = await prisma.brand.findUnique({ where: { slug: data.slug } });
+  if (existing) throw new AppError('Bu slug zaten kullanılıyor', 409);
+  return prisma.brand.create({ data });
+}
+
+export async function adminUpdateBrand(id: string, data: Partial<AdminBrandInput>) {
+  const brand = await prisma.brand.findUnique({ where: { id } });
+  if (!brand) throw new AppError('Marka bulunamadı', 404);
+  if (data.slug && data.slug !== brand.slug) {
+    const existing = await prisma.brand.findUnique({ where: { slug: data.slug } });
+    if (existing) throw new AppError('Bu slug zaten kullanılıyor', 409);
+  }
+  return prisma.brand.update({ where: { id }, data });
+}
+
+export async function adminDeleteBrand(id: string) {
+  const brand = await prisma.brand.findUnique({
+    where: { id },
+    include: { _count: { select: { products: true } } },
+  });
+  if (!brand) throw new AppError('Marka bulunamadı', 404);
+  if (brand._count.products > 0)
+    throw new AppError(`Bu markaya bağlı ${brand._count.products} ürün var. Önce ürünleri başka markaya taşıyın.`, 409);
+  await prisma.brand.delete({ where: { id } });
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export async function getAnalyticsData(params: { range?: string }) {
+  const { range = '30d' } = params;
+  const now = new Date();
+
+  let startDate: Date;
+  let prevStartDate: Date;
+
+  switch (range) {
+    case 'today':
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      prevStartDate = new Date(startDate.getTime() - 86400000);
+      break;
+    case '7d':
+      startDate = new Date(now.getTime() - 7 * 86400000);
+      prevStartDate = new Date(now.getTime() - 14 * 86400000);
+      break;
+    case 'month':
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      break;
+    case '90d':
+      startDate = new Date(now.getTime() - 90 * 86400000);
+      prevStartDate = new Date(now.getTime() - 180 * 86400000);
+      break;
+    default:
+      startDate = new Date(now.getTime() - 30 * 86400000);
+      prevStartDate = new Date(now.getTime() - 60 * 86400000);
+  }
+
+  const excludeFilter: Prisma.OrderWhereInput = {
+    status: { notIn: ['CANCELLED', 'REFUNDED'] },
+  };
+
+  const [
+    currentRevData,
+    prevRevData,
+    currentOrders,
+    prevOrders,
+    activeShippings,
+    salesByDay,
+    newUsersByDay,
+    cityData,
+    carrierData,
+    topProducts,
+  ] = await Promise.all([
+    prisma.order.aggregate({
+      _sum: { total: true },
+      where: { ...excludeFilter, createdAt: { gte: startDate } },
+    }),
+    prisma.order.aggregate({
+      _sum: { total: true },
+      where: { ...excludeFilter, createdAt: { gte: prevStartDate, lt: startDate } },
+    }),
+    prisma.order.count({ where: { ...excludeFilter, createdAt: { gte: startDate } } }),
+    prisma.order.count({ where: { ...excludeFilter, createdAt: { gte: prevStartDate, lt: startDate } } }),
+    prisma.shipping.count({ where: { status: { in: ['PREPARING', 'SHIPPED'] } } }),
+
+    prisma.$queryRaw<{ day: Date; revenue: number; count: number }[]>`
+      SELECT DATE_TRUNC('day', created_at) AS day,
+             SUM(total)::float AS revenue,
+             COUNT(*)::int AS count
+      FROM orders
+      WHERE created_at >= ${startDate}
+        AND status NOT IN ('CANCELLED', 'REFUNDED')
+      GROUP BY day ORDER BY day ASC
+    `,
+
+    prisma.$queryRaw<{ day: Date; count: number }[]>`
+      SELECT DATE_TRUNC('day', created_at) AS day,
+             COUNT(*)::int AS count
+      FROM users
+      WHERE created_at >= ${startDate} AND role = 'CUSTOMER'
+      GROUP BY day ORDER BY day ASC
+    `,
+
+    prisma.$queryRaw<{ city: string; count: number; revenue: number }[]>`
+      SELECT a.city,
+             COUNT(o.id)::int AS count,
+             SUM(o.total)::float AS revenue
+      FROM orders o
+      JOIN addresses a ON o.address_id = a.id
+      WHERE o.created_at >= ${startDate}
+        AND o.status NOT IN ('CANCELLED', 'REFUNDED')
+      GROUP BY a.city
+      ORDER BY count DESC LIMIT 8
+    `,
+
+    prisma.$queryRaw<{ carrier: string; total: number; delivered: number; avg_days: number | null }[]>`
+      SELECT COALESCE(s.carrier, 'Belirtilmemiş') AS carrier,
+             COUNT(*)::int AS total,
+             COUNT(CASE WHEN s.delivered_at IS NOT NULL THEN 1 END)::int AS delivered,
+             AVG(CASE WHEN s.delivered_at IS NOT NULL
+                      THEN EXTRACT(EPOCH FROM (s.delivered_at - o.created_at)) / 86400.0
+                 END)::float AS avg_days
+      FROM shippings s
+      JOIN orders o ON s.order_id = o.id
+      WHERE o.created_at >= ${startDate}
+      GROUP BY s.carrier ORDER BY total DESC LIMIT 6
+    `,
+
+    prisma.$queryRaw<{ id: string; name: string; sku: string; qty: number; revenue: number }[]>`
+      SELECT p.id, p.name, pv.sku,
+             SUM(oi.quantity)::int AS qty,
+             SUM(oi.quantity * oi.unit_price)::float AS revenue
+      FROM order_items oi
+      JOIN product_variants pv ON oi.variant_id = pv.id
+      JOIN products p ON pv.product_id = p.id
+      JOIN orders o ON oi.order_id = o.id
+      WHERE o.created_at >= ${startDate}
+        AND o.status NOT IN ('CANCELLED', 'REFUNDED')
+      GROUP BY p.id, p.name, pv.sku
+      ORDER BY revenue DESC LIMIT 10
+    `,
+  ]);
+
+  const currentRev = Number(currentRevData._sum?.total ?? 0);
+  const prevRev = Number(prevRevData._sum?.total ?? 0);
+  const aov = currentOrders > 0 ? currentRev / currentOrders : 0;
+
+  return {
+    kpi: {
+      revenue: currentRev,
+      revenueChange: prevRev > 0 ? ((currentRev - prevRev) / prevRev) * 100 : null,
+      orders: currentOrders,
+      ordersChange: prevOrders > 0 ? ((currentOrders - prevOrders) / prevOrders) * 100 : null,
+      aov,
+      activeShippings,
+    },
+    salesByDay: salesByDay.map((r) => ({ day: r.day, revenue: Number(r.revenue), count: Number(r.count) })),
+    newUsersByDay: newUsersByDay.map((r) => ({ day: r.day, count: Number(r.count) })),
+    cityData: cityData.map((r) => ({ city: r.city, count: Number(r.count), revenue: Number(r.revenue) })),
+    carrierData: carrierData.map((r) => ({
+      carrier: r.carrier,
+      total: Number(r.total),
+      delivered: Number(r.delivered),
+      avgDays: r.avg_days !== null ? Number(r.avg_days) : null,
+    })),
+    topProducts: topProducts.map((r) => ({
+      id: r.id,
+      name: r.name,
+      sku: r.sku,
+      qty: Number(r.qty),
+      revenue: Number(r.revenue),
+    })),
+  };
+}
+
+// ─── Bildirimler & Mesajlar ───────────────────────────────────────────────────
+
+export async function adminGetNewOrders() {
+  const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const [orders, pendingCount] = await Promise.all([
+    prisma.order.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      select: {
+        id: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        user: {
+          select: {
+            email: true,
+            profile: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    }),
+    prisma.order.count({ where: { status: 'PENDING' } }),
+  ]);
+  return { orders, pendingCount };
+}
+
+export async function adminListMessages() {
+  const [messages, unreadCount] = await Promise.all([
+    prisma.contactMessage.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        user: {
+          select: {
+            email: true,
+            profile: { select: { firstName: true, lastName: true, avatarUrl: true } },
+          },
+        },
+      },
+    }),
+    prisma.contactMessage.count({ where: { isRead: false } }),
+  ]);
+  return { messages, unreadCount };
+}
+
+export async function adminMarkMessageRead(id: string) {
+  await prisma.contactMessage.update({
+    where: { id },
+    data: { isRead: true, readAt: new Date() },
+  });
+}
+
+// ─── Global Arama ────────────────────────────────────────────────────────────
+
+export async function adminGlobalSearch(q: string) {
+  const search = q.trim();
+  const [products, orders, customers] = await Promise.all([
+    prisma.product.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { variants: { some: { sku: { contains: search, mode: 'insensitive' } } } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        images: { where: { isPrimary: true }, select: { url: true }, take: 1 },
+        variants: { select: { sku: true, price: true }, take: 1 },
+      },
+      take: 5,
+    }),
+    prisma.order.findMany({
+      where: {
+        OR: [
+          { id: { contains: search, mode: 'insensitive' } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+          { user: { profile: { firstName: { contains: search, mode: 'insensitive' } } } },
+          { user: { profile: { lastName: { contains: search, mode: 'insensitive' } } } },
+        ],
+      },
+      select: {
+        id: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        user: {
+          select: { email: true, profile: { select: { firstName: true, lastName: true } } },
+        },
+      },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.user.findMany({
+      where: {
+        role: 'CUSTOMER',
+        OR: [
+          { email: { contains: search, mode: 'insensitive' } },
+          { profile: { firstName: { contains: search, mode: 'insensitive' } } },
+          { profile: { lastName: { contains: search, mode: 'insensitive' } } },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+        profile: { select: { firstName: true, lastName: true } },
+      },
+      take: 5,
+    }),
+  ]);
+  return { products, orders, customers };
+}
+
+export async function getUserAnalyticsData() {
+  const [
+    cartItems,
+    totalSubscribers,
+    totalFavorites,
+    wishlistItems,
+    cartsWithItems,
+    subscribers,
+  ] = await Promise.all([
+    prisma.cartItem.findMany({
+      select: { quantity: true, priceAtAdd: true },
+    }),
+    prisma.newsletterSubscriber.count(),
+    prisma.wishlistItem.count(),
+    prisma.wishlistItem.findMany({
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                images: { where: { isPrimary: true }, take: 1 },
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.cart.findMany({
+      where: {
+        items: { some: {} },
+        userId: { not: null },
+      },
+      include: {
+        user: {
+          include: {
+            profile: { select: { firstName: true, lastName: true } },
+          },
+        },
+        items: {
+          include: {
+            variant: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.newsletterSubscriber.findMany({
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+
+  // Sepette bekleyen toplam değer
+  const totalCartValue = cartItems.reduce(
+    (sum, item) => sum + item.quantity * Number(item.priceAtAdd),
+    0,
+  );
+
+  // En çok favorilenenler (Group by Product in-memory)
+  const favMap = new Map<string, { id: string; image: string; name: string; sku: string; count: number }>();
+  for (const item of wishlistItems) {
+    const prod = item.variant?.product;
+    if (!prod) continue;
+
+    const key = prod.id;
+    const existing = favMap.get(key);
+    const primaryImg = prod.images[0]?.url || '/product-placeholder.png';
+
+    if (existing) {
+      existing.count += 1;
+    } else {
+      favMap.set(key, {
+        id: prod.id,
+        image: primaryImg,
+        name: prod.name,
+        sku: item.variant.sku,
+        count: 1,
+      });
+    }
+  }
+
+  const favoritesList = Array.from(favMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Sepette bekleyenler (Terk edilme riski olan sepetler)
+  const cartUsersList = cartsWithItems.map((cart, idx) => {
+    const total = cart.items.reduce(
+      (sum, item) => sum + item.quantity * Number(item.priceAtAdd),
+      0,
+    );
+    const itemsCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+
+    const diffMs = Date.now() - new Date(cart.updatedAt).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    let timeStr = 'Az önce';
+    if (diffMins >= 1440) {
+      timeStr = `${Math.floor(diffMins / 1440)} gün önce`;
+    } else if (diffMins >= 60) {
+      timeStr = `${Math.floor(diffMins / 60)} saat önce`;
+    } else if (diffMins > 0) {
+      timeStr = `${diffMins} dk önce`;
+    }
+
+    return {
+      id: cart.id || String(idx),
+      name: cart.user?.profile
+        ? `${cart.user.profile.firstName} ${cart.user.profile.lastName}`
+        : 'Misafir Müşteri',
+      email: cart.user?.email || 'N/A',
+      items: itemsCount,
+      total,
+      updatedAt: timeStr,
+    };
+  });
+
+  // Bülten aboneleri
+  const mappedSubscribers = subscribers.map((sub) => ({
+    id: sub.id,
+    email: sub.email,
+    date: sub.createdAt.toISOString().split('T')[0],
+    status: sub.status as 'confirmed' | 'pending',
+  }));
+
+  // Trafik Kaynakları (ApexCharts için sabit oranlar)
+  const trafficSources = [
+    { label: 'Doğrudan', value: 35 },
+    { label: 'Google', value: 30 },
+    { label: 'Instagram', value: 20 },
+    { label: 'Reklam', value: 15 },
+  ];
+
+  // Cihaz Dağılımı
+  const deviceDistribution = {
+    mobile: 75,
+    desktop: 25,
+  };
+
+  return {
+    kpi: {
+      totalCartValue,
+      totalSubscribers,
+      totalFavorites,
+    },
+    favorites: favoritesList,
+    cartUsers: cartUsersList,
+    subscribers: mappedSubscribers,
+    trafficSources,
+    deviceDistribution,
+  };
+}
+
+export async function adminToggleSubscriberStatus(id: string) {
+  const sub = await prisma.newsletterSubscriber.findUnique({ where: { id } });
+  if (!sub) throw new AppError('Abone bulunamadı', 404);
+  return prisma.newsletterSubscriber.update({
+    where: { id },
+    data: { status: sub.status === 'confirmed' ? 'pending' : 'confirmed' },
+  });
+}
+
+export async function adminDeleteSubscriber(id: string) {
+  const sub = await prisma.newsletterSubscriber.findUnique({ where: { id } });
+  if (!sub) throw new AppError('Abone bulunamadı', 404);
+  await prisma.newsletterSubscriber.delete({ where: { id } });
+}
+
+export async function adminCreateSubscriber(email: string, status?: string) {
+  const existing = await prisma.newsletterSubscriber.findUnique({ where: { email } });
+  if (existing) throw new AppError('Bu e-posta adresi zaten kayıtlı', 409);
+  return prisma.newsletterSubscriber.create({
+    data: { email, status: status ?? 'confirmed' },
+  });
+}
+
+

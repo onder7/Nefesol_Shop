@@ -1,11 +1,7 @@
 import { prisma } from '../config/database';
+import { getShippingConfig, computeShipping } from './settingsService';
 
-export const SHIPPING_FEE = 49.9;
-export const FREE_SHIPPING_THRESHOLD = 500;
-
-export function computeShipping(subtotal: number): number {
-  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-}
+export { computeShipping };
 
 const CART_INCLUDE = {
   items: {
@@ -54,7 +50,8 @@ export async function createOrder(userId: string, addressId: string) {
     (sum, item) => sum + Number(item.priceAtAdd) * item.quantity,
     0,
   );
-  const shippingFee = computeShipping(subtotal);
+  const config = await getShippingConfig();
+  const shippingFee = computeShipping(subtotal, config);
   const total = subtotal + shippingFee;
 
   const order = await prisma.$transaction(async (tx) => {
@@ -139,6 +136,7 @@ export async function getOrderDetail(userId: string, orderId: string) {
       address: true,
       statusHistory: { orderBy: { createdAt: 'asc' } },
       payment: true,
+      shipping: true,
     },
   });
 

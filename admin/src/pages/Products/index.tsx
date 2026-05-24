@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { ProductForm } from './ProductForm';
 
 interface Variant {
   id: string;
@@ -31,6 +31,8 @@ interface ProductsData {
   totalPages: number;
 }
 
+interface FilterOption { id: string; name: string }
+
 function fmt(n: number) {
   return n.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
 }
@@ -41,44 +43,36 @@ export default function Products() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [categories, setCategories] = useState<FilterOption[]>([]);
+  const [brands, setBrands] = useState<FilterOption[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState<string | null>(null);
 
-  // Form drawer state
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    Promise.all([
+      api.get<{ success: boolean; data: FilterOption[] }>('/admin/categories'),
+      api.get<{ success: boolean; data: FilterOption[] }>('/admin/brands'),
+    ]).then(([c, b]) => {
+      setCategories(c.data ?? []);
+      setBrands(b.data ?? []);
+    }).catch(console.error);
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: '20' });
     if (search) params.set('search', search);
+    if (categoryFilter) params.set('categoryId', categoryFilter);
+    if (brandFilter) params.set('brandId', brandFilter);
     api.get<{ success: boolean; data: ProductsData }>(`/admin/products?${params}`)
       .then((r) => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, categoryFilter, brandFilter]);
 
   useEffect(() => { load(); }, [load]);
-
-  function openCreate() {
-    setEditingId(undefined);
-    setFormOpen(true);
-  }
-
-  function openEdit(id: string) {
-    setEditingId(id);
-    setFormOpen(true);
-  }
-
-  function closeForm() {
-    setFormOpen(false);
-    setEditingId(undefined);
-  }
-
-  function handleSaved() {
-    closeForm();
-    load();
-  }
 
   async function deleteProduct(id: string) {
     setDeleting(id);
@@ -141,45 +135,58 @@ export default function Products() {
         </div>
       )}
 
-      {/* Ürün form drawer */}
-      {formOpen && (
-        <ProductForm
-          productId={editingId}
-          onClose={closeForm}
-          onSaved={handleSaved}
-        />
-      )}
-
       {/* Başlık */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-title-md2 font-semibold text-black dark:text-white">Ürün Yönetimi</h2>
           <p className="text-sm text-gray-500 mt-0.5">{data?.total ?? 0} ürün</p>
         </div>
-        <button onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-opacity-90 transition">
+        <Link
+          to="/products/new"
+          className="inline-flex items-center gap-2 rounded bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-opacity-90 transition"
+        >
           <span className="text-lg leading-none">+</span>
           Yeni Ürün
-        </button>
+        </Link>
       </div>
 
-      {/* Arama */}
-      <div className="mb-4 flex gap-2">
+      {/* Arama & Filtreler */}
+      <div className="mb-4 flex flex-wrap gap-2 items-center">
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && (setSearch(searchInput), setPage(1))}
           placeholder="Ürün adı veya slug..."
-          className="rounded border border-stroke bg-white px-3 py-2 text-sm dark:border-strokedark dark:bg-boxdark dark:text-white w-64"
+          className="rounded border border-stroke bg-white px-3 py-2 text-sm dark:border-strokedark dark:bg-boxdark dark:text-white w-56"
         />
-        <button onClick={() => { setSearch(searchInput); setPage(1); }}
-          className="rounded bg-primary px-4 py-2 text-sm text-white hover:bg-opacity-90">
+        <select
+          value={categoryFilter}
+          onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+          className="rounded border border-stroke bg-white px-3 py-2 text-sm dark:border-strokedark dark:bg-boxdark dark:text-white"
+        >
+          <option value="">Tüm Kategoriler</option>
+          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select
+          value={brandFilter}
+          onChange={(e) => { setBrandFilter(e.target.value); setPage(1); }}
+          className="rounded border border-stroke bg-white px-3 py-2 text-sm dark:border-strokedark dark:bg-boxdark dark:text-white"
+        >
+          <option value="">Tüm Markalar</option>
+          {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+        <button
+          onClick={() => { setSearch(searchInput); setPage(1); }}
+          className="rounded bg-primary px-4 py-2 text-sm text-white hover:bg-opacity-90"
+        >
           Ara
         </button>
-        {search && (
-          <button onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }}
-            className="rounded border border-stroke px-4 py-2 text-sm hover:bg-gray-50">
-            Temizle
+        {(search || categoryFilter || brandFilter) && (
+          <button
+            onClick={() => { setSearch(''); setSearchInput(''); setCategoryFilter(''); setBrandFilter(''); setPage(1); }}
+            className="rounded border border-stroke px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-meta-4"
+          >
+            Filtreleri Temizle
           </button>
         )}
       </div>
@@ -207,12 +214,10 @@ export default function Products() {
               </thead>
               <tbody>
                 {data?.products.map((p) => (
-                  <tr key={p.id}
-                    className="border-b border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4/30">
+                  <tr key={p.id} className="border-b border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4/30">
                     <td className="px-4 py-3">
                       {p.images[0] ? (
-                        <img src={p.images[0].url} alt={p.name}
-                          className="h-10 w-10 rounded object-cover" />
+                        <img src={p.images[0].url} alt={p.name} className="h-10 w-10 rounded object-cover" />
                       ) : (
                         <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-gray-300 text-xs">?</div>
                       )}
@@ -227,44 +232,44 @@ export default function Products() {
                     <td className="px-4 py-3 font-medium">{fmt(minPrice(p))}</td>
                     <td className="px-4 py-3">
                       <span className={`font-medium ${
-                        totalStock(p) === 0
-                          ? 'text-meta-1'
-                          : totalStock(p) < 5
-                          ? 'text-yellow-600'
-                          : 'text-meta-3'
+                        totalStock(p) === 0 ? 'text-meta-1' : totalStock(p) < 5 ? 'text-yellow-600' : 'text-meta-3'
                       }`}>
                         {totalStock(p)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-gray-600">{p._count.reviews}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => toggleFeatured(p)}
+                      <button
+                        onClick={() => toggleFeatured(p)}
                         className={`px-2 py-0.5 rounded-full text-xs font-medium transition ${
-                          p.isFeatured
-                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}>
+                          p.isFeatured ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
                         {p.isFeatured ? '★ Evet' : '☆ Hayır'}
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => toggleActive(p)}
+                      <button
+                        onClick={() => toggleActive(p)}
                         className={`px-2 py-0.5 rounded-full text-xs font-medium transition ${
-                          p.isActive
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-red-100 text-red-800 hover:bg-red-200'
-                        }`}>
+                          p.isActive ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'
+                        }`}
+                      >
                         {p.isActive ? 'Aktif' : 'Pasif'}
                       </button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(p.id)}
-                          className="px-3 py-1 rounded bg-blue-50 text-blue-700 text-xs hover:bg-blue-100 transition">
+                        <Link
+                          to={`/products/${p.id}`}
+                          className="px-3 py-1 rounded bg-blue-50 text-blue-700 text-xs hover:bg-blue-100 transition"
+                        >
                           Düzenle
-                        </button>
-                        <button onClick={() => setShowConfirm(p.id)}
-                          className="px-3 py-1 rounded bg-red-50 text-meta-1 text-xs hover:bg-red-100 transition">
+                        </Link>
+                        <button
+                          onClick={() => setShowConfirm(p.id)}
+                          className="px-3 py-1 rounded bg-red-50 text-meta-1 text-xs hover:bg-red-100 transition"
+                        >
                           Sil
                         </button>
                       </div>
@@ -273,9 +278,7 @@ export default function Products() {
                 ))}
                 {data?.products.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-gray-400">
-                      Ürün bulunamadı.
-                    </td>
+                    <td colSpan={8} className="py-12 text-center text-gray-400">Ürün bulunamadı.</td>
                   </tr>
                 )}
               </tbody>
@@ -283,7 +286,6 @@ export default function Products() {
           </div>
         )}
 
-        {/* Sayfalama */}
         {data && data.totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-4 border-t border-stroke dark:border-strokedark">
             <span className="text-sm text-gray-500">{data.total} ürün</span>
@@ -293,9 +295,7 @@ export default function Products() {
                 Önceki
               </button>
               <span className="px-3 py-1 text-sm">{page} / {data.totalPages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-                disabled={page === data.totalPages}
+              <button onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))} disabled={page === data.totalPages}
                 className="px-3 py-1 rounded border border-stroke text-sm disabled:opacity-40 hover:bg-gray-50">
                 Sonraki
               </button>

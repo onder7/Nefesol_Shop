@@ -73,6 +73,13 @@ export interface Cart {
   items: CartItem[];
 }
 
+export interface OrderShipping {
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  status: string;
+  estimatedAt?: string | null;
+}
+
 export interface Order {
   id: string;
   status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
@@ -82,6 +89,7 @@ export interface Order {
   total: number;
   createdAt: string;
   address?: Address;
+  shipping?: OrderShipping | null;
   items: { id: string; quantity: number; unitPrice: number; variant: ProductVariant & { product: Pick<Product, 'name' | 'slug'> } }[];
 }
 

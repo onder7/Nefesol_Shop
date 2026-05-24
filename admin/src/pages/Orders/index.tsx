@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { OrderDetail } from './OrderDetail';
 
 interface Order {
   id: string;
@@ -49,7 +49,6 @@ export default function Orders() {
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -68,15 +67,6 @@ export default function Orders() {
 
   return (
     <div>
-      {/* Detay drawer */}
-      {detailOrderId && (
-        <OrderDetail
-          orderId={detailOrderId}
-          onClose={() => setDetailOrderId(null)}
-          onUpdated={load}
-        />
-      )}
-
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-title-md2 font-semibold text-black dark:text-white">Sipariş Yönetimi</h2>
@@ -151,8 +141,7 @@ export default function Orders() {
                   return (
                     <tr
                       key={order.id}
-                      className="border-b border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4/30 cursor-pointer"
-                      onClick={() => setDetailOrderId(order.id)}
+                      className="border-b border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4/30"
                     >
                       <td className="px-4 py-3 font-mono text-xs text-gray-500">
                         #{order.id.slice(-8).toUpperCase()}
@@ -179,13 +168,13 @@ export default function Orders() {
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                         {new Date(order.createdAt).toLocaleDateString('tr-TR')}
                       </td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setDetailOrderId(order.id)}
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`/orders/${order.id}`}
                           className="px-3 py-1 rounded bg-primary/10 text-primary text-xs hover:bg-primary/20 transition"
                         >
                           Detay
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   );

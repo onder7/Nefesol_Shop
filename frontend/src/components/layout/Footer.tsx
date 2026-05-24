@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '@/services/productApi';
+import { api } from '@/services/api';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { useSocialLinks } from '@/hooks/useSocialLinks';
 
 const FacebookIcon = () => (
   <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
@@ -39,20 +41,70 @@ const YoutubeIcon = () => (
   </svg>
 );
 
+const TiktokIcon = () => (
+  <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+  </svg>
+);
+
+const WhatsAppIcon = () => (
+  <svg className="h-4 w-4 fill-current" viewBox="0 0 32 32">
+    <path d="M16.003 3C9.375 3 4 8.373 4 15.001c0 2.118.553 4.107 1.518 5.837L4 29l8.38-1.495A12.94 12.94 0 0016.003 28c6.628 0 12.003-5.373 12.003-12.001S22.631 3 16.003 3zm0 21.999a10.92 10.92 0 01-5.582-1.531l-.4-.237-4.147.74.763-4.02-.26-.416A10.955 10.955 0 015.002 15c0-6.075 4.926-11 10.999-11C22.074 4 27 8.925 27 15s-4.926 11-10.997 11zm5.97-8.225c-.327-.163-1.935-.955-2.234-1.065-.3-.109-.517-.163-.735.163-.218.328-.844 1.065-.935 1.065-.163 0-.327-.054-.49-.163-.327-.163-1.38-.508-2.625-1.62-.97-.866-1.625-1.937-1.815-2.265-.19-.327-.02-.503.144-.666.147-.147.327-.382.49-.572.164-.19.219-.327.328-.545.109-.218.054-.41-.027-.572-.082-.163-.735-1.774-1.008-2.427-.264-.635-.537-.545-.735-.556h-.626c-.218 0-.572.082-.872.41-.3.327-1.143 1.118-1.143 2.727s1.17 3.162 1.333 3.38c.163.218 2.302 3.514 5.58 4.93.78.336 1.388.536 1.863.687.783.25 1.496.214 2.059.13.628-.094 1.935-.79 2.208-1.554.273-.763.273-1.417.19-1.554-.08-.136-.3-.218-.626-.382z" />
+  </svg>
+);
+
+interface SocialLinkProps {
+  href: string;
+  children: React.ReactNode;
+}
+
+function SocialBtn({ href, children }: SocialLinkProps) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="p-2 bg-neutral-900 hover:bg-primary hover:text-white rounded-full transition-all text-neutral-400"
+    >
+      {children}
+    </a>
+  );
+}
+
 export function Footer() {
   const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: () => productApi.categories(),
   });
   const categories = categoriesData?.data?.data?.slice(0, 5) ?? [];
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const { data: socialLinks } = useSocialLinks();
+
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
-    toast.success('Bültenimize başarıyla abone oldunuz!');
-    setEmail('');
+    setSubmitting(true);
+    try {
+      const res = await api.post<{ success: boolean; message: string }>('/newsletter/subscribe', { email });
+      if (res.data.success) {
+        toast.success(res.data.message || 'Bültenimize başarıyla abone oldunuz!');
+        setEmail('');
+      } else {
+        toast.error(res.data.message || 'Abonelik sırasında bir hata oluştu.');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const hasSocialLinks =
+    socialLinks &&
+    Object.values(socialLinks).some((v) => v && v.trim() !== '');
 
   return (
     <footer className="bg-neutral-950 text-neutral-200 mt-auto border-t border-neutral-800">
@@ -73,9 +125,10 @@ export function Footer() {
               onChange={(e) => setEmail(e.target.value)}
               className="bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500 focus-visible:ring-primary h-10 w-full md:w-80"
               required
+              disabled={submitting}
             />
-            <Button type="submit" className="bg-primary hover:bg-primary/95 text-white font-medium px-4 h-10 gap-2 shrink-0 border-none">
-              <span>Abone Ol</span>
+            <Button type="submit" disabled={submitting} className="bg-primary hover:bg-primary/95 text-white font-medium px-4 h-10 gap-2 shrink-0 border-none">
+              <span>{submitting ? 'Abone Yapılıyor...' : 'Abone Ol'}</span>
               <Send className="h-4 w-4" />
             </Button>
           </form>
@@ -89,23 +142,47 @@ export function Footer() {
           <p className="text-neutral-400 mb-6 leading-relaxed">
             Çeyiz ve ev tekstilinin en kaliteli adresinde, güvenli ödeme ve hızlı kargo seçenekleriyle binlerce ürünü keşfedin.
           </p>
-          <div className="flex items-center gap-3">
-            <a href="https://facebook.com" target="_blank" rel="noreferrer" className="p-2 bg-neutral-900 hover:bg-primary hover:text-white rounded-full transition-all text-neutral-400">
-              <FacebookIcon />
-            </a>
-            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="p-2 bg-neutral-900 hover:bg-primary hover:text-white rounded-full transition-all text-neutral-400">
-              <InstagramIcon />
-            </a>
-            <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="p-2 bg-neutral-900 hover:bg-primary hover:text-white rounded-full transition-all text-neutral-400">
-              <LinkedinIcon />
-            </a>
-            <a href="https://twitter.com" target="_blank" rel="noreferrer" className="p-2 bg-neutral-900 hover:bg-primary hover:text-white rounded-full transition-all text-neutral-400">
-              <TwitterIcon />
-            </a>
-            <a href="https://youtube.com" target="_blank" rel="noreferrer" className="p-2 bg-neutral-900 hover:bg-primary hover:text-white rounded-full transition-all text-neutral-400">
-              <YoutubeIcon />
-            </a>
-          </div>
+
+          {/* Sosyal medya iconları — sadece admin panelinde girilmişse görünür */}
+          {hasSocialLinks && (
+            <div className="flex items-center flex-wrap gap-3">
+              {socialLinks.whatsapp && (
+                <SocialBtn href={`https://wa.me/${socialLinks.whatsapp.replace(/\D/g, '')}`}>
+                  <WhatsAppIcon />
+                </SocialBtn>
+              )}
+              {socialLinks.instagram && (
+                <SocialBtn href={socialLinks.instagram}>
+                  <InstagramIcon />
+                </SocialBtn>
+              )}
+              {socialLinks.facebook && (
+                <SocialBtn href={socialLinks.facebook}>
+                  <FacebookIcon />
+                </SocialBtn>
+              )}
+              {socialLinks.twitter && (
+                <SocialBtn href={socialLinks.twitter}>
+                  <TwitterIcon />
+                </SocialBtn>
+              )}
+              {socialLinks.youtube && (
+                <SocialBtn href={socialLinks.youtube}>
+                  <YoutubeIcon />
+                </SocialBtn>
+              )}
+              {socialLinks.linkedin && (
+                <SocialBtn href={socialLinks.linkedin}>
+                  <LinkedinIcon />
+                </SocialBtn>
+              )}
+              {socialLinks.tiktok && (
+                <SocialBtn href={socialLinks.tiktok}>
+                  <TiktokIcon />
+                </SocialBtn>
+              )}
+            </div>
+          )}
         </div>
 
         <div>

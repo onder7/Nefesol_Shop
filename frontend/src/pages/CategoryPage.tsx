@@ -6,6 +6,8 @@ import { productApi } from '@/services/productApi';
 import { ProductGrid } from '@/components/product/ProductGrid';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SeoHead, SITE_URL } from '@/components/seo/SeoHead';
+import { breadcrumbSchema } from '@/lib/schemas';
 
 const SORTS = [
   { value: 'newest', label: 'En Yeni' },
@@ -37,8 +39,28 @@ export function CategoryPage() {
   const products = data?.data?.items ?? [];
   const pagination = data?.data?.pagination;
 
+  const breadcrumbItems = [
+    { name: 'Ana Sayfa', url: SITE_URL },
+    ...(category?.parent
+      ? [{ name: category.parent.name, url: `${SITE_URL}/kategori/${category.parent.slug}` }]
+      : []),
+    { name: category?.name ?? slug ?? '', url: `${SITE_URL}/kategori/${slug}` },
+  ];
+
   return (
     <main className="container mx-auto px-4 py-8">
+      <SeoHead
+        title={category?.name ?? slug}
+        description={
+          category?.description
+            ? category.description.slice(0, 155)
+            : `${category?.name ?? slug} kategorisindeki ürünleri keşfedin.${pagination ? ` ${pagination.total} ürün seçeneği.` : ''} MaBridge Global kalite güvencesiyle.`
+        }
+        keywords={[category?.name, 'ev tekstili', 'satın al', 'fiyat', 'kargo'].filter(Boolean).join(', ')}
+        url={`${SITE_URL}/kategori/${slug}`}
+        image={category?.imageUrl ?? undefined}
+        schema={breadcrumbSchema(breadcrumbItems)}
+      />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-6">
         <Link to="/" className="hover:text-foreground">Ana Sayfa</Link>

@@ -1,6 +1,12 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import * as adminService from '../services/adminService';
+import * as settingsService from '../services/settingsService';
+import { getEmailStatus as emailStatus, sendOrderConfirmation } from '../services/emailService';
+import * as backupSvc from '../services/backupService';
+import { importProductsFromBuffer } from '../services/importService';
+import { getSystemStats } from '../services/systemService';
+import { prisma } from '../config/database';
 
 export async function getStats(req: AuthRequest, res: Response, next: NextFunction) {
   try {
@@ -17,7 +23,9 @@ export async function listProducts(req: AuthRequest, res: Response, next: NextFu
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
     const search = req.query.search as string | undefined;
-    const data = await adminService.adminListProducts({ page, limit, search });
+    const categoryId = req.query.categoryId as string | undefined;
+    const brandId = req.query.brandId as string | undefined;
+    const data = await adminService.adminListProducts({ page, limit, search, categoryId, brandId });
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -67,7 +75,10 @@ export async function listOrders(req: AuthRequest, res: Response, next: NextFunc
     const limit = Number(req.query.limit) || 20;
     const status = req.query.status as string | undefined;
     const search = req.query.search as string | undefined;
-    const data = await adminService.adminListOrders({ page, limit, status, search });
+    const all = req.query.all === 'true';
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+    const data = await adminService.adminListOrders({ page, limit, status, search, startDate, endDate, all });
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -88,6 +99,16 @@ export async function updateOrderStatus(req: AuthRequest, res: Response, next: N
     const { status, note } = req.body;
     const order = await adminService.adminUpdateOrderStatus(String(req.params.id), status, note);
     res.json({ success: true, data: order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateOrderShipping(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { carrier, trackingNumber } = req.body as { carrier?: string; trackingNumber?: string };
+    const data = await adminService.adminUpdateOrderShipping(String(req.params.id), { carrier, trackingNumber });
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
@@ -115,21 +136,344 @@ export async function toggleCustomerStatus(req: AuthRequest, res: Response, next
   }
 }
 
-// Categories & Brands
+// Categories
 export async function listCategories(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const data = await adminService.adminListCategories();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function createCategory(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminCreateCategory(req.body);
+    res.status(201).json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateCategory(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminUpdateCategory(String(req.params.id), req.body);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function deleteCategory(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await adminService.adminDeleteCategory(String(req.params.id));
+    res.json({ success: true, message: 'Kategori silindi' });
+  } catch (err) { next(err); }
+}
+
+// Brands
+export async function listBrands(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminListBrands();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function createBrand(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminCreateBrand(req.body);
+    res.status(201).json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateBrand(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminUpdateBrand(String(req.params.id), req.body);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function deleteBrand(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await adminService.adminDeleteBrand(String(req.params.id));
+    res.json({ success: true, message: 'Marka silindi' });
+  } catch (err) { next(err); }
+}
+
+// Shipping Config
+export async function getShippingConfig(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await settingsService.getShippingConfig();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateShippingConfig(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { shippingFee, freeShippingThreshold } = req.body as {
+      shippingFee: number;
+      freeShippingThreshold: number;
+    };
+    if (typeof shippingFee !== 'number' || typeof freeShippingThreshold !== 'number') {
+      return res.status(400).json({ success: false, error: 'Geçersiz değerler' });
+    }
+    const data = await settingsService.updateShippingConfig(shippingFee, freeShippingThreshold);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// Analytics
+export async function getAnalytics(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const range = req.query.range as string | undefined;
+    const data = await adminService.getAnalyticsData({ range });
     res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
 }
 
-export async function listBrands(req: AuthRequest, res: Response, next: NextFunction) {
+export async function getUserAnalytics(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const data = await adminService.adminListBrands();
+    const data = await adminService.getUserAnalyticsData();
     res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
 }
+
+export async function getMaintenanceSettings(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await settingsService.getMaintenanceConfig();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateMaintenanceSettings(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { isActive, message } = req.body;
+    if (typeof isActive !== 'boolean' || typeof message !== 'string') {
+      return res.status(400).json({ success: false, error: 'Geçersiz parametreler' });
+    }
+    const data = await settingsService.updateMaintenanceConfig(isActive, message);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// Email Status & Test
+export async function getEmailStatus(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await emailStatus();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function sendTestEmail(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const to = String(req.body.to ?? '').trim();
+    if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      return res.status(400).json({ success: false, error: 'Geçerli bir e-posta adresi girin.' });
+    }
+    const { method } = await emailStatus();
+    if (method === 'none') {
+      return res.status(400).json({ success: false, error: 'Hiçbir email transport yapılandırılmamış. .env dosyasına SMTP veya BREVO_API_KEY ekleyin.' });
+    }
+    await sendOrderConfirmation(to, 'TEST-EMAIL-0000', 0, [{ name: 'Test Ürün', quantity: 1, unitPrice: 0 }]);
+    res.json({ success: true, message: `Test e-postası "${to}" adresine ${method.toUpperCase()} üzerinden gönderildi.` });
+  } catch (err) { next(err); }
+}
+
+// Generic Settings
+export async function getSettings(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const group = String(req.params.group);
+    const data = await settingsService.getSettingsGroup(group + '_');
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateSettings(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const group = String(req.params.group);
+    await settingsService.updateSettingsGroup(group + '_', req.body as Record<string, string>);
+    const data = await settingsService.getSettingsGroup(group + '_');
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// Team
+export async function listTeam(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await settingsService.listAdminUsers();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateTeamMember(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await settingsService.updateTeamMember(
+      String(req.params.userId),
+      req.body as { subRole?: string; isActive?: boolean },
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+export async function inviteTeamMember(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { email, subRole } = req.body as { email: string; subRole: string };
+    const data = await settingsService.inviteAdminUser(email, subRole ?? 'EDITOR');
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function removeTeamMember(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await settingsService.removeAdminUser(String(req.params.userId), req.user!.id);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+// New Orders / Notifications
+export async function getNewOrders(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminGetNewOrders();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// Messages
+export async function listMessages(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminListMessages();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function markMessageRead(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await adminService.adminMarkMessageRead(String(req.params.id));
+    res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+// Global Search
+export async function globalSearch(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const q = String(req.query.q ?? '').trim();
+    if (q.length < 2) {
+      return res.json({ success: true, data: { products: [], orders: [], customers: [] } });
+    }
+    const data = await adminService.adminGlobalSearch(q);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// ─── Backup ───────────────────────────────────────────────────────────────────
+
+export async function createBackup(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const result = await backupSvc.createBackup();
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+}
+
+export async function listBackups(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    res.json({ success: true, data: backupSvc.listBackups() });
+  } catch (err) { next(err); }
+}
+
+export async function downloadBackup(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const filename = String(req.params.filename);
+    const filePath = backupSvc.getBackupPath(filename);
+    if (!filePath) return res.status(404).json({ success: false, error: 'Yedek bulunamadı' });
+    res.download(filePath, filename);
+  } catch (err) { next(err); }
+}
+
+export async function deleteBackup(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const ok = backupSvc.deleteBackup(String(req.params.filename));
+    if (!ok) return res.status(404).json({ success: false, error: 'Yedek bulunamadı' });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+export async function getBackupSchedule(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    res.json({ success: true, data: await backupSvc.getBackupSchedule() });
+  } catch (err) { next(err); }
+}
+
+export async function saveBackupSchedule(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await backupSvc.saveBackupSchedule(req.body);
+    // notify cron to reload (fire-and-forget, server module handles it)
+    backupSvc.triggerScheduleReload?.();
+    res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+// ─── DB Optimize ──────────────────────────────────────────────────────────────
+
+export async function optimizeDb(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await prisma.$executeRawUnsafe('VACUUM ANALYZE');
+    res.json({ success: true, message: 'VACUUM ANALYZE tamamlandı' });
+  } catch (err) { next(err); }
+}
+
+export async function getDbStats(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const rows = await prisma.$queryRaw<{ table_name: string; row_count: bigint; size: string }[]>`
+      SELECT
+        relname AS table_name,
+        n_live_tup AS row_count,
+        pg_size_pretty(pg_total_relation_size(relid)) AS size
+      FROM pg_stat_user_tables
+      ORDER BY pg_total_relation_size(relid) DESC
+      LIMIT 20
+    `;
+    // bigint → number for JSON serialization
+    const data = rows.map((r) => ({ ...r, row_count: Number(r.row_count) }));
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// ─── System Stats ─────────────────────────────────────────────────────────────
+
+export async function getSystemInfo(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await getSystemStats();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// ─── Product Import ───────────────────────────────────────────────────────────
+
+export async function importProducts(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Dosya yüklenmedi' });
+    const result = await importProductsFromBuffer(req.file.buffer, req.file.mimetype);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+}
+
+export async function createSubscriber(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { email, status } = req.body;
+    const data = await adminService.adminCreateSubscriber(email, status);
+    res.status(201).json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function toggleSubscriberStatus(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminToggleSubscriberStatus(String(req.params.id));
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function deleteSubscriber(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await adminService.adminDeleteSubscriber(String(req.params.id));
+    res.json({ success: true, message: 'Abone silindi' });
+  } catch (err) { next(err); }
+}
+

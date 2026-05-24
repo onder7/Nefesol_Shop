@@ -211,6 +211,32 @@ export function OrderDetail() {
         </div>
       )}
 
+      {/* Shipping info */}
+      {order.shipping && (
+        <div className="border rounded-lg p-4 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Truck className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium">Kargo Bilgisi</p>
+          </div>
+          <div className="text-sm text-muted-foreground space-y-1">
+            {order.shipping.carrier && (
+              <p>Kargo Firması: <span className="text-foreground font-medium">{order.shipping.carrier}</span></p>
+            )}
+            {order.shipping.trackingNumber ? (
+              <p>
+                Takip No:{' '}
+                <span className="text-foreground font-mono font-medium">{order.shipping.trackingNumber}</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground italic">Takip numarası henüz girilmedi.</p>
+            )}
+            {order.shipping.estimatedAt && (
+              <p>Tahmini Teslimat: <span className="text-foreground">{formatDate(order.shipping.estimatedAt)}</span></p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Status history */}
       {(order as unknown as { statusHistory?: Array<{ id: string; status: string; note?: string; createdAt: string }> }).statusHistory && (
         <div className="border rounded-lg p-4">

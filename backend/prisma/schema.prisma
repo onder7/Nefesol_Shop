@@ -24,16 +24,17 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  profile         UserProfile?
-  addresses       Address[]
-  carts           Cart[]
-  orders          Order[]
+  profile          UserProfile?
+  addresses        Address[]
+  carts            Cart[]
+  orders           Order[]
   reviews          Review[]
   wishlists        Wishlist[]
   notifications    Notification[]
   discountUsages   DiscountUsage[]
   productQuestions ProductQuestion[]
   productAnswers   ProductAnswer[]
+  contactMessages  ContactMessage[]
 
   @@map("users")
 }
@@ -441,3 +442,59 @@ model ProductAnswer {
 
   @@map("product_answers")
 }
+
+// ─── İletişim Mesajları ───────────────────────────────────────────────────────
+
+model ContactMessage {
+  id        String    @id @default(cuid())
+  userId    String?   @map("user_id")
+  email     String
+  name      String
+  subject   String?
+  body      String
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("contact_messages")
+}
+
+// ─── Site Ayarları ────────────────────────────────────────────────────────────
+
+model SiteSettings {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// ─── Chatbot Kuralları ────────────────────────────────────────────────────────
+
+model ChatbotRule {
+  id           String   @id @default(cuid())
+  title        String                          // Kısa başlık (yönetim için)
+  keywords     String[]                        // Tetikleyici kelimeler
+  response     String   @db.Text              // Asistanın yanıtı
+  quickReplies String[] @map("quick_replies") // Hızlı cevap butonları
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("chatbot_rules")
+}
+
+// ─── Haber Bülteni Aboneleri ──────────────────────────────────────────────────
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  status    String   @default("confirmed") // confirmed / pending
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("newsletter_subscribers")
+}
+

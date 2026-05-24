@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, ShoppingCart, Star, Minus, Plus, Heart } from 'lucide-react';
@@ -15,10 +15,131 @@ import { ProductReviews } from '@/components/product/ProductReviews';
 import { ProductQA } from '@/components/product/ProductQA';
 import { RecentlyViewed } from '@/components/product/RecentlyViewed';
 import { useRecentlyViewedStore } from '@/store/recentlyViewedStore';
+import { SeoHead, SITE_URL } from '@/components/seo/SeoHead';
+import { productSchema, breadcrumbSchema } from '@/lib/schemas';
+import { useSocialLinks } from '@/hooks/useSocialLinks';
 
-const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? '905551234567';
+const WA_NUMBER_FALLBACK = import.meta.env.VITE_WHATSAPP_NUMBER ?? '905551234567';
 
-function buildWhatsAppUrl(product: { name: string }, variant: { price: number | string; attributes?: Record<string, string> } | null, qty: number) {
+function ProductShareBar({ name, url }: { name: string; url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const encodedUrl  = encodeURIComponent(url);
+  const encodedText = encodeURIComponent(name + ' — MaBridge Global');
+
+  const copy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }, [url]);
+
+  const shares = [
+    {
+      label: 'WhatsApp',
+      href: `https://wa.me/?text=${encodeURIComponent(name + '\n' + url)}`,
+      bg: 'hover:bg-[#25D366]/10 hover:border-[#25D366]/40 hover:text-[#25D366]',
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 32 32">
+          <path d="M16.003 3C9.375 3 4 8.373 4 15.001c0 2.118.553 4.107 1.518 5.837L4 29l8.38-1.495A12.94 12.94 0 0016.003 28c6.628 0 12.003-5.373 12.003-12.001S22.631 3 16.003 3zm5.97 16.774c-.327-.163-1.935-.955-2.234-1.065-.3-.109-.517-.163-.735.163-.218.328-.844 1.065-.935 1.065-.163 0-.327-.054-.49-.163-.327-.163-1.38-.508-2.625-1.62-.97-.866-1.625-1.937-1.815-2.265-.19-.327-.02-.503.144-.666.147-.147.327-.382.49-.572.164-.19.219-.327.328-.545.109-.218.054-.41-.027-.572-.082-.163-.735-1.774-1.008-2.427-.264-.635-.537-.545-.735-.556h-.626c-.218 0-.572.082-.872.41-.3.327-1.143 1.118-1.143 2.727s1.17 3.162 1.333 3.38c.163.218 2.302 3.514 5.58 4.93.78.336 1.388.536 1.863.687.783.25 1.496.214 2.059.13.628-.094 1.935-.79 2.208-1.554.273-.763.273-1.417.19-1.554-.08-.136-.3-.218-.626-.382z"/>
+        </svg>
+      ),
+    },
+    {
+      label: 'Facebook',
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      bg: 'hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600',
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+          <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'X (Twitter)',
+      href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
+      bg: 'hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800',
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.254 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Pinterest',
+      href: `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedText}`,
+      bg: 'hover:bg-red-50 hover:border-red-200 hover:text-red-600',
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/>
+        </svg>
+      ),
+    },
+  ] as const;
+
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="text-xs text-muted-foreground shrink-0">Paylaş:</span>
+      <div className="flex items-center gap-1.5">
+        {shares.map((s) => (
+          <a
+            key={s.label}
+            href={s.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${s.label}'da paylaş`}
+            className={`flex items-center justify-center h-8 w-8 rounded-full border border-border text-muted-foreground transition-all ${s.bg}`}
+          >
+            {s.icon}
+          </a>
+        ))}
+
+        {/* Link kopyala */}
+        <button
+          type="button"
+          title="Linki kopyala"
+          onClick={copy}
+          className={`flex items-center justify-center h-8 w-8 rounded-full border transition-all ${
+            copied
+              ? 'border-green-300 bg-green-50 text-green-600'
+              : 'border-border text-muted-foreground hover:bg-muted hover:border-muted-foreground/40'
+          }`}
+        >
+          {copied ? (
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          )}
+        </button>
+      </div>
+      {copied && (
+        <span className="text-xs text-green-600 animate-in fade-in slide-in-from-left-1 duration-150">
+          Kopyalandı!
+        </span>
+      )}
+    </div>
+  );
+}
+
+function buildWhatsAppUrl(
+  phone: string,
+  product: { name: string },
+  variant: { price: number | string; attributes?: Record<string, string> } | null,
+  qty: number,
+) {
   const attrs = variant?.attributes
     ? Object.entries(variant.attributes as Record<string, string>)
         .map(([k, v]) => `${k}: ${v}`)
@@ -28,15 +149,15 @@ function buildWhatsAppUrl(product: { name: string }, variant: { price: number | 
   const url = typeof window !== 'undefined' ? window.location.href : '';
   const msg = [
     `Merhaba, aşağıdaki ürünü sipariş vermek istiyorum:`,
-    `📦 Ürün: ${product.name}`,
-    attrs ? `🔖 Seçenek: ${attrs}` : '',
-    `💰 Fiyat: ${price}`,
-    `🔢 Adet: ${qty}`,
-    url ? `🔗 Ürün Linki: ${url}` : '',
+    `\u{1F4E6} Ürün: ${product.name}`,
+    attrs ? `\u{1F516} Seçenek: ${attrs}` : '',
+    `\u{1F4B0} Fiyat: ${price}`,
+    `\u{1F522} Adet: ${qty}`,
+    url ? `\u{1F517} Ürün Linki: ${url}` : '',
   ]
     .filter(Boolean)
     .join('\n');
-  return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 }
 
 function formatPrice(price: number | string): string {
@@ -53,6 +174,11 @@ export function ProductDetail() {
   const qc = useQueryClient();
   const { isFavorite, toggleFavorite } = useWishlistStore();
   const addToRecentlyViewed = useRecentlyViewedStore((s) => s.add);
+
+  const { data: socialLinks } = useSocialLinks();
+  const waNumber = socialLinks?.whatsapp
+    ? socialLinks.whatsapp.replace(/\D/g, '')
+    : WA_NUMBER_FALLBACK;
 
   const addToCartMut = useMutation({
     mutationFn: ({ variantId, quantity }: { variantId: string; quantity: number }) =>
@@ -118,8 +244,43 @@ export function ProductDetail() {
 
   const attributeKeys = [...new Set(product.variants.flatMap((v) => Object.keys(v.attributes as Record<string, string>)))];
 
+  const primaryImage =
+    product.images?.find((img) => img.isPrimary) ?? product.images?.[0];
+
   return (
     <main className="container mx-auto px-4 py-8">
+      <SeoHead
+        title={product.name}
+        description={
+          product.description
+            ? product.description.slice(0, 155)
+            : `${product.name} — ${product.category.name} kategorisinde en iyi fiyatlarla. Hızlı kargo, kolay iade.`
+        }
+        keywords={[
+          product.name,
+          product.category.name,
+          product.brand?.name,
+          'satın al',
+          'fiyat',
+          'ev tekstili',
+        ]
+          .filter(Boolean)
+          .join(', ')}
+        image={primaryImage?.url}
+        url={`${SITE_URL}/urun/${product.slug}`}
+        type="product"
+        schema={[
+          productSchema(product),
+          breadcrumbSchema([
+            { name: 'Ana Sayfa', url: SITE_URL },
+            {
+              name: product.category.name,
+              url: `${SITE_URL}/kategori/${product.category.slug}`,
+            },
+            { name: product.name, url: `${SITE_URL}/urun/${product.slug}` },
+          ]),
+        ]}
+      />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-6">
         <Link to="/" className="hover:text-foreground">Ana Sayfa</Link>
@@ -134,16 +295,32 @@ export function ProductDetail() {
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
         {/* Görsel Galerisi */}
         <div className="space-y-3">
-          <div className="aspect-square rounded-xl overflow-hidden bg-gray-50">
-            {activeImage ? (
-              <img
-                src={activeImage.url}
-                alt={activeImage.altText ?? product.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">Görsel yok</div>
-            )}
+          <div className="relative">
+            <div className="aspect-square rounded-xl overflow-hidden bg-gray-50">
+              {activeImage ? (
+                <img
+                  src={activeImage.url}
+                  alt={activeImage.altText ?? product.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">Görsel yok</div>
+              )}
+            </div>
+
+            {/* Favori butonu — resmin sağ üst köşesi */}
+            <button
+              type="button"
+              title={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+              onClick={() => toggleFavorite(product.id)}
+              className={`absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+                fav
+                  ? 'bg-red-500 hover:bg-red-600 text-white scale-110'
+                  : 'bg-white/90 backdrop-blur-sm text-neutral-400 hover:text-red-400 hover:bg-white hover:scale-110'
+              }`}
+            >
+              <Heart className={`h-5 w-5 transition-all duration-200 ${fav ? 'fill-white' : ''}`} />
+            </button>
           </div>
           {product.images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
@@ -249,19 +426,11 @@ export function ProductDetail() {
               <ShoppingCart className="h-4 w-4 mr-2" />
               {addToCartMut.isPending ? 'Ekleniyor...' : 'Sepete Ekle'}
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-10 w-10 shrink-0"
-              onClick={() => toggleFavorite(product.id)}
-            >
-              <Heart className={`h-5 w-5 transition-colors ${fav ? 'fill-red-500 text-red-500' : 'text-neutral-600'}`} />
-            </Button>
           </div>
 
           {/* WhatsApp Sipariş */}
           <a
-            href={buildWhatsAppUrl(product, variant, qty)}
+            href={buildWhatsAppUrl(waNumber, product, variant, qty)}
             target="_blank"
             rel="noopener noreferrer"
             className={`flex items-center justify-center gap-2.5 w-full rounded-lg py-3 px-5 text-sm font-semibold text-white transition-all ${
@@ -276,6 +445,12 @@ export function ProductDetail() {
             </svg>
             WhatsApp ile Sipariş Ver
           </a>
+
+          {/* Sosyal Medya Paylaşım */}
+          <ProductShareBar
+            name={product.name}
+            url={typeof window !== 'undefined' ? window.location.href : `${SITE_URL}/urun/${product.slug}`}
+          />
 
           {product.description && (
             <div className="border-t pt-4">

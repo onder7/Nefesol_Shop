@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserCircle, Heart, ShoppingBag, Search, Menu, LogOut, ChevronDown } from 'lucide-react';
+import { UserCircle, Heart, ShoppingBag, Search, Menu, LogOut, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,6 +18,7 @@ import { authApi } from '@/services/authApi';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '@/services/productApi';
+import type { Product } from '@/types';
 
 export function Header() {
   const { isAuthenticated, user, logout } = useAuthStore();
@@ -25,6 +26,45 @@ export function Header() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const { fetchWishlist } = useWishlistStore();
+
+  const [predictions, setPredictions] = useState<Product[]>([]);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
+  const [showPredictions, setShowPredictions] = useState(false);
+
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setPredictions([]);
+      setLoadingPredictions(false);
+      return;
+    }
+
+    setLoadingPredictions(true);
+    const delayDebounceFn = setTimeout(() => {
+      productApi.list({ search: searchQuery.trim(), limit: 5 })
+        .then((res) => {
+          setPredictions(res.data?.items || []);
+        })
+        .catch((err) => {
+          console.error('Failed to load predictions:', err);
+        })
+        .finally(() => {
+          setLoadingPredictions(false);
+        });
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.search-container')) {
+        setShowPredictions(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -92,17 +132,73 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <form onSubmit={handleSearchSubmit} className="relative w-48 xl:w-64 ml-4">
+          <form onSubmit={handleSearchSubmit} className="search-container relative w-48 xl:w-64 ml-4">
             <Input
               type="text"
               placeholder="Ürün ara..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setShowPredictions(true)}
               className="h-9 pr-8 bg-neutral-50 border-neutral-200 focus-visible:ring-primary focus-visible:bg-white text-xs rounded-lg placeholder-neutral-400"
             />
             <button type="submit" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-primary transition-colors cursor-pointer">
               <Search className="h-4 w-4" />
             </button>
+
+            {showPredictions && searchQuery.trim().length >= 2 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-neutral-100 shadow-xl overflow-hidden z-[100] max-h-80 overflow-y-auto">
+                {loadingPredictions ? (
+                  <div className="p-4 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <span>Aranıyor...</span>
+                  </div>
+                ) : predictions.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-neutral-400">
+                    Uyumlu ürün bulunamadı.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-neutral-50">
+                    {predictions.map((prod) => {
+                      const primaryImg = prod.images?.find(img => img.isPrimary)?.url || prod.images?.[0]?.url || 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=100';
+                      const price = prod.variants?.[0]?.price ? Number(prod.variants[0].price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '';
+                      return (
+                        <Link
+                          key={prod.id}
+                          to={`/urun/${prod.slug}`}
+                          onClick={() => {
+                            setSearchQuery('');
+                            setShowPredictions(false);
+                          }}
+                          className="flex items-center gap-3 p-3 hover:bg-neutral-50 transition-colors"
+                        >
+                          <img
+                            src={primaryImg}
+                            alt={prod.name}
+                            className="h-10 w-10 object-cover rounded bg-neutral-100 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-semibold text-neutral-800 truncate">{prod.name}</p>
+                            <p className="text-[9px] text-neutral-400 truncate">{prod.category?.name}</p>
+                          </div>
+                          {price && (
+                            <div className="text-[11px] font-bold text-neutral-900 shrink-0">
+                              {price}
+                            </div>
+                          )}
+                        </Link>
+                      );
+                    })}
+                    <Link
+                      to={`/ara?search=${encodeURIComponent(searchQuery)}`}
+                      onClick={() => setShowPredictions(false)}
+                      className="block text-center text-[10px] font-semibold text-primary hover:underline p-2.5 bg-neutral-50/50"
+                    >
+                      Tüm sonuçları gör
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         </nav>
 
@@ -115,10 +211,10 @@ export function Header() {
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <button className="flex flex-col items-center gap-1 text-neutral-700 hover:text-primary transition-colors cursor-pointer outline-none bg-transparent border-none">
+                  <div className="flex flex-col items-center gap-1 text-neutral-700 hover:text-primary transition-colors cursor-pointer outline-none bg-transparent border-none">
                     <UserCircle className="h-6 w-6 stroke-[1.5]" />
                     <span className="text-[11px] font-medium">Hesabım</span>
-                  </button>
+                  </div>
                 }
               />
               <DropdownMenuContent align="end" className="w-48">

@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cartApi } from '@/services/cartApi';
+import { productApi } from '@/services/productApi';
 import { useCartStore } from '@/store/cartStore';
 import type { Cart as CartType } from '@/types';
 import { toast } from 'sonner';
@@ -24,6 +25,15 @@ export function Cart() {
       return (res.data.data as CartType | null) ?? null;
     },
   });
+
+  const { data: shippingConfig } = useQuery({
+    queryKey: ['shipping-config'],
+    queryFn: () => productApi.shippingConfig().then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const SHIPPING_FEE = shippingConfig?.shippingFee ?? 49.9;
+  const FREE_THRESHOLD = shippingConfig?.freeShippingThreshold ?? 500;
 
   useEffect(() => {
     if (cart !== undefined) setCart(cart);
@@ -71,8 +81,9 @@ export function Cart() {
   }
 
   const subtotal = cart.items.reduce((sum, item) => sum + item.priceAtAdd * item.quantity, 0);
-  const shipping = subtotal >= 500 ? 0 : 49.9;
+  const shipping = subtotal >= FREE_THRESHOLD ? 0 : SHIPPING_FEE;
   const total = subtotal + shipping;
+  const remaining = FREE_THRESHOLD - subtotal;
   const isPending = updateMut.isPending || removeMut.isPending;
 
   return (
@@ -166,10 +177,25 @@ export function Cart() {
                 <span>Kargo</span>
                 <span>{shipping === 0 ? 'Ücretsiz' : formatPrice(shipping)}</span>
               </div>
-              {shipping > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {formatPrice(500 - subtotal)} daha ekleyin, kargo ücretsiz!
-                </p>
+              {shipping > 0 && remaining > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Truck className="h-3.5 w-3.5 shrink-0" />
+                    <span>{formatPrice(remaining)} daha ekleyin, kargo ücretsiz!</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (subtotal / FREE_THRESHOLD) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {shipping === 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-green-600">
+                  <Truck className="h-3.5 w-3.5 shrink-0" />
+                  <span>Ücretsiz kargo hakkı kazandınız!</span>
+                </div>
               )}
             </div>
 

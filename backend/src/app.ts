@@ -8,6 +8,7 @@ import { rateLimit } from 'express-rate-limit';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import apiRoutes from './routes';
+import { maintenanceCheck } from './middlewares/maintenance';
 import { errorHandler, notFound } from './middlewares/errorHandler';
 
 const app = express();
@@ -48,7 +49,72 @@ app.use('/uploads', (_req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
 }, express.static(path.join(process.cwd(), 'uploads')));
-app.use('/api', apiRoutes);
+
+// ── SEO: sitemap.xml (public, no /api prefix) ─────────────────────────────────
+app.get('/sitemap.xml', async (_req, res, next) => {
+  try {
+    const { prisma } = await import('./config/database');
+    const [products, categories] = await Promise.all([
+      prisma.product.findMany({
+        where: { isActive: true },
+        select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.category.findMany({
+        where: { isActive: true },
+        select: { slug: true },
+      }),
+    ]);
+
+    const siteUrl = env.FRONTEND_URL.replace(/\/$/, '');
+    const today = new Date().toISOString().split('T')[0];
+
+    const staticUrls = [
+      { loc: siteUrl, priority: '1.0', changefreq: 'daily', lastmod: today },
+      { loc: `${siteUrl}/iletisim`, priority: '0.4', changefreq: 'monthly', lastmod: today },
+      { loc: `${siteUrl}/iade`, priority: '0.4', changefreq: 'monthly', lastmod: today },
+      { loc: `${siteUrl}/sss`, priority: '0.4', changefreq: 'monthly', lastmod: today },
+    ];
+
+    const categoryUrls = categories.map((c) => ({
+      loc: `${siteUrl}/kategori/${c.slug}`,
+      priority: '0.8',
+      changefreq: 'weekly',
+      lastmod: today,
+    }));
+
+    const productUrls = products.map((p) => ({
+      loc: `${siteUrl}/urun/${p.slug}`,
+      priority: '0.9',
+      changefreq: 'weekly',
+      lastmod: p.updatedAt.toISOString().split('T')[0],
+    }));
+
+    const allUrls = [...staticUrls, ...categoryUrls, ...productUrls];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${allUrls
+  .map(
+    (u) => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${u.lastmod}</lastmod>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`,
+  )
+  .join('\n')}
+</urlset>`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.use('/api', maintenanceCheck, apiRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

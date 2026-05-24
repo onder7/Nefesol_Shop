@@ -102,6 +102,10 @@ export function OrderDetail({ orderId, onClose, onUpdated }: Props) {
   const [newStatus, setNewStatus] = useState('');
   const [note, setNote] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [carrier, setCarrier] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [shippingUpdating, setShippingUpdating] = useState(false);
+  const [shippingSuccess, setShippingSuccess] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -109,6 +113,8 @@ export function OrderDetail({ orderId, onClose, onUpdated }: Props) {
       .then((r) => {
         setOrder(r.data);
         setNewStatus(r.data.status);
+        setCarrier(r.data.shipping?.carrier ?? '');
+        setTrackingNumber(r.data.shipping?.trackingNumber ?? '');
       })
       .catch(() => setError('Sipariş yüklenemedi.'))
       .finally(() => setLoading(false));
@@ -125,11 +131,32 @@ export function OrderDetail({ orderId, onClose, onUpdated }: Props) {
       const r = await api.get<{ success: boolean; data: OrderDetail }>(`/admin/orders/${orderId}`);
       setOrder(r.data);
       setNewStatus(r.data.status);
+      setCarrier(r.data.shipping?.carrier ?? '');
+      setTrackingNumber(r.data.shipping?.trackingNumber ?? '');
       onUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Güncelleme hatası');
     } finally {
       setUpdating(false);
+    }
+  }
+
+  async function handleUpdateShipping() {
+    setShippingUpdating(true);
+    setError('');
+    setShippingSuccess(false);
+    try {
+      const r = await api.put<{ success: boolean; data: OrderDetail['shipping'] }>(
+        `/admin/orders/${orderId}/shipping`,
+        { carrier: carrier.trim() || undefined, trackingNumber: trackingNumber.trim() || undefined },
+      );
+      setOrder((prev) => prev ? { ...prev, shipping: r.data } : prev);
+      setShippingSuccess(true);
+      setTimeout(() => setShippingSuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kargo güncelleme hatası');
+    } finally {
+      setShippingUpdating(false);
     }
   }
 
@@ -349,6 +376,39 @@ export function OrderDetail({ orderId, onClose, onUpdated }: Props) {
               )}
 
             </div>
+
+            {/* ── Kargo Bilgileri (sticky bottom) ── */}
+            {order.shipping && (
+              <div className="px-6 pb-0 pt-4 border-t border-stroke dark:border-strokedark space-y-3">
+                <h3 className="text-sm font-semibold text-black dark:text-white">Kargo Bilgileri</h3>
+                {shippingSuccess && (
+                  <div className="rounded bg-green-50 border border-green-200 text-green-700 px-3 py-2 text-xs">
+                    Kargo bilgileri kaydedildi.
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    value={carrier}
+                    onChange={(e) => setCarrier(e.target.value)}
+                    placeholder="Kargo firması (ör. MNG, Yurtiçi)"
+                    className="flex-1 rounded border border-stroke bg-transparent px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:text-white"
+                  />
+                  <input
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="Takip numarası"
+                    className="flex-1 rounded border border-stroke bg-transparent px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:text-white"
+                  />
+                  <button
+                    onClick={handleUpdateShipping}
+                    disabled={shippingUpdating}
+                    className="px-5 py-2 rounded bg-primary text-white text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 shrink-0"
+                  >
+                    {shippingUpdating ? 'Kaydediliyor...' : 'Kaydet'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ── Durum Güncelle (sticky bottom) ── */}
             <div className="sticky bottom-0 border-t border-stroke dark:border-strokedark bg-white dark:bg-boxdark px-6 py-4 space-y-3">

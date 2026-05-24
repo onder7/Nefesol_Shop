@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { SeoHead } from '@/components/seo/SeoHead';
 
 const SORTS = [
   { value: 'newest', label: 'En Yeni' },
@@ -205,6 +206,11 @@ export function Search() {
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-7xl">
+      <SeoHead
+        title={q ? `"${q}" için arama sonuçları` : 'Ürün Ara'}
+        description={q ? `"${q}" araması için ${productsData?.data?.pagination?.total ?? ''} ürün bulundu.` : 'Ev tekstili ürünlerinde arama yapın.'}
+        noindex
+      />
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Desktop Sidebar Filters */}
         <aside className="hidden lg:block w-64 shrink-0 bg-white border border-neutral-100 rounded-2xl p-6 h-fit shadow-xs">

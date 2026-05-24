@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { productApi } from '@/services/productApi';
+import { api } from '@/services/api';
 import { ProductGrid } from '@/components/product/ProductGrid';
 import { buttonVariants } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
@@ -15,6 +16,8 @@ import {
   Flame,
   ArrowRight
 } from 'lucide-react';
+import { SeoHead } from '@/components/seo/SeoHead';
+import { organizationSchema, websiteSchema } from '@/lib/schemas';
 
 
 
@@ -96,7 +99,15 @@ export function Home() {
     }
   };
 
-  const slides = [
+  const { data: slidesData } = useQuery({
+    queryKey: ['homepage-slides'],
+    queryFn: async () => {
+      const res = await api.get<{ success: boolean; data: { img: string; link: string }[] }>('/slides');
+      return res.data.data;
+    }
+  });
+
+  const slides = slidesData ?? [
     {
       img: "/banner-yaz.png",
       link: "/ara?search=yaz",
@@ -113,6 +124,7 @@ export function Home() {
 
   // Auto slide
   useEffect(() => {
+    if (slides.length === 0) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
@@ -135,11 +147,24 @@ export function Home() {
   const featured = featuredData?.data?.data ?? [];
   const newArrivals = newArrivalsData?.data?.items ?? [];
 
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  const nextSlide = () => {
+    if (slides.length > 0) {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }
+  };
+  const prevSlide = () => {
+    if (slides.length > 0) {
+      setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+    }
+  };
 
   return (
     <main className="bg-neutral-50/50 pb-16">
+      <SeoHead
+        description="Nevresim takımları, çeyiz setleri, banyo havluları ve ev tekstilinde kalite. Hızlı kargo, kolay iade, uygun fiyat garantisiyle MaBridge Global'i keşfedin."
+        keywords="nevresim takımı, çeyiz, ev tekstili, banyo havlusu, yatak örtüsü, pike, battaniye, halı, satın al"
+        schema={[organizationSchema(), websiteSchema()]}
+      />
       {/* Hero Carousel */}
       <section className="relative overflow-hidden bg-white border-b border-neutral-100">
         <div className="relative w-full aspect-[2/1] overflow-hidden bg-neutral-100">

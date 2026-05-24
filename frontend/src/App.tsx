@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -19,6 +20,11 @@ import { Orders, OrderDetail } from '@/pages/Orders';
 import { Profile } from '@/pages/Profile';
 import { Favorites } from '@/pages/Favorites';
 import { NotFound } from '@/pages/NotFound';
+import { useState, useEffect } from 'react';
+import { api } from '@/services/api';
+import { useAuthStore } from '@/store/authStore';
+import Maintenance from '@/pages/Maintenance';
+import { SupportPage } from '@/pages/SupportPage';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -50,6 +56,12 @@ function AppContent() {
         {/* Aşama 6 — Checkout */}
         <Route path="/siparis-tamamlandi" element={<OrderSuccess />} />
 
+        {/* Müşteri Hizmetleri Rotaları */}
+        <Route path="/iletisim" element={<SupportPage />} />
+        <Route path="/iade" element={<SupportPage />} />
+        <Route path="/sss" element={<SupportPage />} />
+        <Route path="/sozlesmeler" element={<SupportPage />} />
+
         {/* Korumalı route'lar */}
         <Route element={<ProtectedRoute />}>
           <Route path="/odeme" element={<Checkout />} />
@@ -78,13 +90,55 @@ function TestModeBanner() {
 }
 
 export default function App() {
+  const [maintenance, setMaintenance] = useState<{ isActive: boolean; message: string } | null>(null);
+  const [checking, setChecking] = useState(true);
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    api.get<{ success: boolean; data: { isActive: boolean; message: string } }>('/maintenance-status')
+      .then((res) => {
+        if (res.data?.success && res.data?.data?.isActive) {
+          setMaintenance(res.data.data);
+        }
+      })
+      .catch((err) => {
+        console.error('Maintenance status check failed:', err);
+      })
+      .finally(() => {
+        setChecking(false);
+      });
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Admin paneline giriş yapmış kişi de bypass eder
+  const hasAdminPanelSession = !!localStorage.getItem('admin_token');
+
+  const showMaintenance =
+    maintenance?.isActive &&
+    user?.role !== 'ADMIN' &&
+    !hasAdminPanelSession &&
+    window.location.pathname !== '/giris';
+
+  if (showMaintenance) {
+    return <Maintenance message={maintenance.message} />;
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <TestModeBanner />
-        <AppContent />
-        <Toaster position="top-right" richColors />
-      </BrowserRouter>
-    </QueryClientProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <TestModeBanner />
+          <AppContent />
+          <Toaster position="top-right" richColors />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }

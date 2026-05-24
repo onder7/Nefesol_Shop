@@ -14,6 +14,7 @@ interface Message {
 // ─── Bilgi tabanı ─────────────────────────────────────────────────────────────
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? '905551234567';
+const API_BASE  = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api';
 
 interface KnowledgeRule {
   keywords: string[];
@@ -21,7 +22,8 @@ interface KnowledgeRule {
   quickReplies?: string[];
 }
 
-const KNOWLEDGE: KnowledgeRule[] = [
+// Fallback (API erişilemezse kullanılır)
+const KNOWLEDGE_FALLBACK: KnowledgeRule[] = [
   {
     keywords: ['merhaba', 'selam', 'hi', 'hey', 'iyi günler', 'iyi akşamlar', 'nasılsın'],
     response:
@@ -105,24 +107,21 @@ const DEFAULT_RESPONSE: KnowledgeRule = {
 
 // ─── Yanıt motoru ─────────────────────────────────────────────────────────────
 
-function getResponse(userText: string): KnowledgeRule {
-  const lower = userText.toLowerCase().trim();
-  let best: KnowledgeRule | null = null;
-  let bestScore = 0;
-
-  for (const rule of KNOWLEDGE) {
-    for (const kw of rule.keywords) {
-      if (lower.includes(kw)) {
-        const score = kw.length;
-        if (score > bestScore) {
-          bestScore = score;
-          best = rule;
+function buildMatcher(rules: KnowledgeRule[]) {
+  return function getResponse(userText: string): KnowledgeRule {
+    const lower = userText.toLowerCase().trim();
+    let best: KnowledgeRule | null = null;
+    let bestScore = 0;
+    for (const rule of rules) {
+      for (const kw of rule.keywords) {
+        if (lower.includes(kw)) {
+          const score = kw.length;
+          if (score > bestScore) { bestScore = score; best = rule; }
         }
       }
     }
-  }
-
-  return best ?? DEFAULT_RESPONSE;
+    return best ?? DEFAULT_RESPONSE;
+  };
 }
 
 // ─── Küçük yardımcılar ───────────────────────────────────────────────────────
@@ -165,6 +164,19 @@ export function LiveChat() {
   const [minimized, setMinimized] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const getResponseRef = useRef(buildMatcher(KNOWLEDGE_FALLBACK));
+
+  // API'den güncel kuralları çek
+  useEffect(() => {
+    fetch(`${API_BASE}/chatbot/rules`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          getResponseRef.current = buildMatcher(json.data);
+        }
+      })
+      .catch(() => { /* fallback kalır */ });
+  }, []);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -256,7 +268,7 @@ export function LiveChat() {
       await new Promise((r) => setTimeout(r, delay));
       setTyping(false);
 
-      const rule = getResponse(trimmed);
+      const rule = getResponseRef.current(trimmed);
       pushMessage({
         id: uid(),
         role: 'assistant',

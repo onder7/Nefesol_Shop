@@ -7,6 +7,7 @@ import { prisma } from '../config/database';
 import * as orderSvc from '../services/orderService';
 import * as paymentSvc from '../services/paymentService';
 import * as emailSvc from '../services/emailService';
+import { getShippingConfig, computeShipping, getPaymentMethods } from '../services/settingsService';
 
 // Pending checkout data stored in Redis with 30-min TTL
 const PENDING_TTL = 1800;
@@ -53,7 +54,8 @@ export async function initialize(req: AuthRequest, res: Response, next: NextFunc
       (s, i) => s + Number(i.priceAtAdd) * i.quantity,
       0,
     );
-    const shippingFee = orderSvc.computeShipping(subtotal);
+    const shippingConfig = await getShippingConfig();
+    const shippingFee = computeShipping(subtotal, shippingConfig);
     const total = subtotal + shippingFee;
 
     const conversationId = `${userId.slice(-6)}-${Date.now()}`;
@@ -229,6 +231,72 @@ export async function devCallback(req: Request, res: Response, next: NextFunctio
       success: true,
       redirectUrl: `${env.FRONTEND_URL}/siparis-tamamlandi?orderId=${order.id}`,
     });
+  } catch (err) { next(err); }
+}
+
+// ─── GET /api/checkout/payment-methods ───────────────────────────────────────
+export async function paymentMethods(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await getPaymentMethods();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// ─── POST /api/checkout/place-order (COD / Havale) ───────────────────────────
+export async function placeOrder(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const { addressId, method } = req.body as { addressId: string; method: 'cod' | 'havale' };
+
+    if (!addressId || !['cod', 'havale'].includes(method)) {
+      return res.status(400).json({ success: false, error: 'Geçersiz istek' });
+    }
+
+    // Validate method is enabled
+    const methods = await getPaymentMethods();
+    if (method === 'cod' && !methods.cod.enabled) {
+      return res.status(400).json({ success: false, error: 'Kapıda ödeme şu an aktif değil' });
+    }
+    if (method === 'havale' && !methods.havale.enabled) {
+      return res.status(400).json({ success: false, error: 'Havale/EFT ödemesi şu an aktif değil' });
+    }
+
+    const order = await orderSvc.createOrder(userId, addressId);
+
+    await prisma.payment.create({
+      data: {
+        orderId: order.id,
+        provider: method === 'cod' ? 'cod' : 'havale',
+        amount: order.total,
+        status: method === 'cod' ? 'PENDING' : 'PENDING',
+        transactionId: `${method.toUpperCase()}_${Date.now()}`,
+      },
+    });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user) {
+      emailSvc
+        .sendOrderConfirmation(user.email, order.id, Number(order.total),
+          order.items.map((i) => ({
+            name: i.variant.product.name,
+            quantity: i.quantity,
+            unitPrice: Number(i.unitPrice),
+          })),
+        )
+        .catch((e) => logger.error('Email hatası', { error: e.message }));
+    }
+
+    const responseData: Record<string, unknown> = { orderId: order.id };
+    if (method === 'havale') {
+      responseData['havale'] = {
+        bankName:    methods.havale.bankName,
+        iban:        methods.havale.iban,
+        accountName: methods.havale.accountName,
+        description: methods.havale.description || `MaBridge-${order.id.slice(-8).toUpperCase()}`,
+      };
+    }
+
+    res.json({ success: true, data: responseData });
   } catch (err) { next(err); }
 }
 

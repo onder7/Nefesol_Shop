@@ -7,7 +7,15 @@ import SignIn from './pages/Authentication/SignIn';
 import Dashboard from './pages/Dashboard/ECommerce';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
+import OrderDetailPage from './pages/Orders/OrderDetailPage';
+import ProductDetailPage from './pages/Products/ProductDetailPage';
 import Customers from './pages/Customers';
+import Categories from './pages/Categories';
+import Brands from './pages/Brands';
+import ShippingSettings from './pages/Settings/ShippingSettings';
+import Analytics from './pages/Analytics';
+import UserAnalytics from './pages/UserAnalytics';
+import Settings from './pages/Settings';
 import DefaultLayout from './layout/DefaultLayout';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 
@@ -60,6 +68,24 @@ function AppRoutes() {
                   }
                 />
                 <Route
+                  path="products/new"
+                  element={
+                    <>
+                      <PageTitle title="Yeni Ürün | MaBridge Admin" />
+                      <ProductDetailPage />
+                    </>
+                  }
+                />
+                <Route
+                  path="products/:id"
+                  element={
+                    <>
+                      <PageTitle title="Ürün Düzenle | MaBridge Admin" />
+                      <ProductDetailPage />
+                    </>
+                  }
+                />
+                <Route
                   path="orders"
                   element={
                     <>
@@ -69,11 +95,74 @@ function AppRoutes() {
                   }
                 />
                 <Route
+                  path="orders/:id"
+                  element={
+                    <>
+                      <PageTitle title="Sipariş Detayı | MaBridge Admin" />
+                      <OrderDetailPage />
+                    </>
+                  }
+                />
+                <Route
                   path="customers"
                   element={
                     <>
                       <PageTitle title="Mü��teriler | MaBridge Admin" />
                       <Customers />
+                    </>
+                  }
+                />
+                <Route
+                  path="categories"
+                  element={
+                    <>
+                      <PageTitle title="Kategoriler | MaBridge Admin" />
+                      <Categories />
+                    </>
+                  }
+                />
+                <Route
+                  path="brands"
+                  element={
+                    <>
+                      <PageTitle title="Markalar | MaBridge Admin" />
+                      <Brands />
+                    </>
+                  }
+                />
+                <Route
+                  path="analytics"
+                  element={
+                    <>
+                      <PageTitle title="Raporlar | MaBridge Admin" />
+                      <Analytics />
+                    </>
+                  }
+                />
+                <Route
+                  path="user-analytics"
+                  element={
+                    <>
+                      <PageTitle title="Kullanıcı İstatistikleri | MaBridge Admin" />
+                      <UserAnalytics />
+                    </>
+                  }
+                />
+                <Route
+                  path="settings"
+                  element={
+                    <>
+                      <PageTitle title="Sistem Ayarları | MaBridge Admin" />
+                      <Settings />
+                    </>
+                  }
+                />
+                <Route
+                  path="settings/shipping"
+                  element={
+                    <>
+                      <PageTitle title="Kargo Ayarları | MaBridge Admin" />
+                      <ShippingSettings />
                     </>
                   }
                 />

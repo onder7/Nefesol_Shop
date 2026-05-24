@@ -1,8 +1,12 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { authenticate, requireAdmin } from '../middlewares/auth';
 import * as ctrl from '../controllers/adminController';
+import * as chatbotCtrl from '../controllers/chatbotController';
 import { uploadImage } from '../middlewares/upload';
 import { uploadProductImage } from '../controllers/uploadController';
+
+const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -10,6 +14,8 @@ router.use(authenticate, requireAdmin);
 
 // Dashboard
 router.get('/stats', ctrl.getStats);
+router.get('/analytics', ctrl.getAnalytics);
+router.get('/user-analytics', ctrl.getUserAnalytics);
 
 // Upload
 router.post('/upload', uploadImage.single('file'), uploadProductImage);
@@ -25,13 +31,82 @@ router.delete('/products/:id', ctrl.deleteProduct);
 router.get('/orders', ctrl.listOrders);
 router.get('/orders/:id', ctrl.getOrderDetail);
 router.put('/orders/:id/status', ctrl.updateOrderStatus);
+router.put('/orders/:id/shipping', ctrl.updateOrderShipping);
 
 // Customers
 router.get('/customers', ctrl.listCustomers);
 router.put('/customers/:id/toggle-status', ctrl.toggleCustomerStatus);
 
-// Lookups
+// Newsletter Subscribers
+router.post('/newsletter/subscribers', ctrl.createSubscriber);
+router.put('/newsletter/subscribers/:id/toggle-status', ctrl.toggleSubscriberStatus);
+router.delete('/newsletter/subscribers/:id', ctrl.deleteSubscriber);
+
+// Categories
 router.get('/categories', ctrl.listCategories);
+router.post('/categories', ctrl.createCategory);
+router.put('/categories/:id', ctrl.updateCategory);
+router.delete('/categories/:id', ctrl.deleteCategory);
+
+// Brands
 router.get('/brands', ctrl.listBrands);
+router.post('/brands', ctrl.createBrand);
+router.put('/brands/:id', ctrl.updateBrand);
+router.delete('/brands/:id', ctrl.deleteBrand);
+
+// Shipping Config
+router.get('/shipping-config', ctrl.getShippingConfig);
+router.put('/shipping-config', ctrl.updateShippingConfig);
+
+// Maintenance Settings
+router.get('/settings/maintenance', ctrl.getMaintenanceSettings);
+router.put('/settings/maintenance', ctrl.updateMaintenanceSettings);
+
+// Email
+router.get('/email-status', ctrl.getEmailStatus);
+router.post('/email-test', ctrl.sendTestEmail);
+
+// Generic Settings
+router.get('/settings/:group', ctrl.getSettings);
+router.put('/settings/:group', ctrl.updateSettings);
+
+// Team
+router.get('/team', ctrl.listTeam);
+router.post('/team/invite', ctrl.inviteTeamMember);
+router.put('/team/:userId', ctrl.updateTeamMember);
+router.delete('/team/:userId', ctrl.removeTeamMember);
+
+// Notifications & Messages
+router.get('/new-orders', ctrl.getNewOrders);
+router.get('/messages', ctrl.listMessages);
+router.put('/messages/:id/read', ctrl.markMessageRead);
+
+// Search
+router.get('/search', ctrl.globalSearch);
+
+// Backup
+router.post('/tools/backup/create', ctrl.createBackup);
+router.get('/tools/backup/list', ctrl.listBackups);
+router.get('/tools/backup/:filename/download', ctrl.downloadBackup);
+router.delete('/tools/backup/:filename', ctrl.deleteBackup);
+router.get('/tools/backup/schedule', ctrl.getBackupSchedule);
+router.put('/tools/backup/schedule', ctrl.saveBackupSchedule);
+
+// DB Optimize
+router.post('/tools/db/optimize', ctrl.optimizeDb);
+router.get('/tools/db/stats', ctrl.getDbStats);
+
+// System Stats
+router.get('/tools/system/stats', ctrl.getSystemInfo);
+
+// Product Import (Excel / CSV)
+router.post('/tools/products/import', uploadMemory.single('file'), ctrl.importProducts);
+
+// Chatbot Rules
+router.get('/chatbot/rules', chatbotCtrl.listRules);
+router.post('/chatbot/rules', chatbotCtrl.createRule);
+router.put('/chatbot/rules/reorder', chatbotCtrl.reorderRules);
+router.put('/chatbot/rules/:id', chatbotCtrl.updateRule);
+router.delete('/chatbot/rules/:id', chatbotCtrl.deleteRule);
 
 export default router;
