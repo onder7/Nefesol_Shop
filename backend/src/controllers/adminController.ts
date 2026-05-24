@@ -26,7 +26,7 @@ export async function listProducts(req: AuthRequest, res: Response, next: NextFu
 
 export async function getProduct(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const product = await adminService.adminGetProduct(req.params.id);
+    const product = await adminService.adminGetProduct(String(req.params.id));
     res.json({ success: true, data: product });
   } catch (err) {
     next(err);
@@ -44,7 +44,7 @@ export async function createProduct(req: AuthRequest, res: Response, next: NextF
 
 export async function updateProduct(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const product = await adminService.adminUpdateProduct(req.params.id, req.body);
+    const product = await adminService.adminUpdateProduct(String(req.params.id), req.body);
     res.json({ success: true, data: product });
   } catch (err) {
     next(err);
@@ -53,7 +53,7 @@ export async function updateProduct(req: AuthRequest, res: Response, next: NextF
 
 export async function deleteProduct(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    await adminService.adminDeleteProduct(req.params.id);
+    await adminService.adminDeleteProduct(String(req.params.id));
     res.json({ success: true, message: 'Ürün silindi' });
   } catch (err) {
     next(err);
@@ -76,7 +76,7 @@ export async function listOrders(req: AuthRequest, res: Response, next: NextFunc
 
 export async function getOrderDetail(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const order = await adminService.adminGetOrderDetail(req.params.id);
+    const order = await adminService.adminGetOrderDetail(String(req.params.id));
     res.json({ success: true, data: order });
   } catch (err) {
     next(err);
@@ -86,7 +86,7 @@ export async function getOrderDetail(req: AuthRequest, res: Response, next: Next
 export async function updateOrderStatus(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { status, note } = req.body;
-    const order = await adminService.adminUpdateOrderStatus(req.params.id, status, note);
+    const order = await adminService.adminUpdateOrderStatus(String(req.params.id), status, note);
     res.json({ success: true, data: order });
   } catch (err) {
     next(err);
@@ -108,7 +108,7 @@ export async function listCustomers(req: AuthRequest, res: Response, next: NextF
 
 export async function toggleCustomerStatus(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const user = await adminService.adminToggleCustomerStatus(req.params.id);
+    const user = await adminService.adminToggleCustomerStatus(String(req.params.id));
     res.json({ success: true, data: user });
   } catch (err) {
     next(err);
