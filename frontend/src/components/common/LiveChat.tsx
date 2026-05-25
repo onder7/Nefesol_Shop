@@ -14,7 +14,7 @@ interface Message {
 // ─── Bilgi tabanı ─────────────────────────────────────────────────────────────
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? '905551234567';
-const API_BASE  = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api';
+const API_BASE  = import.meta.env.VITE_API_URL ?? '/api';
 
 interface KnowledgeRule {
   keywords: string[];
@@ -166,8 +166,9 @@ export function LiveChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const getResponseRef = useRef(buildMatcher(KNOWLEDGE_FALLBACK));
 
-  // API'den güncel kuralları çek
+  // Chat açıldığında güncel kuralları çek (admin değişikliklerini yansıtır)
   useEffect(() => {
+    if (!open) return;
     fetch(`${API_BASE}/chatbot/rules`)
       .then((r) => r.json())
       .then((json) => {
@@ -176,7 +177,7 @@ export function LiveChat() {
         }
       })
       .catch(() => { /* fallback kalır */ });
-  }, []);
+  }, [open]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
