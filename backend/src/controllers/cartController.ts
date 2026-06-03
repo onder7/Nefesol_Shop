@@ -17,7 +17,7 @@ function serialize(cart: ReturnType<typeof cartService.getOrCreateCart> extends 
         price: Number(item.variant.price),
         compareAt: item.variant.compareAt != null ? Number(item.variant.compareAt) : null,
         stockQty: item.variant.stockQty,
-        attributes: item.variant.attributes,
+        attributeValues: item.variant.attributeValues ?? [],
         product: item.variant.product,
       },
     })),

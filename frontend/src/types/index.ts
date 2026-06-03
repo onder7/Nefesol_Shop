@@ -36,13 +36,22 @@ export interface Brand {
   logoUrl?: string;
 }
 
+export interface AttributeValueItem {
+  id: string;
+  value: string;
+  colorHex?: string | null;
+  sortOrder: number;
+  attribute: { id: string; name: string; slug: string; inputType: string; sortOrder: number };
+}
+
 export interface ProductVariant {
   id: string;
   sku: string;
   price: number;
   compareAt?: number;
   stockQty: number;
-  attributes: Record<string, string>;
+  desi?: number | null;
+  attributeValues: { attributeValue: AttributeValueItem }[];
 }
 
 export interface Product {
@@ -51,6 +60,8 @@ export interface Product {
   slug: string;
   description?: string;
   isFeatured?: boolean;
+  vatRate: number;
+  vatIncluded: boolean;
   category: Category;
   brand?: Brand;
   variants: ProductVariant[];

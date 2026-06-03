@@ -162,164 +162,6 @@ function useSave(group: string, initial: Record<string, string>) {
   return { form, set, reset, load, save, saving, saved, error };
 }
 
-// ─── Bakım Modu Bölümü ────────────────────────────────────────────────────────
-
-function MaintenanceSection() {
-  const [loading, setLoading] = useState(true);
-  const [enabled, setEnabled] = useState(false);
-  const [message, setMessage] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    api
-      .get<{ success: boolean; data: Record<string, string> }>('/admin/settings/maintenance')
-      .then((r) => {
-        setEnabled(r.data.mode === 'true');
-        setMessage(r.data.message ?? '');
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    setError('');
-    setSaved(false);
-    try {
-      await api.put('/admin/settings/maintenance', {
-        mode: String(enabled),
-        message,
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kayıt hatası');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <Loader />;
-
-  return (
-    <div className={`rounded-sm border-2 shadow-default mb-5 transition-colors duration-300 ${
-      enabled
-        ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-500'
-        : 'border-stroke bg-white dark:border-strokedark dark:bg-boxdark'
-    }`}>
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-stroke dark:border-strokedark">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-              enabled ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-meta-4'
-            }`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"
-                className={enabled ? 'text-amber-600' : 'text-gray-400'}>
-                <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-black dark:text-white">Sistem Bakım Modu</h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {enabled
-                  ? 'Bakım modu aktif — Son kullanıcılar siteyi göremiyor'
-                  : 'Site normal çalışıyor — Son kullanıcılar siteye erişebiliyor'}
-              </p>
-            </div>
-          </div>
-
-          {/* Büyük Toggle */}
-          <div className="flex items-center gap-3">
-            {enabled && (
-              <span className="flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                AKTİF
-              </span>
-            )}
-            <button
-              onClick={() => setEnabled(!enabled)}
-              className={`relative inline-flex h-8 w-16 cursor-pointer items-center rounded-full transition-colors duration-300 focus:outline-none ${
-                enabled ? 'bg-amber-500' : 'bg-gray-200 dark:bg-meta-4'
-              }`}
-              role="switch"
-              aria-checked={enabled}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
-                  enabled ? 'translate-x-9' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="px-6 py-5 space-y-4">
-        {/* Uyarı kutusu — sadece aktifken göster */}
-        {enabled && (
-          <div className="flex items-start gap-3 rounded-md bg-amber-100 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
-            <svg className="flex-shrink-0 mt-0.5 text-amber-600" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-            </svg>
-            <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-              <strong className="font-semibold block mb-0.5">Bakım modu şu anda aktif.</strong>
-              Bakım modu aktifken son kullanıcılar siteye erişemez ve aşağıdaki duyuru mesajını görür.
-              Admin paneline giriş yapmış yöneticiler siteyi normal şekilde görüntülemeye devam eder.
-            </div>
-          </div>
-        )}
-
-        {/* Duyuru Mesajı */}
-        <div>
-          <label className={labelCls}>
-            Son Kullanıcıya Gösterilecek Duyuru Mesajı
-          </label>
-          <textarea
-            className={inputCls + ' min-h-[100px] resize-y'}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Sistemimizde güncelleme yapılmaktadır, kısa süre sonra görüşmek üzere!"
-          />
-          <p className="mt-1 text-xs text-gray-400">
-            Bu mesaj son kullanıcının göreceği bakım modu ekranında görünür.
-          </p>
-        </div>
-
-        {/* Save Bar */}
-        <div className="flex items-center justify-between border-t border-stroke dark:border-strokedark pt-4 mt-2">
-          <div>
-            {error && <p className="text-sm text-meta-1">{error}</p>}
-            {saved && !error && (
-              <p className="text-sm text-meta-3 flex items-center gap-1">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
-                Kaydedildi
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className={`px-6 py-2 rounded text-white text-sm font-medium disabled:opacity-50 transition ${
-              enabled
-                ? 'bg-amber-500 hover:bg-amber-600'
-                : 'bg-primary hover:bg-opacity-90'
-            }`}
-          >
-            {saving ? 'Kaydediliyor…' : enabled ? 'Bakım Modunu Kaydet' : 'Değişiklikleri Kaydet'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Tab: Genel ───────────────────────────────────────────────────────────────
 
 function GeneralTab() {
@@ -340,8 +182,6 @@ function GeneralTab() {
   const g = s.form;
   return (
     <div>
-      <MaintenanceSection />
-
       <SectionCard title="Firma Bilgileri" subtitle="Yasal ve kurumsal kimlik bilgileri">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field label="Mağaza Adı *">
@@ -2904,9 +2744,319 @@ function Loader() {
   );
 }
 
+// ─── Campaign Tab ─────────────────────────────────────────────────────────────
+
+const CAMPAIGN_COLORS = [
+  { value: 'primary', label: 'Mavi (Site rengi)', hex: '#4F46E5' },
+  { value: 'red',     label: 'Kırmızı',           hex: '#DC2626' },
+  { value: 'orange',  label: 'Turuncu',            hex: '#F97316' },
+  { value: 'purple',  label: 'Mor',                hex: '#7C3AED' },
+  { value: 'green',   label: 'Yeşil',              hex: '#10B981' },
+  { value: 'navy',    label: 'Lacivert',            hex: '#1E40AF' },
+];
+
+function formatForDatetimeInput(isoStr: string): string {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+interface CampaignForm {
+  name: string;
+  discountText: string;
+  endDate: string;
+  showOnHome: boolean;
+  color: string;
+  displayType: string;
+  ctaText: string;
+  ctaLink: string;
+}
+
+function defaultEndDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  d.setHours(23, 59, 0, 0);
+  return formatForDatetimeInput(d.toISOString());
+}
+
+const EMPTY_CAMPAIGN: CampaignForm = {
+  name: '', discountText: '', endDate: defaultEndDate(), showOnHome: false,
+  color: 'primary', displayType: 'sticky', ctaText: '', ctaLink: '',
+};
+
+function CampaignTab() {
+  const [form, setForm] = useState<CampaignForm>(EMPTY_CAMPAIGN);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    api.get<{ success: boolean; data: (CampaignForm & { endDate: string }) | null }>('/admin/campaign')
+      .then((r) => {
+        if (r.data) {
+          setForm({
+            ...EMPTY_CAMPAIGN,
+            ...r.data,
+            endDate: formatForDatetimeInput(r.data.endDate),
+            ctaText: r.data.ctaText ?? '',
+            ctaLink: r.data.ctaLink ?? '',
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const set = (k: keyof CampaignForm, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true); setSaved(false); setSaveError('');
+    try {
+      await api.post('/admin/campaign', form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Kayıt hatası');
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <div className="flex justify-center py-10"><div className="animate-spin h-7 w-7 border-2 border-primary border-t-transparent rounded-full" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <SectionCard title="İndirim Günü Kampanyası" subtitle="Ana sayfada görünecek kampanya banner'ı — pasifken hiçbir şey gösterilmez">
+
+        {/* Aktif/Pasif toggle */}
+        <div className="flex items-center justify-between flex-wrap gap-3 pb-4 mb-4 border-b border-stroke dark:border-strokedark">
+          <div className="flex items-center gap-3">
+            <Toggle checked={form.showOnHome} onChange={(v) => set('showOnHome', v)} />
+            <span className="text-sm font-medium text-black dark:text-white">
+              {form.showOnHome ? 'Ana Sayfada Göster' : 'Gizle'}
+            </span>
+          </div>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${form.showOnHome ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-meta-4 dark:text-gray-400'}`}>
+            {form.showOnHome ? '● Aktif' : '○ Pasif'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Field label="Kampanya Adı">
+            <input value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} placeholder="Efsane Cuma" />
+          </Field>
+
+          <Field label="İndirim Metni">
+            <input value={form.discountText} onChange={(e) => set('discountText', e.target.value)} className={inputCls} placeholder="%50'ye Varan İndirimler" />
+          </Field>
+
+          <Field label="Bitiş Tarihi & Saati" hint="Süre dolduğunda banner otomatik kapanır">
+            <input
+              type="datetime-local"
+              value={form.endDate}
+              onChange={(e) => set('endDate', e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+
+          <Field label="Görüntüleme Tipi">
+            <div className="flex gap-4 mt-1">
+              {[
+                { value: 'sticky', label: 'Sabit Bar', hint: 'Başlık üstünde ince bant' },
+                { value: 'popup',  label: 'Pop-up',    hint: 'Ekran ortasında modal' },
+              ].map((opt) => (
+                <label key={opt.value} className="flex items-start gap-2 cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="displayType"
+                    value={opt.value}
+                    checked={form.displayType === opt.value}
+                    onChange={() => set('displayType', opt.value)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-black dark:text-white group-hover:text-primary transition">{opt.label}</span>
+                    <p className="text-[11px] text-gray-400">{opt.hint}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="CTA Buton Metni" hint="Boş bırakılırsa buton gösterilmez">
+            <input value={form.ctaText} onChange={(e) => set('ctaText', e.target.value)} className={inputCls} placeholder="Hemen İncele" />
+          </Field>
+
+          <Field label="CTA Buton Linki">
+            <input value={form.ctaLink} onChange={(e) => set('ctaLink', e.target.value)} className={inputCls} placeholder="/ara?indirim=true" />
+          </Field>
+        </div>
+
+        {/* Renk seçici */}
+        <Field label="Kampanya Rengi">
+          <div className="flex flex-wrap gap-3 mt-1">
+            {CAMPAIGN_COLORS.map((c) => (
+              <label key={c.value} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="color"
+                  value={c.value}
+                  checked={form.color === c.value}
+                  onChange={() => set('color', c.value)}
+                  className="sr-only"
+                />
+                <span
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                    form.color === c.value
+                      ? 'border-black dark:border-white scale-105'
+                      : 'border-transparent opacity-70 hover:opacity-100'
+                  }`}
+                  style={{ backgroundColor: c.hex, color: '#fff' }}
+                >
+                  {form.color === c.value && <span>✓</span>}
+                  {c.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </Field>
+
+        <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+          {saveError
+            ? <p className="text-sm text-meta-1">{saveError}</p>
+            : <span />
+          }
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2 rounded bg-primary text-white text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition"
+          >
+            {saving ? 'Kaydediliyor…' : saved ? '✓ Kaydedildi' : 'Kaydet'}
+          </button>
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+// ─── Popup Tab ────────────────────────────────────────────────────────────────
+
+interface PopupForm {
+  title: string;
+  content: string;
+  imageUrl: string;
+  buttonText: string;
+  buttonLink: string;
+  isActive: boolean;
+  displayFreq: string;
+}
+
+const EMPTY_POPUP: PopupForm = {
+  title: '', content: '', imageUrl: '', buttonText: '', buttonLink: '',
+  isActive: false, displayFreq: 'session',
+};
+
+function PopupTab() {
+  const [form, setForm] = useState<PopupForm>(EMPTY_POPUP);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.get<{ success: boolean; data: PopupForm | null }>('/admin/popup')
+      .then((r) => { if (r.data) setForm({ ...EMPTY_POPUP, ...r.data, imageUrl: r.data.imageUrl ?? '', buttonText: r.data.buttonText ?? '', buttonLink: r.data.buttonLink ?? '' }); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const set = (k: keyof PopupForm, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.post('/admin/popup', form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  };
+
+  if (loading) return <div className="flex justify-center py-10"><div className="animate-spin h-7 w-7 border-2 border-primary border-t-transparent rounded-full" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <SectionCard title="Pop-up Bildirimi" subtitle="Ziyaretçilere gösterilecek açılır pencere — pasif iken frontend'de hiç görünmez">
+        {/* Aktif/Pasif toggle */}
+        <div className="flex items-center justify-between flex-wrap gap-3 pb-4 mb-4 border-b border-stroke dark:border-strokedark">
+          <div className="flex items-center gap-3">
+            <Toggle checked={form.isActive} onChange={(v) => set('isActive', v)} />
+            <span className="text-sm font-medium text-black dark:text-white">
+              {form.isActive ? 'Pop-up Aktif' : 'Pop-up Pasif'}
+            </span>
+          </div>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${form.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-meta-4 dark:text-gray-400'}`}>
+            {form.isActive ? '● Yayında' : '○ Kapalı'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="md:col-span-2">
+            <Field label="Başlık">
+              <input value={form.title} onChange={(e) => set('title', e.target.value)} className={inputCls} placeholder="Büyük İndirim Başladı! 🎉" />
+            </Field>
+          </div>
+
+          <div className="md:col-span-2">
+            <Field label="İçerik" hint="HTML etiketleri desteklenir: <b>, <em>, <br>, <a href='...'> vb.">
+              <textarea
+                value={form.content}
+                onChange={(e) => set('content', e.target.value)}
+                rows={5}
+                className={inputCls + ' resize-y font-mono text-xs'}
+                placeholder="Seçili ürünlerde <b>%40'a varan</b> indirimler sizi bekliyor!"
+              />
+            </Field>
+          </div>
+
+          <Field label="Resim URL" hint="Opsiyonel — popup üstüne görsel eklemek için">
+            <input value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} className={inputCls} placeholder="https://example.com/banner.jpg" />
+          </Field>
+
+          <Field label="Görüntülenme Sıklığı">
+            <select value={form.displayFreq} onChange={(e) => set('displayFreq', e.target.value)} className={inputCls}>
+              <option value="session">Oturum başına 1 kez</option>
+              <option value="once_24h">24 saatte 1 kez</option>
+              <option value="always">Her sayfa yenilemede</option>
+            </select>
+          </Field>
+
+          <Field label="Buton Metni" hint="Boş bırakılırsa buton gösterilmez">
+            <input value={form.buttonText} onChange={(e) => set('buttonText', e.target.value)} className={inputCls} placeholder="Hemen İncele" />
+          </Field>
+
+          <Field label="Buton Linki">
+            <input value={form.buttonLink} onChange={(e) => set('buttonLink', e.target.value)} className={inputCls} placeholder="/kampanya" />
+          </Field>
+        </div>
+
+        <div className="flex justify-end mt-5">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2 rounded bg-primary text-white text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition"
+          >
+            {saving ? 'Kaydediliyor…' : saved ? '✓ Kaydedildi' : 'Kaydet'}
+          </button>
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
-type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot';
+type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign';
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   {
@@ -3028,6 +3178,33 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    key: 'popup',
+    label: 'Pop-up Bildirimi',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="9" y1="3" x2="9" y2="9" />
+        <line x1="15" y1="3" x2="15" y2="9" />
+        <line x1="3" y1="9" x2="21" y2="9" />
+        <line x1="9" y1="21" x2="9" y2="15" />
+        <line x1="15" y1="21" x2="15" y2="15" />
+        <line x1="3" y1="15" x2="21" y2="15" />
+      </svg>
+    ),
+  },
+  {
+    key: 'campaign',
+    label: 'İndirim Kampanyası',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        <path d="M13 17.5L21 13v4l-8 4.5v-4zM11 17.5L3 13v4l8 4.5v-4z" opacity=".5"/>
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M7 14.5l5 2.5 5-2.5" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+  },
 ];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -3056,6 +3233,8 @@ export default function Settings() {
     messages:      <MessagesTab />,
     tools:         <ToolsTab />,
     chatbot:       <ChatbotTab />,
+    popup:         <PopupTab />,
+    campaign:      <CampaignTab />,
   };
 
   return (

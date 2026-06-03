@@ -11,6 +11,8 @@ import wishlistRouter from './wishlist';
 import adminRouter from './admin';
 import newsletterRouter from './newsletter';
 import { getActiveRules } from '../controllers/chatbotController';
+import { getActivePopup } from '../controllers/popupController';
+import { getActiveCampaign } from '../controllers/discountCampaignController';
 import { getShippingConfig, getMaintenanceConfig, getSettingsGroup } from '../services/settingsService';
 import { optionalAuthenticate } from '../middlewares/auth';
 import { AuthRequest } from '../types';
@@ -19,6 +21,8 @@ const router = Router();
 
 router.use('/health', healthRouter);
 router.get('/chatbot/rules', getActiveRules);
+router.get('/popup', getActivePopup);
+router.get('/campaign', getActiveCampaign);
 router.use('/auth', authRouter);
 router.use('/products', productsRouter);
 router.use('/categories', categoriesRouter);

@@ -84,7 +84,7 @@ async function uploadRequest<T>(path: string, file: File, retry = true): Promise
     }
   }
 
-  if (!res.ok) throw new Error(json.message ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(json.message ?? json.error ?? `HTTP ${res.status}`);
   return json;
 }
 
@@ -133,7 +133,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   }
 
   if (!res.ok) {
-    throw new Error(json.message ?? `HTTP ${res.status}`);
+    throw new Error(json.message ?? json.error ?? `HTTP ${res.status}`);
   }
   return json;
 }

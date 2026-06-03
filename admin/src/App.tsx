@@ -16,6 +16,7 @@ import ShippingSettings from './pages/Settings/ShippingSettings';
 import Analytics from './pages/Analytics';
 import UserAnalytics from './pages/UserAnalytics';
 import Settings from './pages/Settings';
+import AttributesPage from './pages/Attributes';
 import DefaultLayout from './layout/DefaultLayout';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 
@@ -163,6 +164,15 @@ function AppRoutes() {
                     <>
                       <PageTitle title="Kargo Ayarları | MaBridge Admin" />
                       <ShippingSettings />
+                    </>
+                  }
+                />
+                <Route
+                  path="attributes"
+                  element={
+                    <>
+                      <PageTitle title="Ürün Özellikleri | MaBridge Admin" />
+                      <AttributesPage />
                     </>
                   }
                 />

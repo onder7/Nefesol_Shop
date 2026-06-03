@@ -166,9 +166,8 @@ export function LiveChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const getResponseRef = useRef(buildMatcher(KNOWLEDGE_FALLBACK));
 
-  // Chat açıldığında güncel kuralları çek (admin değişikliklerini yansıtır)
-  useEffect(() => {
-    if (!open) return;
+  // Chat açıkken kuralları çek; açılışta ve her 30s'de yenile
+  const fetchRules = useCallback(() => {
     fetch(`${API_BASE}/chatbot/rules`)
       .then((r) => r.json())
       .then((json) => {
@@ -177,7 +176,14 @@ export function LiveChat() {
         }
       })
       .catch(() => { /* fallback kalır */ });
-  }, [open]);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchRules();
+    const timer = setInterval(fetchRules, 30_000);
+    return () => clearInterval(timer);
+  }, [open, fetchRules]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

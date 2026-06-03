@@ -137,14 +137,12 @@ function ProductShareBar({ name, url }: { name: string; url: string }) {
 function buildWhatsAppUrl(
   phone: string,
   product: { name: string },
-  variant: { price: number | string; attributes?: Record<string, string> } | null,
+  variant: { price: number | string; attributeValues?: { attributeValue: { value: string; attribute: { name: string } } }[] } | null,
   qty: number,
 ) {
-  const attrs = variant?.attributes
-    ? Object.entries(variant.attributes as Record<string, string>)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(', ')
-    : '';
+  const attrs = variant?.attributeValues
+    ?.map((av) => `${av.attributeValue.attribute.name}: ${av.attributeValue.value}`)
+    .join(', ') ?? '';
   const price = variant ? Number(variant.price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }) : '';
   const url = typeof window !== 'undefined' ? window.location.href : '';
   const msg = [
@@ -242,7 +240,14 @@ export function ProductDetail() {
     </main>
   );
 
-  const attributeKeys = [...new Set(product.variants.flatMap((v) => Object.keys(v.attributes as Record<string, string>)))];
+  // Üründeki tüm attribute'ları sortOrder'a göre sıralı topla
+  const attributeMap = new Map<string, { id: string; name: string; sortOrder: number }>();
+  product.variants.forEach((v) =>
+    v.attributeValues?.forEach(({ attributeValue: av }) => {
+      if (!attributeMap.has(av.attribute.id)) attributeMap.set(av.attribute.id, av.attribute);
+    })
+  );
+  const attributeKeys = [...attributeMap.values()].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const primaryImage =
     product.images?.find((img) => img.isPrimary) ?? product.images?.[0];
@@ -364,34 +369,74 @@ export function ProductDetail() {
 
           {/* Fiyat */}
           {variant && (
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-primary">{formatPrice(variant.price)}</span>
-              {hasDiscount && (
-                <span className="text-lg text-muted-foreground line-through">{formatPrice(variant.compareAt!)}</span>
-              )}
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold text-primary">
+                  {product.vatIncluded
+                    ? formatPrice(variant.price)
+                    : formatPrice(Number(variant.price) * (1 + product.vatRate / 100))}
+                </span>
+                {hasDiscount && (
+                  <span className="text-lg text-muted-foreground line-through">{formatPrice(variant.compareAt!)}</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {product.vatIncluded
+                  ? `KDV Dahil (%${product.vatRate}) · KDV Hariç: ${formatPrice(Number(variant.price) / (1 + product.vatRate / 100))}`
+                  : `KDV Hariç · KDV Dahil (%${product.vatRate}): ${formatPrice(Number(variant.price) * (1 + product.vatRate / 100))}`
+                }
+              </p>
             </div>
           )}
 
           {/* Varyantlar */}
-          {attributeKeys.map((key) => {
-            const values = [...new Set(product.variants.map((v) => (v.attributes as Record<string, string>)[key]))];
+          {attributeKeys.map((attr) => {
+            const uniqueValues = [
+              ...new Map(
+                product.variants
+                  .flatMap((v) => v.attributeValues ?? [])
+                  .filter(({ attributeValue: av }) => av.attribute.id === attr.id)
+                  .map(({ attributeValue: av }) => [av.id, av])
+              ).values(),
+            ].sort((a, b) => a.sortOrder - b.sortOrder);
+
             return (
-              <div key={key}>
-                <p className="text-sm font-medium mb-2 capitalize">{key}</p>
+              <div key={attr.id}>
+                <p className="text-sm font-medium mb-2">{attr.name}</p>
                 <div className="flex flex-wrap gap-2">
-                  {values.map((val) => {
-                    const v = product.variants.find((pv) => (pv.attributes as Record<string, string>)[key] === val);
-                    const isSelected = variant && (variant.attributes as Record<string, string>)[key] === val;
+                  {uniqueValues.map((av) => {
+                    // Önce mevcut diğer attribute seçimlerini koruyarak bu değere uyan varyantı bul
+                    const matchVariant = (() => {
+                      const perfect = product.variants.find((pv) => {
+                        if (!pv.attributeValues?.some((x) => x.attributeValue.id === av.id)) return false;
+                        for (const { attributeValue: curAv } of variant?.attributeValues ?? []) {
+                          if (curAv.attribute.id === attr.id) continue;
+                          if (!pv.attributeValues?.some((x) => x.attributeValue.id === curAv.id)) return false;
+                        }
+                        return true;
+                      });
+                      return perfect ?? product.variants.find((pv) =>
+                        pv.attributeValues?.some((x) => x.attributeValue.id === av.id)
+                      );
+                    })();
+                    const isSelected = variant?.attributeValues?.some((x) => x.attributeValue.id === av.id);
                     return (
                       <button
-                        key={val}
-                        onClick={() => v && setSelectedVariant(v)}
+                        key={av.id}
+                        onClick={() => matchVariant && setSelectedVariant(matchVariant)}
                         className={`px-3 py-1.5 text-sm border rounded-lg transition-colors ${
                           isSelected ? 'border-primary bg-primary/5 font-medium' : 'hover:border-muted-foreground'
-                        } ${v?.stockQty === 0 ? 'opacity-40 cursor-not-allowed line-through' : ''}`}
-                        disabled={v?.stockQty === 0}
+                        } ${matchVariant?.stockQty === 0 ? 'opacity-40 cursor-not-allowed line-through' : ''}`}
+                        disabled={matchVariant?.stockQty === 0}
                       >
-                        {val}
+                        {attr.inputType === 'color' && av.colorHex ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-3.5 h-3.5 rounded-full border border-gray-200 inline-block shrink-0" style={{ backgroundColor: av.colorHex }} />
+                            {av.value}
+                          </span>
+                        ) : (
+                          av.value
+                        )}
                       </button>
                     );
                   })}

@@ -6,6 +6,15 @@ const CART_INCLUDE = {
     include: {
       variant: {
         include: {
+          attributeValues: {
+            include: {
+              attributeValue: {
+                include: {
+                  attribute: { select: { id: true, name: true, slug: true, inputType: true, sortOrder: true } },
+                },
+              },
+            },
+          },
           product: {
             select: {
               id: true,

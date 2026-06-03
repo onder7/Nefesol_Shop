@@ -20,7 +20,17 @@ const productInclude = {
     where: { isActive: true },
     select: {
       id: true, sku: true, price: true, compareAt: true,
-      stockQty: true, attributes: true,
+      stockQty: true, desi: true,
+      attributeValues: {
+        select: {
+          attributeValue: {
+            select: {
+              id: true, value: true, colorHex: true, sortOrder: true,
+              attribute: { select: { id: true, name: true, slug: true, inputType: true, sortOrder: true } },
+            },
+          },
+        },
+      },
     },
   },
   images: {

@@ -7,6 +7,8 @@ import { Footer } from '@/components/layout/Footer';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { LiveChat } from '@/components/common/LiveChat';
+import { PopupNotification } from '@/components/common/PopupNotification';
+import { DiscountBanner } from '@/components/common/DiscountBanner';
 import { Home } from '@/pages/Home';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
@@ -33,10 +35,12 @@ const queryClient = new QueryClient({
 function AppContent() {
   const location = useLocation();
   const isAuthPage = ['/giris', '/kayit'].includes(location.pathname);
+  const isHomePage = location.pathname === '/';
 
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
+      {isHomePage && <DiscountBanner />}
       {!isAuthPage && <Header />}
       <Routes>
         <Route path="/" element={<Home />} />
@@ -75,6 +79,7 @@ function AppContent() {
       </Routes>
       {!isAuthPage && <Footer />}
       {!isAuthPage && <LiveChat />}
+      {!isAuthPage && <PopupNotification />}
     </div>
   );
 }

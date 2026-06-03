@@ -3,6 +3,10 @@ import multer from 'multer';
 import { authenticate, requireAdmin } from '../middlewares/auth';
 import * as ctrl from '../controllers/adminController';
 import * as chatbotCtrl from '../controllers/chatbotController';
+import * as popupCtrl from '../controllers/popupController';
+import * as campaignCtrl from '../controllers/discountCampaignController';
+import * as attrCtrl from '../controllers/attributeController';
+import * as umamiCtrl from '../controllers/umamiController';
 import { uploadImage } from '../middlewares/upload';
 import { uploadProductImage } from '../controllers/uploadController';
 
@@ -16,6 +20,9 @@ router.use(authenticate, requireAdmin);
 router.get('/stats', ctrl.getStats);
 router.get('/analytics', ctrl.getAnalytics);
 router.get('/user-analytics', ctrl.getUserAnalytics);
+
+// Umami Live Analytics
+router.get('/analytics/live', umamiCtrl.getLiveAnalytics);
 
 // Upload
 router.post('/upload', uploadImage.single('file'), uploadProductImage);
@@ -101,6 +108,23 @@ router.get('/tools/system/stats', ctrl.getSystemInfo);
 
 // Product Import (Excel / CSV)
 router.post('/tools/products/import', uploadMemory.single('file'), ctrl.importProducts);
+
+// Popup
+router.get('/popup', popupCtrl.getPopupAdmin);
+router.post('/popup', popupCtrl.upsertPopup);
+
+// Discount Campaign
+router.get('/campaign', campaignCtrl.getCampaignAdmin);
+router.post('/campaign', campaignCtrl.upsertCampaign);
+
+// Attributes (Product Variant System)
+router.get('/attributes', attrCtrl.listAttributes);
+router.post('/attributes', attrCtrl.createAttribute);
+router.put('/attributes/:id', attrCtrl.updateAttribute);
+router.delete('/attributes/:id', attrCtrl.deleteAttribute);
+router.post('/attributes/:id/values', attrCtrl.addAttributeValue);
+router.put('/attributes/:id/values/:valueId', attrCtrl.updateAttributeValue);
+router.delete('/attributes/:id/values/:valueId', attrCtrl.deleteAttributeValue);
 
 // Chatbot Rules
 router.get('/chatbot/rules', chatbotCtrl.listRules);

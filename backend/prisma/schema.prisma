@@ -125,6 +125,8 @@ model Product {
   description String?
   isActive    Boolean  @default(true) @map("is_active")
   isFeatured  Boolean  @default(false) @map("is_featured")
+  vatRate     Int      @default(20) @map("vat_rate")
+  vatIncluded Boolean  @default(true) @map("vat_included")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -146,16 +148,58 @@ model ProductVariant {
   price      Decimal  @db.Decimal(10, 2)
   compareAt  Decimal? @map("compare_at") @db.Decimal(10, 2)
   stockQty   Int      @default(0) @map("stock_qty")
-  attributes Json     @default("{}")
+  desi       Decimal? @db.Decimal(8, 2)
   isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
-  wishlistItems WishlistItem[]
+  product         Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  wishlistItems   WishlistItem[]
+  attributeValues VariantAttributeValue[]
 
   @@map("product_variants")
+}
+
+// ─── Ürün Özellik Sistemi (EAV) ───────────────────────────────────────────────
+
+model Attribute {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  inputType String   @default("select") @map("input_type")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  values AttributeValue[]
+
+  @@map("attributes")
+}
+
+model AttributeValue {
+  id          String  @id @default(cuid())
+  attributeId String  @map("attribute_id")
+  value       String
+  colorHex    String? @map("color_hex")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  attribute     Attribute               @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  variantValues VariantAttributeValue[]
+
+  @@unique([attributeId, value])
+  @@map("attribute_values")
+}
+
+model VariantAttributeValue {
+  variantId        String @map("variant_id")
+  attributeValueId String @map("attribute_value_id")
+
+  variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attributeValue AttributeValue @relation(fields: [attributeValueId], references: [id])
+
+  @@id([variantId, attributeValueId])
+  @@map("variant_attribute_values")
 }
 
 model ProductImage {
@@ -485,6 +529,41 @@ model ChatbotRule {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("chatbot_rules")
+}
+
+// ─── İndirim Kampanyası ───────────────────────────────────────────────────────
+
+model DiscountCampaign {
+  id           String   @id @default(cuid())
+  name         String
+  discountText String   @map("discount_text")
+  endDate      DateTime @map("end_date")
+  showOnHome   Boolean  @default(false) @map("show_on_home")
+  color        String   @default("primary")
+  displayType  String   @default("sticky") @map("display_type")
+  ctaText      String?  @map("cta_text")
+  ctaLink      String?  @map("cta_link")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("discount_campaigns")
+}
+
+// ─── Popup Bildirimleri ───────────────────────────────────────────────────────
+
+model PopupNotification {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  imageUrl    String?  @map("image_url")
+  buttonText  String?  @map("button_text")
+  buttonLink  String?  @map("button_link")
+  isActive    Boolean  @default(false) @map("is_active")
+  displayFreq String   @default("session") @map("display_freq")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("popup_notifications")
 }
 
 // ─── Haber Bülteni Aboneleri ──────────────────────────────────────────────────

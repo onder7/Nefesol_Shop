@@ -6,15 +6,19 @@ import { api } from '../../lib/api';
 
 interface Category { id: string; name: string }
 interface Brand    { id: string; name: string }
-interface AttrPair { key: string; value: string }
+
+interface AttributeValue { id: string; value: string; colorHex?: string | null; sortOrder: number }
+interface Attribute { id: string; name: string; slug: string; inputType: string; sortOrder: number; values: AttributeValue[] }
 
 interface VariantInput {
   id?: string;
+  label: string;
   sku: string;
   price: string;
   compareAt: string;
   stockQty: string;
-  attributes: AttrPair[];
+  desi: string;
+  attributeValueIds: string[];
 }
 
 interface ImageInput {
@@ -22,6 +26,8 @@ interface ImageInput {
   altText: string;
   isPrimary: boolean;
 }
+
+const VAT_RATES = [0, 1, 8, 10, 18, 20];
 
 interface FormState {
   name: string;
@@ -31,6 +37,9 @@ interface FormState {
   brandId: string;
   isActive: boolean;
   isFeatured: boolean;
+  vatRate: number;
+  vatIncluded: boolean;
+  selectedAttributes: Record<string, string[]>; // attributeId → seçili valueId[]
   variants: VariantInput[];
   images: ImageInput[];
   tags: string;
@@ -51,15 +60,21 @@ function fmtPrice(n: string | number) {
   return Number(n).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 });
 }
 
-const emptyVariant = (): VariantInput => ({
-  sku: '', price: '', compareAt: '', stockQty: '0', attributes: [],
-});
+function cartesianProduct<T>(arrays: T[][]): T[][] {
+  if (!arrays.length) return [[]];
+  return arrays.reduce<T[][]>(
+    (acc, arr) => acc.flatMap((combo) => arr.map((item) => [...combo, item])),
+    [[]]
+  );
+}
 
 const defaultForm = (): FormState => ({
   name: '', slug: '', description: '',
   categoryId: '', brandId: '',
   isActive: true, isFeatured: false,
-  variants: [emptyVariant()],
+  vatRate: 20, vatIncluded: true,
+  selectedAttributes: {},
+  variants: [],
   images: [],
   tags: '',
 });
@@ -97,6 +112,7 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
 
   const [form, setForm]             = useState<FormState>(defaultForm());
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands]         = useState<Brand[]>([]);
   const [loading, setLoading]       = useState(!isNew);
@@ -109,14 +125,16 @@ export default function ProductDetailPage() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load categories & brands
+  // Load categories, brands & attributes
   useEffect(() => {
     Promise.all([
       api.get<{ success: boolean; data: Category[] }>('/admin/categories'),
       api.get<{ success: boolean; data: Brand[] }>('/admin/brands'),
-    ]).then(([c, b]) => {
+      api.get<{ success: boolean; data: Attribute[] }>('/admin/attributes'),
+    ]).then(([c, b, a]) => {
       setCategories(c.data ?? []);
       setBrands(b.data ?? []);
+      setAttributes(a.data ?? []);
     });
   }, []);
 
@@ -127,6 +145,42 @@ export default function ProductDetailPage() {
     api.get<{ success: boolean; data: any }>(`/admin/products/${productId}`)
       .then((r) => {
         const p = r.data;
+
+        // Mevcut varyantlardan seçili attribute'ları geri çöz
+        const selectedAttributes: Record<string, string[]> = {};
+        const variants: VariantInput[] = p.variants.map((v: any) => {
+          const valueIds: string[] = (v.attributeValues ?? []).map(
+            (av: any) => av.attributeValue.id
+          );
+          // Her valueId'nin hangi attribute'a ait olduğunu bul ve seçiliye ekle
+          valueIds.forEach((vid: string) => {
+            (v.attributeValues ?? []).forEach((av: any) => {
+              if (av.attributeValue.id === vid) {
+                const attrId = av.attributeValue.attribute.id;
+                if (!selectedAttributes[attrId]) selectedAttributes[attrId] = [];
+                if (!selectedAttributes[attrId].includes(vid)) {
+                  selectedAttributes[attrId].push(vid);
+                }
+              }
+            });
+          });
+
+          const label = (v.attributeValues ?? [])
+            .map((av: any) => av.attributeValue.value)
+            .join(' / ') || `Varyant`;
+
+          return {
+            id: v.id,
+            label,
+            sku: v.sku,
+            price: String(v.price),
+            compareAt: v.compareAt ? String(v.compareAt) : '',
+            stockQty: String(v.stockQty),
+            desi: v.desi ? String(v.desi) : '',
+            attributeValueIds: valueIds,
+          };
+        });
+
         setForm({
           name: p.name,
           slug: p.slug,
@@ -135,16 +189,10 @@ export default function ProductDetailPage() {
           brandId: p.brandId ?? '',
           isActive: p.isActive,
           isFeatured: p.isFeatured,
-          variants: p.variants.map((v: any) => ({
-            id: v.id,
-            sku: v.sku,
-            price: String(v.price),
-            compareAt: v.compareAt ? String(v.compareAt) : '',
-            stockQty: String(v.stockQty),
-            attributes: Object.entries((v.attributes as Record<string, string>) ?? {}).map(
-              ([key, value]) => ({ key, value })
-            ),
-          })),
+          vatRate: p.vatRate ?? 20,
+          vatIncluded: p.vatIncluded ?? true,
+          selectedAttributes,
+          variants,
           images: p.images.map((img: any) => ({
             url: img.url,
             altText: img.altText ?? '',
@@ -167,7 +215,93 @@ export default function ProductDetailPage() {
     setForm((f) => ({ ...f, name, slug: toSlug(name) }));
   }
 
-  // ── Variant helpers ───────────────────────────────────────────────────────────
+  // ── Attribute seçimi ──────────────────────────────────────────────────────────
+
+  function toggleAttributeValue(attrId: string, valueId: string, checked: boolean) {
+    setForm((f) => {
+      const prev = f.selectedAttributes[attrId] ?? [];
+      const next = checked ? [...prev, valueId] : prev.filter((id) => id !== valueId);
+      return { ...f, selectedAttributes: { ...f.selectedAttributes, [attrId]: next } };
+    });
+  }
+
+  function toggleAttribute(attrId: string, enabled: boolean) {
+    setForm((f) => {
+      const next = { ...f.selectedAttributes };
+      if (!enabled) delete next[attrId];
+      else next[attrId] = next[attrId] ?? [];
+      return { ...f, selectedAttributes: next };
+    });
+  }
+
+  // ── Kartezyen kombinasyon üretimi ─────────────────────────────────────────────
+
+  function generateCombinations() {
+    // Her seçili attribute için seçili valueId listesi
+    const attrIds = Object.keys(form.selectedAttributes).filter(
+      (id) => form.selectedAttributes[id].length > 0
+    );
+
+    if (attrIds.length === 0) {
+      // Özellik seçilmemişse tek boş varyant
+      setForm((f) => ({
+        ...f,
+        variants: [{
+          label: 'Standart',
+          sku: toSlug(f.name) || 'urun',
+          price: '', compareAt: '', stockQty: '0', desi: '',
+          attributeValueIds: [],
+        }],
+      }));
+      return;
+    }
+
+    const groups = attrIds.map((attrId) => form.selectedAttributes[attrId]);
+    const combos = cartesianProduct(groups); // string[][] (valueId combinations)
+
+    // Her kombinasyon için mevcut varyantı koru ya da yeni oluştur
+    const newVariants: VariantInput[] = combos.map((combo) => {
+      const existing = form.variants.find(
+        (v) => combo.every((vid) => v.attributeValueIds.includes(vid)) &&
+               v.attributeValueIds.length === combo.length
+      );
+
+      // Label: her değerin gösterim adını bul
+      const label = combo
+        .map((vid) => {
+          for (const attr of attributes) {
+            const val = attr.values.find((v) => v.id === vid);
+            if (val) return val.value;
+          }
+          return vid;
+        })
+        .join(' / ');
+
+      const slugBase = toSlug(form.name || 'urun');
+      const skuSuffix = combo
+        .map((vid) => {
+          for (const attr of attributes) {
+            const val = attr.values.find((v) => v.id === vid);
+            if (val) return toSlug(val.value).substring(0, 4);
+          }
+          return vid.substring(0, 4);
+        })
+        .join('-');
+
+      return existing
+        ? { ...existing, label, attributeValueIds: combo }
+        : {
+            label,
+            sku: `${slugBase}-${skuSuffix}`,
+            price: '', compareAt: '', stockQty: '0', desi: '',
+            attributeValueIds: combo,
+          };
+    });
+
+    setForm((f) => ({ ...f, variants: newVariants }));
+  }
+
+  // ── Varyant helper ────────────────────────────────────────────────────────────
 
   function setVariant(i: number, patch: Partial<VariantInput>) {
     setForm((f) => {
@@ -177,29 +311,8 @@ export default function ProductDetailPage() {
     });
   }
 
-  function addVariant() { setForm((f) => ({ ...f, variants: [...f.variants, emptyVariant()] })); }
-  function removeVariant(i: number) { setForm((f) => ({ ...f, variants: f.variants.filter((_, idx) => idx !== i) })); }
-
-  function addAttr(vi: number) {
-    setVariant(vi, { attributes: [...form.variants[vi].attributes, { key: '', value: '' }] });
-  }
-
-  function setAttr(vi: number, ai: number, patch: Partial<AttrPair>) {
-    setForm((f) => {
-      const variants = [...f.variants];
-      const attributes = [...variants[vi].attributes];
-      attributes[ai] = { ...attributes[ai], ...patch };
-      variants[vi] = { ...variants[vi], attributes };
-      return { ...f, variants };
-    });
-  }
-
-  function removeAttr(vi: number, ai: number) {
-    setForm((f) => {
-      const variants = [...f.variants];
-      variants[vi] = { ...variants[vi], attributes: variants[vi].attributes.filter((_, i) => i !== ai) };
-      return { ...f, variants };
-    });
+  function removeVariant(i: number) {
+    setForm((f) => ({ ...f, variants: f.variants.filter((_, idx) => idx !== i) }));
   }
 
   // ── Image helpers ─────────────────────────────────────────────────────────────
@@ -261,6 +374,7 @@ export default function ProductDetailPage() {
     e.preventDefault();
     setError('');
     if (!form.categoryId) { setError('Kategori seçiniz.'); return; }
+    if (form.variants.length === 0) { setError('En az bir varyant gereklidir. "Kombinasyon Üret" butonunu kullanın.'); return; }
     if (form.variants.some((v) => !v.sku || !v.price)) {
       setError('Her varyant için SKU ve fiyat zorunludur.');
       return;
@@ -273,13 +387,16 @@ export default function ProductDetailPage() {
       brandId: form.brandId || undefined,
       isActive: form.isActive,
       isFeatured: form.isFeatured,
+      vatRate: form.vatRate,
+      vatIncluded: form.vatIncluded,
       variants: form.variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku,
         price: Number(v.price),
         compareAt: v.compareAt ? Number(v.compareAt) : undefined,
         stockQty: Number(v.stockQty),
-        attributes: Object.fromEntries(v.attributes.filter((a) => a.key).map((a) => [a.key, a.value])),
+        desi: v.desi ? Number(v.desi) : undefined,
+        attributeValueIds: v.attributeValueIds,
       })),
       images: form.images.map((img, i) => ({
         url: img.url,
@@ -424,7 +541,7 @@ export default function ProductDetailPage() {
         {/* ─── Left Column ─── */}
         <div className="flex flex-col gap-5">
 
-          {/* Kart 1: Ürün Önizleme */}
+          {/* Kart 1: Ürün Özeti */}
           {!isNew && (
             <Card title="Ürün Özeti">
               <div className="flex gap-4 items-start">
@@ -449,13 +566,16 @@ export default function ProductDetailPage() {
                       <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">{brandName}</span>
                     )}
                   </div>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-2">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${form.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {form.isActive ? 'Aktif' : 'Pasif'}
                     </span>
                     {form.isFeatured && (
                       <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">★ Öne Çıkan</span>
                     )}
+                    <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                      KDV {form.vatIncluded ? 'Dahil' : 'Hariç'} %{form.vatRate}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -557,7 +677,46 @@ export default function ProductDetailPage() {
             </div>
           </Card>
 
-          {/* Kart 3: Etiketler */}
+          {/* Kart 3: KDV Ayarları */}
+          <Card title="KDV Ayarları">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">KDV Oranı</label>
+                <select
+                  value={form.vatRate}
+                  onChange={(e) => set('vatRate', Number(e.target.value))}
+                  className={inputCls}
+                >
+                  {VAT_RATES.map((r) => (
+                    <option key={r} value={r}>%{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-black dark:text-white">Fiyata KDV Dahil</p>
+                  <p className="text-xs text-gray-400">
+                    {form.vatIncluded
+                      ? 'Girilen fiyat KDV dahil (müşterinin ödediği fiyat)'
+                      : 'Girilen fiyat KDV hariç, müşteriye KDV dahil gösterilir'}
+                  </p>
+                </div>
+                <div
+                  onClick={() => set('vatIncluded', !form.vatIncluded)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer shrink-0 ml-3 ${form.vatIncluded ? 'bg-primary' : 'bg-gray-200 dark:bg-strokedark'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.vatIncluded ? 'translate-x-6' : 'translate-x-1'}`} />
+                </div>
+              </label>
+
+              <div className="rounded-lg bg-gray-50 dark:bg-meta-4 px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                Fiyatlar <strong className="text-black dark:text-white">KDV {form.vatIncluded ? 'Dahil' : 'Hariç'}</strong> · Oran: <strong className="text-black dark:text-white">%{form.vatRate}</strong>
+              </div>
+            </div>
+          </Card>
+
+          {/* Kart 4: Etiketler */}
           <Card title="Etiketler">
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
               Virgülle ayırarak girin
@@ -583,22 +742,19 @@ export default function ProductDetailPage() {
         {/* ─── Right Column (2/3) ─── */}
         <div className="lg:col-span-2 flex flex-col gap-5">
 
-          {/* Kart 4: Görseller */}
+          {/* Kart 5: Görseller */}
           <Card
             title={`Görseller${form.images.length > 0 ? ` (${form.images.length})` : ''}`}
           >
-            {/* Upload zone */}
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               onClick={() => !uploadingCount && fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors mb-4 ${
-                isDragging
-                  ? 'border-primary bg-primary/5 cursor-copy'
-                  : uploadingCount
-                  ? 'border-stroke cursor-not-allowed'
-                  : 'border-stroke dark:border-strokedark hover:border-primary cursor-pointer'
+                isDragging ? 'border-primary bg-primary/5 cursor-copy'
+                : uploadingCount ? 'border-stroke cursor-not-allowed'
+                : 'border-stroke dark:border-strokedark hover:border-primary cursor-pointer'
               }`}
             >
               <input
@@ -625,34 +781,23 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Image grid */}
             {form.images.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {form.images.map((img, i) => (
                   <div key={i} className={`relative rounded-xl overflow-hidden border-2 transition-colors group ${img.isPrimary ? 'border-primary' : 'border-stroke dark:border-strokedark hover:border-gray-300'}`}>
                     <img src={img.url} alt={img.altText || ''} className="w-full aspect-square object-cover" />
                     {img.isPrimary && (
-                      <span className="absolute top-1.5 left-1.5 text-[10px] bg-primary text-white font-semibold px-1.5 py-0.5 rounded-md">
-                        Ana
-                      </span>
+                      <span className="absolute top-1.5 left-1.5 text-[10px] bg-primary text-white font-semibold px-1.5 py-0.5 rounded-md">Ana</span>
                     )}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       {!img.isPrimary && (
-                        <button
-                          type="button"
-                          onClick={() => setImage(i, { isPrimary: true })}
-                          title="Ana görsel yap"
-                          className="bg-white text-xs text-gray-700 px-2 py-1 rounded-lg font-medium hover:bg-primary hover:text-white transition"
-                        >
+                        <button type="button" onClick={() => setImage(i, { isPrimary: true })} title="Ana görsel yap"
+                          className="bg-white text-xs text-gray-700 px-2 py-1 rounded-lg font-medium hover:bg-primary hover:text-white transition">
                           Ana
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => removeImage(i)}
-                        title="Kaldır"
-                        className="bg-white text-red-600 w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition"
-                      >
+                      <button type="button" onClick={() => removeImage(i)} title="Kaldır"
+                        className="bg-white text-red-600 w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                           <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
                         </svg>
@@ -664,132 +809,191 @@ export default function ProductDetailPage() {
             )}
           </Card>
 
-          {/* Kart 5: Varyantlar */}
+          {/* Kart 6: Özellik Seçimi (Varyant Parametreleri) */}
           <Card
-            title={`Varyantlar (${form.variants.length})`}
+            title="Varyant Özellikleri"
             action={
-              <button
-                type="button"
-                onClick={addVariant}
-                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                </svg>
-                Varyant Ekle
-              </button>
+              <a href="/attributes" target="_blank" className="text-xs text-primary hover:underline">
+                Özellik Yönetimi →
+              </a>
             }
           >
-            <div className="space-y-4">
-              {form.variants.map((v, vi) => (
-                <div key={vi} className="rounded-xl border border-stroke dark:border-strokedark overflow-hidden">
-                  {/* Variant header */}
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-meta-4">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Varyant {vi + 1}
-                      {v.sku && <span className="ml-2 font-mono text-primary normal-case">{v.sku}</span>}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      {v.price && (
-                        <span className="text-xs font-medium text-black dark:text-white">{fmtPrice(v.price)}</span>
-                      )}
-                      {form.variants.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeVariant(vi)}
-                          className="text-xs text-red-500 hover:text-red-700"
-                        >
-                          Kaldır
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Variant fields */}
-                  <div className="p-4 space-y-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">SKU *</label>
+            {attributes.length === 0 ? (
+              <p className="text-sm text-gray-400">
+                Henüz özellik tanımlanmamış.{' '}
+                <a href="/attributes" className="text-primary hover:underline">Özellik Yönetimi</a>
+                {' '}sayfasından Renk, Beden vb. ekleyin.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {attributes.map((attr) => {
+                  const isEnabled = attr.id in form.selectedAttributes;
+                  return (
+                    <div key={attr.id} className="rounded-lg border border-stroke dark:border-strokedark p-3 space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
                         <input
-                          required
-                          value={v.sku}
-                          onChange={(e) => setVariant(vi, { sku: e.target.value })}
-                          className={inputSmCls}
-                          placeholder="SKU-001"
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={(e) => toggleAttribute(attr.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-primary"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Stok</label>
-                        <input
-                          required type="number" min={0}
-                          value={v.stockQty}
-                          onChange={(e) => setVariant(vi, { stockQty: e.target.value })}
-                          className={inputSmCls}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Fiyat (₺) *</label>
-                        <input
-                          required type="number" min={0} step="0.01"
-                          value={v.price}
-                          onChange={(e) => setVariant(vi, { price: e.target.value })}
-                          className={inputSmCls}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Karş. Fiyat (₺)</label>
-                        <input
-                          type="number" min={0} step="0.01"
-                          value={v.compareAt}
-                          onChange={(e) => setVariant(vi, { compareAt: e.target.value })}
-                          className={inputSmCls}
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Attributes */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Özellikler</span>
-                        <button type="button" onClick={() => addAttr(vi)} className="text-xs text-primary hover:underline">
-                          + Ekle
-                        </button>
-                      </div>
-                      {v.attributes.length === 0 ? (
-                        <p className="text-xs text-gray-400 italic">Henüz özellik yok (renk, beden vb.)</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {v.attributes.map((attr, ai) => (
-                            <div key={ai} className="flex items-center gap-2">
-                              <input
-                                value={attr.key}
-                                onChange={(e) => setAttr(vi, ai, { key: e.target.value })}
-                                className={`${inputSmCls} w-28`}
-                                placeholder="anahtar"
-                              />
-                              <span className="text-gray-400 text-xs">:</span>
-                              <input
-                                value={attr.value}
-                                onChange={(e) => setAttr(vi, ai, { value: e.target.value })}
-                                className={`${inputSmCls} flex-1`}
-                                placeholder="değer"
-                              />
-                              <button type="button" onClick={() => removeAttr(vi, ai)}
-                                className="text-red-400 hover:text-red-600 text-sm px-1">
-                                &times;
-                              </button>
-                            </div>
-                          ))}
+                        <span className="text-sm font-medium text-black dark:text-white">{attr.name}</span>
+                        <span className="text-[10px] text-gray-400">({attr.values.length} değer)</span>
+                      </label>
+                      {isEnabled && (
+                        <div className="flex flex-wrap gap-2 pl-6">
+                          {attr.values.map((val) => {
+                            const checked = form.selectedAttributes[attr.id]?.includes(val.id) ?? false;
+                            return (
+                              <label key={val.id} className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => toggleAttributeValue(attr.id, val.id, e.target.checked)}
+                                  className="h-3.5 w-3.5 rounded border-gray-300 text-primary"
+                                />
+                                {attr.inputType === 'color' && val.colorHex && (
+                                  <span className="w-3.5 h-3.5 rounded-full border border-gray-200 shrink-0" style={{ backgroundColor: val.colorHex }} />
+                                )}
+                                <span className="text-xs text-black dark:text-white">{val.value}</span>
+                              </label>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={generateCombinations}
+                  className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-opacity-90 transition flex items-center justify-center gap-2"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3a3 3 0 1 0 6 0 3 3 0 0 0-6 0z" fill="currentColor"/>
+                  </svg>
+                  Kombinasyonları Üret ({
+                    (() => {
+                      const groups = Object.values(form.selectedAttributes).filter((g) => g.length > 0);
+                      return groups.length ? groups.reduce((p, g) => p * g.length, 1) : 0;
+                    })()
+                  } kombinasyon)
+                </button>
+              </div>
+            )}
           </Card>
+
+          {/* Kart 7: Varyant Tablosu */}
+          {form.variants.length > 0 && (
+            <Card title={`Varyantlar (${form.variants.length})`}>
+              <div className="space-y-3">
+                {form.variants.map((v, vi) => (
+                  <div key={vi} className="rounded-xl border border-stroke dark:border-strokedark overflow-hidden">
+                    {/* Varyant başlığı */}
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-meta-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {v.attributeValueIds.map((vid) => {
+                          for (const attr of attributes) {
+                            const val = attr.values.find((a) => a.id === vid);
+                            if (val) return (
+                              <span key={vid} className="flex items-center gap-1 text-xs bg-white dark:bg-boxdark border border-stroke dark:border-strokedark px-2 py-0.5 rounded-full">
+                                {attr.inputType === 'color' && val.colorHex && (
+                                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: val.colorHex }} />
+                                )}
+                                {attr.name}: <strong>{val.value}</strong>
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
+                        {v.attributeValueIds.length === 0 && (
+                          <span className="text-xs text-gray-500">{v.label || 'Standart'}</span>
+                        )}
+                        {v.sku && <span className="font-mono text-[10px] text-primary">{v.sku}</span>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {v.price && (
+                          <span className="text-xs font-medium text-black dark:text-white">
+                            {fmtPrice(v.price)} <span className="text-[10px] text-gray-400">KDV {form.vatIncluded ? 'D' : 'H'}</span>
+                          </span>
+                        )}
+                        {form.variants.length > 1 && (
+                          <button type="button" onClick={() => removeVariant(vi)} className="text-xs text-red-500 hover:text-red-700">
+                            Kaldır
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Varyant alanları */}
+                    <div className="p-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        <div className="col-span-2 sm:col-span-1 lg:col-span-2">
+                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">SKU *</label>
+                          <input
+                            required
+                            value={v.sku}
+                            onChange={(e) => setVariant(vi, { sku: e.target.value })}
+                            className={inputSmCls}
+                            placeholder="SKU-001"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                            Fiyat {form.vatIncluded ? '(KDV D.)' : '(KDV H.)'} *
+                          </label>
+                          <input
+                            required type="number" min={0} step="0.01"
+                            value={v.price}
+                            onChange={(e) => setVariant(vi, { price: e.target.value })}
+                            className={inputSmCls}
+                            placeholder="0.00"
+                          />
+                          {v.price && Number(v.price) > 0 && form.vatRate > 0 && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {form.vatIncluded
+                                ? `H: ${(Number(v.price) / (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`
+                                : `D: ${(Number(v.price) * (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Karş. Fiyat</label>
+                          <input
+                            type="number" min={0} step="0.01"
+                            value={v.compareAt}
+                            onChange={(e) => setVariant(vi, { compareAt: e.target.value })}
+                            className={inputSmCls}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Stok</label>
+                          <input
+                            required type="number" min={0}
+                            value={v.stockQty}
+                            onChange={(e) => setVariant(vi, { stockQty: e.target.value })}
+                            className={inputSmCls}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Desi</label>
+                          <input
+                            type="number" min={0} step="0.01"
+                            value={v.desi}
+                            onChange={(e) => setVariant(vi, { desi: e.target.value })}
+                            className={inputSmCls}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 

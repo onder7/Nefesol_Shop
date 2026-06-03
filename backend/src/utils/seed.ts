@@ -232,7 +232,6 @@ async function main() {
             sku: v.sku,
             price: v.price,
             stockQty: v.stock,
-            attributes: { color: v.color },
           })),
         },
         images: {

@@ -95,7 +95,7 @@ export function Cart() {
         <div className="lg:col-span-2 space-y-4">
           {cart.items.map((item) => {
             const img = item.variant.product.images?.[0];
-            const attrs = item.variant.attributes as Record<string, string>;
+            const attrValues = item.variant.attributeValues ?? [];
             return (
               <div key={item.id} className="flex gap-4 border rounded-lg p-4">
                 <div className="w-20 h-20 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
@@ -113,9 +113,9 @@ export function Cart() {
                   >
                     {item.variant.product.name}
                   </Link>
-                  {Object.keys(attrs).length > 0 && (
+                  {attrValues.length > 0 && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(' / ')}
+                      {attrValues.map((av) => `${av.attributeValue.attribute.name}: ${av.attributeValue.value}`).join(' / ')}
                     </p>
                   )}
                   <p className="font-semibold text-primary mt-1">{formatPrice(item.priceAtAdd)}</p>

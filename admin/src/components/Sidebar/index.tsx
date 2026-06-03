@@ -64,6 +64,15 @@ const navItems = [
     ),
   },
   {
+    to: '/attributes',
+    label: 'Ürün Özellikleri',
+    icon: (
+      <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M3 5h2V3H3v2zm0 8h2v-2H3v2zm0 8h2v-2H3v2zm4-16v2h14V5H7zm0 10h14v-2H7v2zm0 8h14v-2H7v2z" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
     to: '/analytics',
     label: 'Raporlar',
     icon: (

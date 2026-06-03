@@ -83,13 +83,16 @@ export interface AdminProductInput {
   description?: string;
   isActive?: boolean;
   isFeatured?: boolean;
+  vatRate?: number;
+  vatIncluded?: boolean;
   variants: {
     id?: string;
     sku: string;
     price: number;
     compareAt?: number;
     stockQty: number;
-    attributes?: Record<string, string>;
+    desi?: number;
+    attributeValueIds?: string[];
   }[];
   images?: { url: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[];
   tags?: string[];
@@ -148,13 +151,18 @@ export async function adminCreateProduct(data: AdminProductInput) {
       description: data.description,
       isActive: data.isActive ?? true,
       isFeatured: data.isFeatured ?? false,
+      vatRate: data.vatRate ?? 20,
+      vatIncluded: data.vatIncluded ?? true,
       variants: {
         create: data.variants.map((v) => ({
           sku: v.sku,
           price: v.price,
           compareAt: v.compareAt,
           stockQty: v.stockQty,
-          attributes: v.attributes ?? {},
+          desi: v.desi,
+          attributeValues: v.attributeValueIds?.length
+            ? { create: v.attributeValueIds.map((attributeValueId) => ({ attributeValueId })) }
+            : undefined,
         })),
       },
       images: data.images
@@ -165,7 +173,7 @@ export async function adminCreateProduct(data: AdminProductInput) {
         : undefined,
     },
     include: {
-      variants: true,
+      variants: { include: { attributeValues: { include: { attributeValue: { include: { attribute: true } } } } } },
       images: true,
       tags: true,
     },
@@ -193,6 +201,8 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
         description: data.description,
         isActive: data.isActive,
         isFeatured: data.isFeatured,
+        vatRate: data.vatRate,
+        vatIncluded: data.vatIncluded,
       },
     });
 
@@ -200,11 +210,30 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
     if (data.variants) {
       const incomingIds = data.variants.filter((v) => v.id).map((v) => v.id!);
 
-      // Listede olmayan aktif varyantları devre dışı bırak (FK sorunu yaratmadan)
-      await tx.productVariant.updateMany({
-        where: { productId: id, id: { notIn: incomingIds }, isActive: true },
-        data: { isActive: false },
+      // Listede olmayan varyantları bul
+      const toRemove = await tx.productVariant.findMany({
+        where: { productId: id, id: { notIn: incomingIds } },
+        select: { id: true, _count: { select: { orderItems: true } } },
       });
+
+      const canHardDelete = toRemove.filter((v) => v._count.orderItems === 0).map((v) => v.id);
+      const mustSoftKeep  = toRemove.filter((v) => v._count.orderItems > 0).map((v) => v.id);
+
+      // SKU kısıtı kalmayacak şekilde tamamen sil (sipariş kaydı olmayan varyantlar)
+      if (canHardDelete.length > 0) {
+        await tx.variantAttributeValue.deleteMany({ where: { variantId: { in: canHardDelete } } });
+        await tx.cartItem.deleteMany({ where: { variantId: { in: canHardDelete } } });
+        await tx.wishlistItem.deleteMany({ where: { variantId: { in: canHardDelete } } });
+        await tx.productVariant.deleteMany({ where: { id: { in: canHardDelete } } });
+      }
+
+      // Sipariş geçmişi olan varyantları sadece pasif et
+      if (mustSoftKeep.length > 0) {
+        await tx.productVariant.updateMany({
+          where: { id: { in: mustSoftKeep } },
+          data: { isActive: false },
+        });
+      }
 
       // Mevcut varyantları güncelle
       for (const v of data.variants.filter((v) => v.id)) {
@@ -215,24 +244,40 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
             price: v.price,
             compareAt: v.compareAt ?? null,
             stockQty: v.stockQty,
-            attributes: v.attributes ?? {},
+            desi: v.desi ?? null,
             isActive: true,
           },
         });
+        // Junction tablosunu sıfırla ve yeniden oluştur
+        if (v.attributeValueIds !== undefined) {
+          await tx.variantAttributeValue.deleteMany({ where: { variantId: v.id! } });
+          if (v.attributeValueIds.length > 0) {
+            await tx.variantAttributeValue.createMany({
+              data: v.attributeValueIds.map((attributeValueId) => ({ variantId: v.id!, attributeValueId })),
+              skipDuplicates: true,
+            });
+          }
+        }
       }
 
       // Yeni varyantları oluştur
       for (const v of data.variants.filter((v) => !v.id)) {
-        await tx.productVariant.create({
+        const created = await tx.productVariant.create({
           data: {
             productId: id,
             sku: v.sku,
             price: v.price,
             compareAt: v.compareAt,
             stockQty: v.stockQty,
-            attributes: v.attributes ?? {},
+            desi: v.desi,
           },
         });
+        if (v.attributeValueIds?.length) {
+          await tx.variantAttributeValue.createMany({
+            data: v.attributeValueIds.map((attributeValueId) => ({ variantId: created.id, attributeValueId })),
+            skipDuplicates: true,
+          });
+        }
       }
     }
 
@@ -264,7 +309,14 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
 
     return tx.product.findUnique({
       where: { id },
-      include: { variants: { where: { isActive: true } }, images: true, tags: true },
+      include: {
+        variants: {
+          where: { isActive: true },
+          include: { attributeValues: { include: { attributeValue: { include: { attribute: true } } } } },
+        },
+        images: true,
+        tags: true,
+      },
     });
   });
 }
@@ -275,7 +327,11 @@ export async function adminGetProduct(id: string) {
     include: {
       category: { select: { id: true, name: true } },
       brand: { select: { id: true, name: true } },
-      variants: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+      variants: {
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
+        include: { attributeValues: { include: { attributeValue: { include: { attribute: true } } } } },
+      },
       images: { orderBy: { sortOrder: 'asc' } },
       tags: true,
     },
