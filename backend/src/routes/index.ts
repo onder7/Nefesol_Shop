@@ -10,10 +10,13 @@ import checkoutRouter from './checkout';
 import wishlistRouter from './wishlist';
 import adminRouter from './admin';
 import newsletterRouter from './newsletter';
+import pricingRouter from './pricing';
+import campaignsRouter from './campaigns';
+import discountsRouter from './discounts';
 import { getActiveRules } from '../controllers/chatbotController';
 import { getActivePopup } from '../controllers/popupController';
 import { getActiveCampaign } from '../controllers/discountCampaignController';
-import { getShippingConfig, getMaintenanceConfig, getSettingsGroup } from '../services/settingsService';
+import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig } from '../services/settingsService';
 import { optionalAuthenticate } from '../middlewares/auth';
 import { AuthRequest } from '../types';
 
@@ -33,6 +36,9 @@ router.use('/checkout', checkoutRouter);
 router.use('/wishlist', wishlistRouter);
 router.use('/admin', adminRouter);
 router.use('/newsletter', newsletterRouter);
+router.use('/pricing', pricingRouter);
+router.use('/campaigns', campaignsRouter);
+router.use('/discounts', discountsRouter);
 
 // Sosyal medya linkleri — public (footer ve ürün sayfası için)
 router.get('/social-links', async (_req, res, next) => {
@@ -46,6 +52,14 @@ router.get('/social-links', async (_req, res, next) => {
 router.get('/shipping-config', async (_req, res, next) => {
   try {
     const data = await getShippingConfig();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// KDV konfigürasyonu — public (frontend sepet/checkout için)
+router.get('/tax-config', async (_req, res, next) => {
+  try {
+    const data = await getTaxConfig();
     res.json({ success: true, data });
   } catch (err) { next(err); }
 });

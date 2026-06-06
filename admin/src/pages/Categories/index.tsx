@@ -7,6 +7,7 @@ interface Category {
   slug: string;
   description?: string;
   isActive: boolean;
+  showInMenu: boolean;
   sortOrder: number;
   parentId?: string;
   imageUrl?: string;
@@ -21,6 +22,7 @@ interface FormState {
   description: string;
   sortOrder: string;
   isActive: boolean;
+  showInMenu: boolean;
   parentId: string;
 }
 
@@ -34,7 +36,7 @@ function toSlug(s: string) {
 }
 
 const defaultForm = (): FormState => ({
-  name: '', slug: '', description: '', sortOrder: '0', isActive: true, parentId: '',
+  name: '', slug: '', description: '', sortOrder: '0', isActive: true, showInMenu: true, parentId: '',
 });
 
 const inputCls = 'w-full rounded border border-stroke bg-transparent px-3 py-2 text-sm text-black outline-none transition focus:border-primary dark:border-strokedark dark:text-white dark:focus:border-primary';
@@ -75,6 +77,7 @@ export default function Categories() {
       description: cat.description ?? '',
       sortOrder: String(cat.sortOrder),
       isActive: cat.isActive,
+      showInMenu: cat.showInMenu,
       parentId: cat.parentId ?? '',
     });
     setError('');
@@ -98,6 +101,7 @@ export default function Categories() {
       description: form.description || undefined,
       sortOrder: Number(form.sortOrder),
       isActive: form.isActive,
+      showInMenu: form.showInMenu,
       parentId: form.parentId || undefined,
     };
     setSaving(true);
@@ -206,12 +210,20 @@ export default function Categories() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.isActive}
-                  onChange={(e) => set('isActive', e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary" />
-                <span className="text-sm text-black dark:text-white">Aktif</span>
-              </label>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.isActive}
+                    onChange={(e) => set('isActive', e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary" />
+                  <span className="text-sm text-black dark:text-white">Aktif</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.showInMenu}
+                    onChange={(e) => set('showInMenu', e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary" />
+                  <span className="text-sm text-black dark:text-white">Menüde Göster</span>
+                </label>
+              </div>
 
               <div className="sticky bottom-0 -mx-6 px-6 py-4 bg-white dark:bg-boxdark border-t border-stroke dark:border-strokedark flex justify-end gap-3">
                 <button type="button" onClick={() => setFormOpen(false)}
@@ -258,6 +270,7 @@ export default function Categories() {
                   <th className="px-5 py-4 text-center font-medium text-gray-600">Alt Kategori</th>
                   <th className="px-5 py-4 text-center font-medium text-gray-600">Sıra</th>
                   <th className="px-5 py-4 text-left font-medium text-gray-600">Durum</th>
+                  <th className="px-5 py-4 text-center font-medium text-gray-600">Menüde</th>
                   <th className="px-5 py-4 text-left font-medium text-gray-600">İşlem</th>
                 </tr>
               </thead>
@@ -280,6 +293,11 @@ export default function Categories() {
                         {cat.isActive ? 'Aktif' : 'Pasif'}
                       </span>
                     </td>
+                    <td className="px-5 py-4 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cat.showInMenu ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {cat.showInMenu ? 'Evet' : 'Hayır'}
+                      </span>
+                    </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         <button onClick={() => openEdit(cat)}
@@ -295,7 +313,7 @@ export default function Categories() {
                   </tr>
                 ))}
                 {categories.length === 0 && (
-                  <tr><td colSpan={7} className="py-12 text-center text-gray-400">Kategori bulunamadı.</td></tr>
+                  <tr><td colSpan={8} className="py-12 text-center text-gray-400">Kategori bulunamadı.</td></tr>
                 )}
               </tbody>
             </table>

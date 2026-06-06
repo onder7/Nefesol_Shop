@@ -8,12 +8,14 @@ import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { LiveChat } from '@/components/common/LiveChat';
 import { PopupNotification } from '@/components/common/PopupNotification';
-import { DiscountBanner } from '@/components/common/DiscountBanner';
+import { CampaignDisplay } from '@/components/common/CampaignDisplay';
+import { CookieConsent } from '@/components/common/CookieConsent';
 import { Home } from '@/pages/Home';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
 import { CategoryPage } from '@/pages/CategoryPage';
 import { ProductDetail } from '@/pages/ProductDetail';
+import CampaignDetail from '@/pages/CampaignDetail';
 import { Search } from '@/pages/Search';
 import { Cart } from '@/pages/Cart';
 import { Checkout } from '@/pages/Checkout';
@@ -22,6 +24,7 @@ import { Orders, OrderDetail } from '@/pages/Orders';
 import { Profile } from '@/pages/Profile';
 import { Favorites } from '@/pages/Favorites';
 import { NotFound } from '@/pages/NotFound';
+import { AccountDashboard } from '@/pages/AccountDashboard';
 import { useState, useEffect } from 'react';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
@@ -35,12 +38,11 @@ const queryClient = new QueryClient({
 function AppContent() {
   const location = useLocation();
   const isAuthPage = ['/giris', '/kayit'].includes(location.pathname);
-  const isHomePage = location.pathname === '/';
 
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
-      {isHomePage && <DiscountBanner />}
+      <CampaignDisplay />
       {!isAuthPage && <Header />}
       <Routes>
         <Route path="/" element={<Home />} />
@@ -52,6 +54,7 @@ function AppContent() {
         {/* Aşama 4 — Katalog */}
         <Route path="/kategori/:slug" element={<CategoryPage />} />
         <Route path="/urun/:slug" element={<ProductDetail />} />
+        <Route path="/kampanya/:id" element={<CampaignDetail />} />
         <Route path="/ara" element={<Search />} />
 
         {/* Aşama 5 — Sepet */}
@@ -69,6 +72,7 @@ function AppContent() {
         {/* Korumalı route'lar */}
         <Route element={<ProtectedRoute />}>
           <Route path="/odeme" element={<Checkout />} />
+          <Route path="/hesabim" element={<AccountDashboard />} />
           <Route path="/hesabim/siparisler" element={<Orders />} />
           <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
           <Route path="/hesabim/profil" element={<Profile />} />
@@ -80,19 +84,11 @@ function AppContent() {
       {!isAuthPage && <Footer />}
       {!isAuthPage && <LiveChat />}
       {!isAuthPage && <PopupNotification />}
+      <CookieConsent />
     </div>
   );
 }
 
-function TestModeBanner() {
-  return (
-    <div className="fixed top-0 left-0 z-[9999] pointer-events-none overflow-hidden w-28 h-28">
-      <div className="absolute bg-amber-500 text-white text-[10px] font-bold text-center py-1 left-[-28px] top-[18px] w-[120px] -rotate-45 shadow tracking-widest">
-        TEST MODU
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const [maintenance, setMaintenance] = useState<{ isActive: boolean; message: string } | null>(null);
@@ -139,7 +135,6 @@ export default function App() {
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <TestModeBanner />
           <AppContent />
           <Toaster position="top-right" richColors />
         </BrowserRouter>

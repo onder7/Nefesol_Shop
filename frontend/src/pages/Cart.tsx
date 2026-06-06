@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Minus, Plus, Trash2, ShoppingBag, Truck } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Truck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cartApi } from '@/services/cartApi';
@@ -18,6 +18,10 @@ export function Cart() {
   const { setCart } = useCartStore();
   const qc = useQueryClient();
 
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
   const { data: cart, isLoading } = useQuery<CartType | null>({
     queryKey: ['cart'],
     queryFn: async () => {
@@ -32,8 +36,19 @@ export function Cart() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: taxConfig } = useQuery({
+    queryKey: ['tax-config'],
+    queryFn: async () => {
+      const res = await fetch('/api/tax-config');
+      const data = await res.json();
+      return data.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const SHIPPING_FEE = shippingConfig?.shippingFee ?? 49.9;
   const FREE_THRESHOLD = shippingConfig?.freeShippingThreshold ?? 500;
+  const TAX_RATE = taxConfig?.taxRate ?? 18;
 
   useEffect(() => {
     if (cart !== undefined) setCart(cart);
@@ -58,6 +73,41 @@ export function Cart() {
     onError: () => toast.error('Kaldırma başarısız'),
   });
 
+  async function validateCoupon() {
+    if (!couponCode.trim()) {
+      toast.error('Kupon kodu girin');
+      return;
+    }
+
+    setValidatingCoupon(true);
+    try {
+      const res = await fetch('/api/discounts/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode }),
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || 'Kupon geçersiz');
+        setAppliedDiscount(null);
+        return;
+      }
+
+      const data = await res.json();
+      console.log('Discount applied:', data.data);
+      setAppliedDiscount(data.data);
+      setCouponCode('');
+      toast.success('Kupon başarıyla uygulandı!');
+    } catch (err: any) {
+      toast.error('Bir hata oluştu');
+      setAppliedDiscount(null);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <main className="container mx-auto px-4 py-8">
@@ -81,9 +131,51 @@ export function Cart() {
   }
 
   const subtotal = cart.items.reduce((sum, item) => sum + item.priceAtAdd * item.quantity, 0);
-  const shipping = subtotal >= FREE_THRESHOLD ? 0 : SHIPPING_FEE;
-  const total = subtotal + shipping;
-  const remaining = FREE_THRESHOLD - subtotal;
+
+  // Calculate discount
+  let discountAmount = 0;
+  let isDiscountValid = true;
+
+  if (appliedDiscount) {
+    const discountValue = typeof appliedDiscount.value === 'string'
+      ? parseFloat(appliedDiscount.value)
+      : appliedDiscount.value;
+
+    const minOrder = appliedDiscount.minOrder
+      ? (typeof appliedDiscount.minOrder === 'string'
+        ? parseFloat(appliedDiscount.minOrder)
+        : appliedDiscount.minOrder)
+      : null;
+
+    if (minOrder && subtotal < minOrder) {
+      isDiscountValid = false;
+    } else {
+      discountAmount =
+        appliedDiscount.type === 'PERCENT'
+          ? (subtotal * discountValue) / 100
+          : discountValue;
+    }
+  }
+
+  // Remove discount if minimum order not met
+  if (appliedDiscount && !isDiscountValid) {
+    // Don't apply discount, but keep showing the UI (user can see why it's not working)
+    discountAmount = 0;
+  }
+
+  if (appliedDiscount) {
+    console.log('Applied discount:', appliedDiscount);
+    console.log('Subtotal:', subtotal);
+    console.log('Discount amount:', discountAmount);
+    console.log('Subtotal after discount:', subtotal - discountAmount);
+  }
+
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const shipping = subtotalAfterDiscount >= FREE_THRESHOLD ? 0 : SHIPPING_FEE;
+  const subtotalWithShipping = subtotalAfterDiscount + shipping;
+  const tax = (subtotalWithShipping * TAX_RATE) / 100;
+  const total = subtotalWithShipping + tax;
+  const remaining = FREE_THRESHOLD - subtotalAfterDiscount;
   const isPending = updateMut.isPending || removeMut.isPending;
 
   return (
@@ -168,15 +260,71 @@ export function Cart() {
           <div className="border rounded-lg p-6 space-y-4 sticky top-20">
             <h2 className="font-semibold text-lg">Sipariş Özeti</h2>
 
+            {/* Kupon input */}
+            <div className="border-b pb-4">
+              <label className="text-sm font-medium text-gray-700 block mb-2">Kupon Kodu</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && validateCoupon()}
+                  disabled={appliedDiscount || validatingCoupon}
+                  placeholder="Kupon kodunu girin"
+                  className="flex-1 px-3 py-2 border rounded-md text-sm outline-none focus:border-primary disabled:bg-gray-50"
+                />
+                {appliedDiscount ? (
+                  <button
+                    onClick={() => {
+                      setAppliedDiscount(null);
+                      setCouponCode('');
+                    }}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    title="Kuponu kaldır"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={validateCoupon}
+                    disabled={validatingCoupon}
+                    className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-all"
+                  >
+                    {validatingCoupon ? 'Kontrol ediliyor...' : 'Uygula'}
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>Ara Toplam</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
+
+              {appliedDiscount && isDiscountValid && discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>İndirim {appliedDiscount.type === 'PERCENT' ? `(${appliedDiscount.value}%)` : ''}</span>
+                  <span>-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
+
+              {appliedDiscount && !isDiscountValid && (
+                <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                  Min. {formatPrice(typeof appliedDiscount.minOrder === 'string' ? parseFloat(appliedDiscount.minOrder) : appliedDiscount.minOrder)} alışveriş gerekli ({formatPrice((typeof appliedDiscount.minOrder === 'string' ? parseFloat(appliedDiscount.minOrder) : appliedDiscount.minOrder) - subtotal)} daha)
+                </div>
+              )}
+
               <div className="flex justify-between">
                 <span>Kargo</span>
                 <span>{shipping === 0 ? 'Ücretsiz' : formatPrice(shipping)}</span>
               </div>
+
+              <div className="flex justify-between border-t pt-2">
+                <span className="font-medium">KDV (%{TAX_RATE})</span>
+                <span className="font-medium">{formatPrice(tax)}</span>
+              </div>
+
               {shipping > 0 && remaining > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

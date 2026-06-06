@@ -92,6 +92,7 @@ model Category {
   imageUrl    String?    @map("image_url")
   sortOrder   Int        @default(0) @map("sort_order")
   isActive    Boolean    @default(true) @map("is_active")
+  showInMenu  Boolean    @default(true) @map("show_in_menu")
   createdAt   DateTime   @default(now()) @map("created_at")
 
   parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
@@ -127,6 +128,12 @@ model Product {
   isFeatured  Boolean  @default(false) @map("is_featured")
   vatRate     Int      @default(20) @map("vat_rate")
   vatIncluded Boolean  @default(true) @map("vat_included")
+
+  // Hybrid pricing system
+  pricingMethod      String   @default("fixed") @map("pricing_method")  // "fixed" | "markup"
+  costPrice          Decimal? @map("cost_price") @db.Decimal(10, 2)     // Alış fiyatı
+  markupPercentage   Decimal? @map("markup_percentage") @db.Decimal(5, 2) // Kar marjı %
+
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -137,6 +144,7 @@ model Product {
   tags      ProductTag[]
   reviews   Review[]
   questions ProductQuestion[]
+  campaigns CampaignProduct[]
 
   @@map("products")
 }
@@ -150,6 +158,11 @@ model ProductVariant {
   stockQty   Int      @default(0) @map("stock_qty")
   desi       Decimal? @db.Decimal(8, 2)
   isActive   Boolean  @default(true) @map("is_active")
+
+  // Hybrid pricing override (opsiyonel)
+  costPriceOverride        Decimal? @map("cost_price_override") @db.Decimal(10, 2)
+  markupPercentageOverride Decimal? @map("markup_percentage_override") @db.Decimal(5, 2)
+
   createdAt  DateTime @default(now()) @map("created_at")
 
   product         Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -531,22 +544,63 @@ model ChatbotRule {
   @@map("chatbot_rules")
 }
 
-// ─── İndirim Kampanyası ───────────────────────────────────────────────────────
+// ─── İndirim Kampanyası (Eski Sistem) ────────────────────────────────────────────
 
 model DiscountCampaign {
-  id           String   @id @default(cuid())
-  name         String
-  discountText String   @map("discount_text")
-  endDate      DateTime @map("end_date")
-  showOnHome   Boolean  @default(false) @map("show_on_home")
-  color        String   @default("primary")
-  displayType  String   @default("sticky") @map("display_type")
-  ctaText      String?  @map("cta_text")
-  ctaLink      String?  @map("cta_link")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  name        String
+  discountText String  @map("discount_text")
+  endDate     DateTime @map("end_date")
+  showOnHome  Boolean  @default(false) @map("show_on_home")
+  color       String   @default("primary")
+  displayType String   @default("sticky") @map("display_type")
+  ctaText     String?  @map("cta_text")
+  ctaLink     String?  @map("cta_link")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("discount_campaigns")
+}
+
+// ─── Kampanya (Campaign-Based Discount System) ────────────────────────────────────────────
+
+model Campaign {
+  id              String              @id @default(cuid())
+  name            String
+  description     String?             @db.Text
+  discountText    String              @map("discount_text")
+  discountAmount  Decimal?            @map("discount_amount") @db.Decimal(10, 2)
+  discountType    String?             @default("percentage") @map("discount_type") // "percentage" | "fixed"
+  startDate       DateTime            @map("start_date")
+  endDate         DateTime            @map("end_date")
+  isActive        Boolean             @default(true) @map("is_active")
+  showOnHome      Boolean             @default(false) @map("show_on_home")
+  color           String              @default("primary")
+  displayType     String              @default("sticky") @map("display_type")
+  imageUrl        String?             @map("image_url")
+  ctaText         String?             @map("cta_text")
+  ctaLink         String?             @map("cta_link")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  products        CampaignProduct[]
+
+  @@map("campaigns")
+}
+
+// ─── Kampanya-Ürün İlişkisi ───────────────────────────────────────────────────
+
+model CampaignProduct {
+  id         String   @id @default(cuid())
+  campaignId String   @map("campaign_id")
+  productId  String   @map("product_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, productId])
+  @@map("campaign_products")
 }
 
 // ─── Popup Bildirimleri ───────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { Product } from '@/types';
 import { Heart } from 'lucide-react';
 import { useWishlistStore } from '@/store/wishlistStore';
+import { CampaignBadges } from '@/components/common/CampaignDisplay';
 
 interface Props {
   product: Product;
@@ -16,6 +17,11 @@ export function ProductCard({ product }: Props) {
   const cheapestVariant = product.variants?.reduce((min, v) =>
     Number(v.price) < Number(min.price) ? v : min, product.variants[0]);
   const inStock = product.variants?.some((v) => v.stockQty > 0);
+
+  // Calculate discount
+  const discount = cheapestVariant && cheapestVariant.compareAt
+    ? Math.round(((Number(cheapestVariant.compareAt) - Number(cheapestVariant.price)) / Number(cheapestVariant.compareAt)) * 100)
+    : 0;
 
   const { isFavorite, toggleFavorite } = useWishlistStore();
   const fav = isFavorite(product.id);
@@ -40,6 +46,13 @@ export function ProductCard({ product }: Props) {
         ) : (
           <span className="text-neutral-400 text-xs font-semibold">Görsel Yok</span>
         )}
+        {/* İndirim Badge */}
+        {discount > 0 && (
+          <div className="absolute top-3 left-3 z-10 bg-red-600 text-white px-2 py-1 rounded-sm shadow-md">
+            <span className="text-xs font-bold">-%{discount}</span>
+          </div>
+        )}
+
         <button
           onClick={handleFavoriteClick}
           className="absolute top-3 right-3 z-20 p-2 rounded-full bg-white/90 backdrop-blur-xs shadow-xs text-neutral-600 hover:text-red-500 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-neutral-100"
@@ -62,14 +75,19 @@ export function ProductCard({ product }: Props) {
         <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold">
           {product.category?.name}
         </span>
-        
+
         {/* Ürün Adı */}
         <h3 className="text-sm font-bold text-neutral-900 group-hover:text-primary transition-colors line-clamp-1">
           {product.name}
         </h3>
-        
+
+        {/* Kampanya Badgeleri */}
+        <div className="mt-0.5">
+          <CampaignBadges />
+        </div>
+
         {/* Fiyat */}
-        <span className="text-sm font-semibold text-neutral-800">
+        <span className="text-sm font-semibold text-neutral-800 mt-1">
           {cheapestVariant ? formatPrice(cheapestVariant.price) : 'Fiyat yok'}
         </span>
       </div>

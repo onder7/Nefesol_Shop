@@ -43,6 +43,10 @@ interface FormState {
   variants: VariantInput[];
   images: ImageInput[];
   tags: string;
+  // Hybrid Pricing
+  pricingMethod: 'fixed' | 'markup';
+  costPrice: string;
+  markupPercentage: string;
 }
 
 interface ProductFormProps {
@@ -85,6 +89,9 @@ const defaultForm = (): FormState => ({
   variants: [emptyVariant('Varsayılan')],
   images: [],
   tags: '',
+  pricingMethod: 'fixed',
+  costPrice: '',
+  markupPercentage: '',
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -149,6 +156,9 @@ export function ProductForm({ productId, onClose, onSaved }: ProductFormProps) {
           vatRate: p.vatRate ?? 20,
           vatIncluded: p.vatIncluded ?? true,
           selectedAttributes,
+          pricingMethod: p.pricingMethod ?? 'fixed',
+          costPrice: p.costPrice ? String(p.costPrice) : '',
+          markupPercentage: p.markupPercentage ? String(p.markupPercentage) : '',
           variants: (p.variants ?? []).map((v: any) => {
             const ids: string[] = (v.attributeValues ?? []).map(
               (av: any) => av.attributeValue?.id
@@ -363,6 +373,9 @@ export function ProductForm({ productId, onClose, onSaved }: ProductFormProps) {
       isFeatured: form.isFeatured,
       vatRate: form.vatRate,
       vatIncluded: form.vatIncluded,
+      pricingMethod: form.pricingMethod,
+      costPrice: form.costPrice ? Number(form.costPrice) : undefined,
+      markupPercentage: form.markupPercentage ? Number(form.markupPercentage) : undefined,
       variants: form.variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku,
@@ -557,6 +570,31 @@ export function ProductForm({ productId, onClose, onSaved }: ProductFormProps) {
                     </div>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* ── Fiyatlandırma ── */}
+            <section>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-4">Fiyatlandırma Yöntemi</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" checked={form.pricingMethod === 'fixed'} onChange={() => set('pricingMethod', 'fixed')} className="h-4 w-4" />
+                    <span className="text-sm text-black dark:text-white">Sabit Fiyat</span>
+                  </label>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" checked={form.pricingMethod === 'markup'} onChange={() => set('pricingMethod', 'markup')} className="h-4 w-4" />
+                    <span className="text-sm text-black dark:text-white">Alış Fiyatı + Marj</span>
+                  </label>
+                </div>
+                {form.pricingMethod === 'markup' && (
+                  <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
+                    <input type="number" placeholder="Alış Fiyatı" value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} className={inputCls} />
+                    <input type="number" placeholder="Marj %" value={form.markupPercentage} onChange={(e) => set('markupPercentage', e.target.value)} className={inputCls} />
+                  </div>
+                )}
               </div>
             </section>
 

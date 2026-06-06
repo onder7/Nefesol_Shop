@@ -43,6 +43,7 @@ services:
       - .env
     volumes:
       - uploads_data:/app/uploads
+      - /c/Users/OHOME/Documents/node/mabridgeglobal_fresh/backup-2026-06-05T08-27-04.json:/app/backup-2026-06-05T08-27-04.json
     depends_on:
       postgres:
         condition: service_healthy

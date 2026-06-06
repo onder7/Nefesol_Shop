@@ -73,6 +73,24 @@ const navItems = [
     ),
   },
   {
+    to: '/campaigns',
+    label: 'Kampanyalar',
+    icon: (
+      <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
+    to: '/discounts',
+    label: 'İndirimler',
+    icon: (
+      <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
     to: '/analytics',
     label: 'Raporlar',
     icon: (

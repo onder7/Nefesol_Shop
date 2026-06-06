@@ -27,11 +27,17 @@ COPY prisma ./prisma
 
 # prisma ve @prisma/client artık production dependency, npm ci yükleyecek
 RUN npm ci --omit=dev
+# ts-node also needed for seeding - install after omitting dev
+RUN npm install ts-node@10.9.2 typescript@6.0.3
 
 # Prisma generated client (builder'dan kopyala)
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 COPY --from=builder /app/dist ./dist
+COPY import-backup.js ./
+COPY create-admin.js ./
+COPY import-variants.js ./
 
 EXPOSE 5000
 

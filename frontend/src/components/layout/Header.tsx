@@ -76,7 +76,7 @@ export function Header() {
     queryKey: ['categories'],
     queryFn: () => productApi.categories(),
   });
-  const categories = categoriesData?.data?.data ?? [];
+  const categories = (categoriesData?.data?.data ?? []).filter((cat: any) => cat.showInMenu !== false);
 
   async function handleLogout() {
     try {

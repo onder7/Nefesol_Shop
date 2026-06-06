@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { organizationSchema, websiteSchema } from '@/lib/schemas';
+import { CampaignBanner } from '@/components/common/CampaignDisplay';
 
 
 
@@ -51,6 +52,22 @@ const DEFAULT_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1483985988355-
 
 export function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [bannerCampaign, setBannerCampaign] = useState<any | null>(null);
+
+  // Fetch banner campaign
+  useEffect(() => {
+    const fetchBannerCampaign = async () => {
+      try {
+        const res = await api.get('/campaigns?isActive=true');
+        const campaigns = res.data?.data || [];
+        const banner = campaigns.find((c: any) => c.displayType === 'banner' && new Date(c.endDate) > new Date());
+        if (banner) setBannerCampaign(banner);
+      } catch (e) {
+        console.error('Failed to fetch banner campaign:', e);
+      }
+    };
+    fetchBannerCampaign();
+  }, []);
 
   const { data: categoriesData, isLoading: isCategoriesLoading } = useQuery({
     queryKey: ['categories'],
@@ -146,6 +163,7 @@ export function Home() {
 
   const featured = featuredData?.data?.data ?? [];
   const newArrivals = newArrivalsData?.data?.items ?? [];
+
 
   const nextSlide = () => {
     if (slides.length > 0) {
@@ -254,6 +272,13 @@ export function Home() {
           </div>
         </div>
       </section>
+
+      {/* Campaign Banner */}
+      {bannerCampaign && (
+        <section className="container mx-auto px-4 py-12">
+          <CampaignBanner campaign={bannerCampaign} />
+        </section>
+      )}
 
       {/* Kategoriler (Slider) */}
       <section className="container mx-auto px-4 py-12 relative group/slider">

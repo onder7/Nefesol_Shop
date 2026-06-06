@@ -17,6 +17,8 @@ import Analytics from './pages/Analytics';
 import UserAnalytics from './pages/UserAnalytics';
 import Settings from './pages/Settings';
 import AttributesPage from './pages/Attributes';
+import CampaignsPage from './pages/Campaigns';
+import DiscountsPage from './pages/Discounts';
 import DefaultLayout from './layout/DefaultLayout';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 
@@ -132,6 +134,15 @@ function AppRoutes() {
                   }
                 />
                 <Route
+                  path="discounts"
+                  element={
+                    <>
+                      <PageTitle title="İndirimler | MaBridge Admin" />
+                      <DiscountsPage />
+                    </>
+                  }
+                />
+                <Route
                   path="analytics"
                   element={
                     <>
@@ -173,6 +184,15 @@ function AppRoutes() {
                     <>
                       <PageTitle title="Ürün Özellikleri | MaBridge Admin" />
                       <AttributesPage />
+                    </>
+                  }
+                />
+                <Route
+                  path="campaigns"
+                  element={
+                    <>
+                      <PageTitle title="Kampanyalar | MaBridge Admin" />
+                      <CampaignsPage />
                     </>
                   }
                 />

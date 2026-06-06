@@ -43,6 +43,9 @@ interface FormState {
   variants: VariantInput[];
   images: ImageInput[];
   tags: string;
+  pricingMethod: 'fixed' | 'markup';
+  costPrice: string;
+  markupPercentage: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -77,6 +80,9 @@ const defaultForm = (): FormState => ({
   variants: [],
   images: [],
   tags: '',
+  pricingMethod: 'fixed',
+  costPrice: '',
+  markupPercentage: '',
 });
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
@@ -191,6 +197,9 @@ export default function ProductDetailPage() {
           isFeatured: p.isFeatured,
           vatRate: p.vatRate ?? 20,
           vatIncluded: p.vatIncluded ?? true,
+          pricingMethod: p.pricingMethod ?? 'fixed',
+          costPrice: p.costPrice ? String(p.costPrice) : '',
+          markupPercentage: p.markupPercentage ? String(p.markupPercentage) : '',
           selectedAttributes,
           variants,
           images: p.images.map((img: any) => ({
@@ -205,6 +214,21 @@ export default function ProductDetailPage() {
       .finally(() => setLoading(false));
   }, [productId, isNew]);
 
+  // Markup modda varyant fiyatlarını otomatik hesapla & güncelle
+  useEffect(() => {
+    if (form.pricingMethod === 'markup' && form.costPrice && form.markupPercentage) {
+      setForm((f) => ({
+        ...f,
+        variants: f.variants.map((v) => {
+          const cost = Number(f.costPrice);
+          const margin = Number(f.markupPercentage);
+          const calculated = cost + (cost * margin / 100);
+          return { ...v, price: calculated.toFixed(2) };
+        }),
+      }));
+    }
+  }, [form.pricingMethod, form.costPrice, form.markupPercentage]);
+
   // ── Form helpers ─────────────────────────────────────────────────────────────
 
   function set<K extends keyof FormState>(key: K, val: FormState[K]) {
@@ -213,6 +237,17 @@ export default function ProductDetailPage() {
 
   function handleNameChange(name: string) {
     setForm((f) => ({ ...f, name, slug: toSlug(name) }));
+  }
+
+  // Variant fiyatını pricing method'a göre hesapla (display için)
+  function calculateVariantPrice(variant: VariantInput): string {
+    if (form.pricingMethod === 'markup' && form.costPrice && form.markupPercentage) {
+      const cost = Number(form.costPrice);
+      const margin = Number(form.markupPercentage);
+      const calculated = cost + (cost * margin / 100);
+      return calculated.toFixed(2);
+    }
+    return variant.price; // Fixed mode: manuel değer
   }
 
   // ── Attribute seçimi ──────────────────────────────────────────────────────────
@@ -375,7 +410,18 @@ export default function ProductDetailPage() {
     setError('');
     if (!form.categoryId) { setError('Kategori seçiniz.'); return; }
     if (form.variants.length === 0) { setError('En az bir varyant gereklidir. "Kombinasyon Üret" butonunu kullanın.'); return; }
-    if (form.variants.some((v) => !v.sku || !v.price)) {
+    // Markup modda fiyatları otomatik hesapla
+    const variantsToSave = form.variants.map((v) => {
+      if (form.pricingMethod === 'markup' && form.costPrice && form.markupPercentage && !v.price) {
+        const cost = Number(form.costPrice);
+        const margin = Number(form.markupPercentage);
+        const calculated = cost + (cost * margin / 100);
+        return { ...v, price: calculated.toString() };
+      }
+      return v;
+    });
+
+    if (variantsToSave.some((v) => !v.sku || !v.price)) {
       setError('Her varyant için SKU ve fiyat zorunludur.');
       return;
     }
@@ -389,7 +435,10 @@ export default function ProductDetailPage() {
       isFeatured: form.isFeatured,
       vatRate: form.vatRate,
       vatIncluded: form.vatIncluded,
-      variants: form.variants.map((v) => ({
+      pricingMethod: form.pricingMethod,
+      costPrice: form.costPrice ? Number(form.costPrice) : undefined,
+      markupPercentage: form.markupPercentage ? Number(form.markupPercentage) : undefined,
+      variants: variantsToSave.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku,
         price: Number(v.price),
@@ -716,6 +765,30 @@ export default function ProductDetailPage() {
             </div>
           </Card>
 
+          {/* Fiyatlandırma */}
+          <Card title="Fiyatlandırma Yöntemi">
+            <div className="space-y-3">
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={form.pricingMethod === 'fixed'} onChange={() => set('pricingMethod', 'fixed')} className="h-4 w-4" />
+                  <span className="text-sm text-black dark:text-white">Sabit Fiyat</span>
+                </label>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={form.pricingMethod === 'markup'} onChange={() => set('pricingMethod', 'markup')} className="h-4 w-4" />
+                  <span className="text-sm text-black dark:text-white">Alış Fiyatı + %</span>
+                </label>
+              </div>
+              {form.pricingMethod === 'markup' && (
+                <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
+                  <input type="number" placeholder="Alış Fiyatı" value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} className={inputCls} />
+                  <input type="number" placeholder="Marj %" value={form.markupPercentage} onChange={(e) => set('markupPercentage', e.target.value)} className={inputCls} />
+                </div>
+              )}
+            </div>
+          </Card>
+
           {/* Kart 4: Etiketler */}
           <Card title="Etiketler">
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -941,16 +1014,29 @@ export default function ProductDetailPage() {
                         </div>
                         <div>
                           <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                            Fiyat {form.vatIncluded ? '(KDV D.)' : '(KDV H.)'} *
+                            Fiyat {form.vatIncluded ? '(KDV D.)' : '(KDV H.)'} {form.pricingMethod === 'markup' ? '(Otomatik)' : '*'}
                           </label>
                           <input
                             required type="number" min={0} step="0.01"
-                            value={v.price}
-                            onChange={(e) => setVariant(vi, { price: e.target.value })}
-                            className={inputSmCls}
+                            value={form.pricingMethod === 'markup' ? calculateVariantPrice(v) : v.price}
+                            onChange={(e) => form.pricingMethod === 'fixed' && setVariant(vi, { price: e.target.value })}
+                            readOnly={form.pricingMethod === 'markup'}
+                            className={`${inputSmCls} ${form.pricingMethod === 'markup' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 cursor-not-allowed' : ''}`}
                             placeholder="0.00"
                           />
-                          {v.price && Number(v.price) > 0 && form.vatRate > 0 && (
+                          {form.pricingMethod === 'markup' && form.costPrice && form.markupPercentage && (
+                            <>
+                              <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
+                                💡 {form.costPrice} + ({form.markupPercentage}%) = {calculateVariantPrice(v)}
+                              </p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {form.vatIncluded
+                                  ? `H: ${(Number(calculateVariantPrice(v)) / (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`
+                                  : `D: ${(Number(calculateVariantPrice(v)) * (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`}
+                              </p>
+                            </>
+                          )}
+                          {form.pricingMethod === 'fixed' && v.price && Number(v.price) > 0 && form.vatRate > 0 && (
                             <p className="text-[10px] text-gray-400 mt-0.5">
                               {form.vatIncluded
                                 ? `H: ${(Number(v.price) / (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`

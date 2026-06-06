@@ -2863,7 +2863,7 @@ function CampaignTab() {
             <div className="flex gap-4 mt-1">
               {[
                 { value: 'sticky', label: 'Sabit Bar', hint: 'Başlık üstünde ince bant' },
-                { value: 'popup',  label: 'Pop-up',    hint: 'Ekran ortasında modal' },
+                { value: 'banner',  label: 'Banner',    hint: 'Sayfa içinde büyük banner' },
               ].map((opt) => (
                 <label key={opt.value} className="flex items-start gap-2 cursor-pointer group">
                   <input

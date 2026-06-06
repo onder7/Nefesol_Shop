@@ -6,9 +6,17 @@ export interface ShippingConfig {
   freeShippingThreshold: number;
 }
 
+export interface TaxConfig {
+  taxRate: number;
+}
+
 const DEFAULTS: ShippingConfig = {
   shippingFee: 49.9,
   freeShippingThreshold: 500,
+};
+
+const TAX_DEFAULTS: TaxConfig = {
+  taxRate: 18,
 };
 
 export async function getShippingConfig(): Promise<ShippingConfig> {
@@ -44,6 +52,24 @@ export async function updateShippingConfig(fee: number, threshold: number): Prom
 
 export function computeShipping(subtotal: number, config: ShippingConfig): number {
   return subtotal >= config.freeShippingThreshold ? 0 : config.shippingFee;
+}
+
+export async function getTaxConfig(): Promise<TaxConfig> {
+  const row = await prisma.siteSettings.findUnique({
+    where: { key: 'tax_rate' },
+  });
+  return {
+    taxRate: row ? Number(row.value) : TAX_DEFAULTS.taxRate,
+  };
+}
+
+export async function updateTaxConfig(taxRate: number): Promise<TaxConfig> {
+  await prisma.siteSettings.upsert({
+    where: { key: 'tax_rate' },
+    update: { value: String(taxRate) },
+    create: { key: 'tax_rate', value: String(taxRate) },
+  });
+  return { taxRate };
 }
 
 // ─── Generic Key-Value Settings ───────────────────────────────────────────────

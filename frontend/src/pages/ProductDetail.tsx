@@ -241,7 +241,7 @@ export function ProductDetail() {
   );
 
   // Üründeki tüm attribute'ları sortOrder'a göre sıralı topla
-  const attributeMap = new Map<string, { id: string; name: string; sortOrder: number }>();
+  const attributeMap = new Map<string, { id: string; name: string; slug: string; inputType: string; sortOrder: number }>();
   product.variants.forEach((v) =>
     v.attributeValues?.forEach(({ attributeValue: av }) => {
       if (!attributeMap.has(av.attribute.id)) attributeMap.set(av.attribute.id, av.attribute);
