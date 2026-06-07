@@ -21,7 +21,7 @@ export async function getWishlist(userId: string) {
                     where: { isActive: true },
                     select: {
                       id: true, sku: true, price: true, compareAt: true,
-                      stockQty: true, attributes: true,
+                      stockQty: true,
                     },
                   },
                 },
@@ -53,7 +53,7 @@ export async function getWishlist(userId: string) {
                       where: { isActive: true },
                       select: {
                         id: true, sku: true, price: true, compareAt: true,
-                        stockQty: true, attributes: true,
+                        stockQty: true,
                       },
                     },
                   },

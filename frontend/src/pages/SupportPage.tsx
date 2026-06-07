@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
-import { Mail, RefreshCw, HelpCircle, Shield, ArrowLeft, Loader2 } from 'lucide-react';
+import { Mail, RefreshCw, HelpCircle, FileText, Info, Lock, ArrowLeft, Loader2, MapPin, Phone } from 'lucide-react';
 
 const PAGES = [
   { slug: 'iletisim', label: 'İletişim & Destek', icon: Mail },
   { slug: 'iade', label: 'Kolay İade & Değişim', icon: RefreshCw },
   { slug: 'sss', label: 'Sıkça Sorulan Sorular', icon: HelpCircle },
-  { slug: 'sozlesmeler', label: 'Şartlar & Politikalar', icon: Shield },
+  { slug: 'sozlesmeler', label: 'Şartlar & Politikalar', icon: FileText },
+  { slug: 'hakkimizda', label: 'Hakkımızda', icon: Info },
+  { slug: 'kvkk', label: 'KVKK Sözleşmesi', icon: Lock },
+  { slug: 'uyelik', label: 'Üyelik Sözleşmesi', icon: FileText },
 ];
 
 export function SupportPage() {
@@ -20,6 +23,9 @@ export function SupportPage() {
     if (path.startsWith('/iade')) return 'iade';
     if (path.startsWith('/sss')) return 'sss';
     if (path.startsWith('/sozlesmeler')) return 'sozlesmeler';
+    if (path.startsWith('/hakkimizda')) return 'hakkimizda';
+    if (path.startsWith('/kvkk')) return 'kvkk';
+    if (path.startsWith('/uyelik')) return 'uyelik';
     return 'iletisim';
   };
   const currentSlug = getSlugFromPath(location.pathname);
@@ -27,6 +33,14 @@ export function SupportPage() {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [companyInfo, setCompanyInfo] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    mapEmbed: string;
+  } | null>(null);
 
   // Contact Form State
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', body: '' });
@@ -64,6 +78,22 @@ export function SupportPage() {
       .finally(() => {
         setLoading(false);
       });
+  }, [currentSlug]);
+
+  // Fetch company info for contact page
+  useEffect(() => {
+    if (currentSlug === 'iletisim') {
+      fetch('/api/company-info')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.data) {
+            setCompanyInfo(data.data);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load company info:', err);
+        });
+    }
   }, [currentSlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,7 +149,7 @@ export function SupportPage() {
                   return (
                     <Link
                       key={item.slug}
-                      to={item.slug === 'sozlesmeler' ? '/sozlesmeler' : item.slug === 'sss' ? '/sss' : item.slug === 'iade' ? '/iade' : '/iletisim'}
+                      to={`/${item.slug}`}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition ${
                         isActive
                           ? 'bg-primary/10 text-primary font-semibold'
@@ -247,28 +277,63 @@ export function SupportPage() {
                           </form>
                         </div>
 
-                        {/* Map and Address */}
-                        <div className="flex flex-col gap-6">
-                          <div>
-                            <h3 className="text-lg font-bold text-neutral-800 mb-4">Merkez Ofisimiz</h3>
-                            <p className="text-sm text-neutral-600 mb-4 font-sans leading-relaxed">
-                              Ziyaret etmek veya soru sormak isterseniz, merkez ofisimiz Ankara şehir merkezinde yer almaktadır.
+                        {/* Company Info Card */}
+                        <div>
+                          <h3 className="text-lg font-bold text-neutral-800 mb-4">Merkez Ofisimiz</h3>
+                          <div className="space-y-4">
+                            <p className="text-sm text-neutral-600 font-sans leading-relaxed">
+                              {companyInfo ? `Ziyaret etmek veya soru sormak isterseniz, merkez ofisimiz ${companyInfo.city} şehir merkezinde yer almaktadır.` : 'Ziyaret etmek veya soru sormak isterseniz, merkez ofisimiz Ankara şehir merkezinde yer almaktadır.'}
                             </p>
-                          </div>
-                          <div className="flex-1 min-h-[280px]">
-                            <iframe
-                              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d195884.30030588698!2d32.62267988358488!3d39.90329181165241!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14d347d520730525%3A0xb89a3c7db2bc3397!2sAnkara!5e0!3m2!1str!2str!4v1700000000000!5m2!1str!2str"
-                              width="100%"
-                              height="100%"
-                              style={{ border: 0, minHeight: '280px' }}
-                              allowFullScreen
-                              loading="lazy"
-                              referrerPolicy="no-referrer-when-downgrade"
-                              className="rounded-2xl border border-neutral-100 shadow-xs"
-                            ></iframe>
+                            {companyInfo && (
+                              <div className="space-y-3 pt-4 border-t border-neutral-200">
+                                <div className="flex items-start gap-3">
+                                  <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-neutral-500 uppercase">Adres</p>
+                                    <p className="text-sm text-neutral-800 font-medium">{companyInfo.address}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                  <Mail className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-neutral-500 uppercase">E-posta</p>
+                                    <a href={`mailto:${companyInfo.email}`} className="text-sm text-primary hover:underline font-medium">
+                                      {companyInfo.email}
+                                    </a>
+                                  </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                  <Phone className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-neutral-500 uppercase">Telefon</p>
+                                    <a href={`tel:${companyInfo.phone}`} className="text-sm text-primary hover:underline font-medium">
+                                      {companyInfo.phone}
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
+
+                      {/* Map Section */}
+                      {companyInfo && (
+                        <div className="mt-8 pt-8 border-t border-neutral-100">
+                          <h3 className="text-lg font-bold text-neutral-800 mb-4">Konumumuz</h3>
+                          <div className="h-[400px] rounded-2xl overflow-hidden border border-neutral-100 shadow-xs">
+                            <iframe
+                              src={companyInfo.mapEmbed}
+                              width="100%"
+                              height="100%"
+                              style={{ border: 0 }}
+                              allowFullScreen
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                            ></iframe>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

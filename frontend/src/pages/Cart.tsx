@@ -199,12 +199,17 @@ export function Cart() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <Link
-                    to={`/urun/${item.variant.product.slug}`}
-                    className="font-medium hover:text-primary line-clamp-2"
-                  >
-                    {item.variant.product.name}
-                  </Link>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <Link
+                      to={`/urun/${item.variant.product.slug}`}
+                      className="font-medium hover:text-primary line-clamp-2"
+                    >
+                      {item.variant.product.name}
+                    </Link>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {new Date(item.createdAt).toLocaleDateString('tr-TR')} {new Date(item.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                   {attrValues.length > 0 && (
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {attrValues.map((av) => `${av.attributeValue.attribute.name}: ${av.attributeValue.value}`).join(' / ')}

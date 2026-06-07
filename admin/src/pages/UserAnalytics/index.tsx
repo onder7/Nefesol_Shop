@@ -116,6 +116,7 @@ interface UserAnalyticsData {
     totalCartValue: number;
     totalSubscribers: number;
     totalFavorites: number;
+    cartUsersCount: number;
   };
   favorites: Array<{
     id: string;
@@ -149,11 +150,13 @@ interface UserAnalyticsData {
 }
 
 export default function UserAnalytics() {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'subscribers'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'subscribers' | 'traffic'>('analytics');
   const [subFilter, setSubFilter] = useState<'all' | 'confirmed' | 'pending'>('all');
   const [liveCount, setLiveCount] = useState(127);
   const [data, setData] = useState<UserAnalyticsData | null>(null);
+  const [trafficData, setTrafficData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [trafficLoading, setTrafficLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form states for manual subscriber addition
@@ -180,9 +183,29 @@ export default function UserAnalytics() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Fetch traffic analytics data
+  const fetchTrafficData = useCallback(() => {
+    setTrafficLoading(true);
+    api.get<any>('/admin/analytics/traffic')
+      .then((res) => {
+        if (res.success) {
+          setTrafficData(res.data);
+        }
+      })
+      .catch((err) => console.error('Traffic data load error:', err))
+      .finally(() => setTrafficLoading(false));
+  }, []);
+
   useEffect(() => {
     fetchAnalytics();
   }, [fetchAnalytics]);
+
+  // Load traffic data when traffic tab is activated
+  useEffect(() => {
+    if (activeTab === 'traffic' && !trafficData) {
+      fetchTrafficData();
+    }
+  }, [activeTab, trafficData, fetchTrafficData]);
 
   // Simulate fluctuating live visitor count
   useEffect(() => {
@@ -368,10 +391,10 @@ export default function UserAnalytics() {
       </div>
 
       {/* ── Tabs Bar ── */}
-      <div className="mb-6 flex border-b border-stroke dark:border-strokedark">
+      <div className="mb-6 flex border-b border-stroke dark:border-strokedark overflow-x-auto">
         <button
           onClick={() => setActiveTab('analytics')}
-          className={`px-5 py-3 text-sm font-medium border-b-2 transition-all ${
+          className={`px-5 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'analytics'
               ? 'border-primary text-primary'
               : 'border-transparent text-body hover:text-primary'
@@ -381,7 +404,7 @@ export default function UserAnalytics() {
         </button>
         <button
           onClick={() => setActiveTab('subscribers')}
-          className={`px-5 py-3 text-sm font-medium border-b-2 transition-all ${
+          className={`px-5 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'subscribers'
               ? 'border-primary text-primary'
               : 'border-transparent text-body hover:text-primary'
@@ -389,13 +412,23 @@ export default function UserAnalytics() {
         >
           Bülten Aboneleri ({data.kpi.totalSubscribers})
         </button>
+        <button
+          onClick={() => setActiveTab('traffic')}
+          className={`px-5 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+            activeTab === 'traffic'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-body hover:text-primary'
+          }`}
+        >
+          🌐 Trafik Kaynakları
+        </button>
       </div>
 
       {/* ═══════ TAB 1 — ANALYTICS VIEW ═══════ */}
       {activeTab === 'analytics' && (
         <>
           {/* ── KPI Cards ── */}
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <KPICard
               title="Anlık Canlı Ziyaretçi"
               value={liveCount.toLocaleString('tr-TR')}
@@ -416,6 +449,18 @@ export default function UserAnalytics() {
                 <svg className="fill-primary dark:fill-white" width="20" height="20" viewBox="0 0 24 24">
                   <path
                     d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM7.17 14.75L7.2 14.6l.9-1.6H17c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0021.46 4H5.21L4.27 2H1v2h2l3.6 7.59L5.25 14c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.13 0-.25-.11-.25-.21z"
+                    fill="currentColor"
+                  />
+                </svg>
+              }
+            />
+            <KPICard
+              title="Sepette Bekleyenler"
+              value={(data.kpi.cartUsersCount ?? 0).toLocaleString('tr-TR')}
+              icon={
+                <svg className="fill-primary dark:fill-white" width="20" height="20" viewBox="0 0 24 24">
+                  <path
+                    d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.5 1.6 2.5 2.74 2.5 4.45V19h8v-2.5c0-2.33-4.67-3.5-7-3.5z"
                     fill="currentColor"
                   />
                 </svg>
@@ -833,6 +878,169 @@ export default function UserAnalytics() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ═══════ TAB 3 — TRAFFIC SOURCES ═══════ */}
+      {activeTab === 'traffic' && (
+        <>
+          {trafficLoading ? (
+            <div className="flex h-[400px] w-full items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : trafficData ? (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <KPICard
+                  title="Toplam Ziyaretçi"
+                  value={trafficData.summary?.totalVisitors?.toLocaleString() || '0'}
+                  icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>}
+                />
+                <KPICard
+                  title="Toplam Oturumlar"
+                  value={trafficData.summary?.totalSessions?.toLocaleString() || '0'}
+                  icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-2.96-3.83c-.375-.48-.99-.67-1.56-.51-.65.17-1.13.73-1.13 1.4V17h14v-8.02c0-.67-.48-1.25-1.12-1.4-.57-.15-1.19.04-1.59.51z"/></svg>}
+                />
+                <KPICard
+                  title="Ort. Oturum Süresi"
+                  value={`${Math.round((trafficData.summary?.avgSessionDuration || 0) / 60)}dk`}
+                  icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1h-1v4H8.01V1H7v4H3.99V1H3v4c-1.11 0-1.99.9-1.99 2v4h2V7h16v2h2V7c0-1.1-.89-2-2-2v-4h-1v4h-3.01V1h-1v4z"/></svg>}
+                />
+                <KPICard
+                  title="Geri Dönüş Oranı"
+                  value={`${trafficData.summary?.bounceRate || 0}%`}
+                  icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59z" transform="rotate(90 12 12)"/></svg>}
+                />
+              </div>
+
+              {/* Traffic Sources */}
+              <div className="rounded-sm border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+                <h3 className="mb-5 text-xl font-semibold text-black dark:text-white">Trafik Kaynakları</h3>
+                <div className="space-y-4">
+                  {(trafficData.trafficSources || []).map((source: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-medium text-black dark:text-white">{source.source}</span>
+                          <span className="text-sm font-medium text-primary">{source.percentage}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-stroke dark:bg-strokedark overflow-hidden">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${source.percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-bodydark2 mt-1">{source.visitors?.toLocaleString() || 0} ziyaretçi</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top Pages */}
+              <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark overflow-hidden">
+                <div className="border-b border-stroke px-6 py-4 dark:border-strokedark">
+                  <h3 className="text-xl font-semibold text-black dark:text-white">En Çok Ziyaret Edilen Sayfalar</h3>
+                </div>
+                <div className="p-6">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-stroke dark:border-strokedark">
+                        <th className="px-3 py-3 text-left font-medium text-black dark:text-white">Sayfa</th>
+                        <th className="px-3 py-3 text-right font-medium text-black dark:text-white">Görüntülemeler</th>
+                        <th className="px-3 py-3 text-right font-medium text-black dark:text-white">Ziyaretçiler</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(trafficData.topPages || []).map((page: any, idx: number) => (
+                        <tr key={idx} className="border-b border-stroke dark:border-strokedark">
+                          <td className="px-3 py-4">
+                            <div>
+                              <p className="text-sm font-medium text-black dark:text-white">{page.title}</p>
+                              <p className="text-xs text-bodydark">{page.url}</p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 text-right text-sm text-black dark:text-white">{page.views?.toLocaleString() || 0}</td>
+                          <td className="px-3 py-4 text-right text-sm text-primary">{page.visitors?.toLocaleString() || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Cihaz Dağılımı */}
+              <div className="rounded-sm border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+                <h3 className="mb-5 text-xl font-semibold text-black dark:text-white">Cihaz Dağılımı</h3>
+                <div className="space-y-4">
+                  {Object.entries(trafficData.deviceDistribution || {}).map(([device, percentage]: any, idx) => (
+                    <div key={idx} className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-medium text-black dark:text-white capitalize">
+                            {device === 'mobile' ? 'Mobil' : device === 'desktop' ? 'Masaüstü' : 'Tablet'}
+                          </span>
+                          <span className="text-sm font-medium text-primary">{percentage}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-stroke dark:bg-strokedark overflow-hidden">
+                          <div
+                            className="h-full bg-warning"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Browser & OS Distribution */}
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark overflow-hidden">
+                  <div className="border-b border-stroke px-6 py-4 dark:border-strokedark">
+                    <h3 className="text-lg font-semibold text-black dark:text-white">Tarayıcı Dağılımı</h3>
+                  </div>
+                  <div className="p-6 space-y-3">
+                    {(trafficData.browserDistribution || []).map((browser: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <span className="text-sm text-black dark:text-white">{browser.name}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-32 rounded-full bg-stroke dark:bg-strokedark overflow-hidden">
+                            <div className="h-full bg-success" style={{ width: `${browser.percentage}%` }} />
+                          </div>
+                          <span className="text-xs text-bodydark w-12 text-right">{browser.percentage}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark overflow-hidden">
+                  <div className="border-b border-stroke px-6 py-4 dark:border-strokedark">
+                    <h3 className="text-lg font-semibold text-black dark:text-white">İşletim Sistemi</h3>
+                  </div>
+                  <div className="p-6 space-y-3">
+                    {(trafficData.osDistribution || []).map((os: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <span className="text-sm text-black dark:text-white">{os.name}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-32 rounded-full bg-stroke dark:bg-strokedark overflow-hidden">
+                            <div className="h-full bg-danger" style={{ width: `${os.percentage}%` }} />
+                          </div>
+                          <span className="text-xs text-bodydark w-12 text-right">{os.percentage}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-[300px] w-full items-center justify-center rounded-sm border border-stroke bg-white dark:border-strokedark dark:bg-boxdark">
+              <p className="text-sm text-bodydark">Trafik verisi bulunamadı</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

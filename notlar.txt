@@ -57,3 +57,9 @@ Müşteri	test@ecommerce.com	Test123!
 docker-compose up -d --build frontend 2>&1 | tail -20
 
 docker-compose up -d --build frontend admin 2>&1 | tail -15
+
+
+Admin UI'de MFA setup sayfası
+ Login flow'unda MFA kontrolü
+ Backend rebuild ve deploy
+ Admin settings'de MFA toggle

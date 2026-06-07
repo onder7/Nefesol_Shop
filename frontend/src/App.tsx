@@ -23,6 +23,7 @@ import { OrderSuccess } from '@/pages/OrderSuccess';
 import { Orders, OrderDetail } from '@/pages/Orders';
 import { Profile } from '@/pages/Profile';
 import { Favorites } from '@/pages/Favorites';
+import { Addresses } from '@/pages/Addresses';
 import { NotFound } from '@/pages/NotFound';
 import { AccountDashboard } from '@/pages/AccountDashboard';
 import { useState, useEffect } from 'react';
@@ -68,6 +69,9 @@ function AppContent() {
         <Route path="/iade" element={<SupportPage />} />
         <Route path="/sss" element={<SupportPage />} />
         <Route path="/sozlesmeler" element={<SupportPage />} />
+        <Route path="/hakkimizda" element={<SupportPage />} />
+        <Route path="/kvkk" element={<SupportPage />} />
+        <Route path="/uyelik" element={<SupportPage />} />
 
         {/* Korumalı route'lar */}
         <Route element={<ProtectedRoute />}>
@@ -77,6 +81,7 @@ function AppContent() {
           <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
           <Route path="/hesabim/profil" element={<Profile />} />
           <Route path="/hesabim/favoriler" element={<Favorites />} />
+          <Route path="/hesabim/adresler" element={<Addresses />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

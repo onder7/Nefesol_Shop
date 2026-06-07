@@ -215,6 +215,9 @@ export function Footer() {
             <li><Link to="/iade" className="hover:text-primary hover:underline transition-all">Kolay İade & Değişim</Link></li>
             <li><Link to="/sss" className="hover:text-primary hover:underline transition-all">Sıkça Sorulan Sorular</Link></li>
             <li><Link to="/sozlesmeler" className="hover:text-primary hover:underline transition-all">Şartlar & Politikalar</Link></li>
+            <li><Link to="/hakkimizda" className="hover:text-primary hover:underline transition-all">Hakkımızda</Link></li>
+            <li><Link to="/kvkk" className="hover:text-primary hover:underline transition-all">KVKK Sözleşmesi</Link></li>
+            <li><Link to="/uyelik" className="hover:text-primary hover:underline transition-all">Üyelik Sözleşmesi</Link></li>
           </ul>
         </div>
       </div>

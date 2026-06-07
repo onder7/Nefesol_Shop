@@ -4,6 +4,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { prisma } from '../config/database';
 import { logger } from '../config/logger';
+import { encryptBackup, decryptBackup } from '../utils/crypto';
 
 const execAsync = promisify(exec);
 
@@ -29,28 +30,43 @@ function parseDbUrl(url: string) {
 
 // ─── pg_dump ile yedek al ─────────────────────────────────────────────────────
 
-export async function createBackup(): Promise<{ filename: string; size: number; path: string }> {
+export async function createBackup(adminPassword?: string): Promise<{ filename: string; size: number; path: string }> {
   ensureBackupDir();
 
   const db = parseDbUrl(process.env.DATABASE_URL!);
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `backup-${ts}.sql`;
+  const baseFilename = `backup-full-${ts}`;
+  const filename = adminPassword ? `${baseFilename}.sql.enc` : `${baseFilename}.sql`;
   const filepath = path.join(BACKUP_DIR, filename);
 
-  // pg_dump varsa kullan
   try {
-    const pgDumpCmd = `PGPASSWORD="${db.pass}" pg_dump -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.db} -F p --no-acl --no-owner -f "${filepath}"`;
-    await execAsync(pgDumpCmd);
-    const { size } = fs.statSync(filepath);
-    logger.info('pg_dump yedek oluşturuldu', { filename, size });
-    return { filename, size, path: filepath };
-  } catch (pgErr) {
-    logger.warn('pg_dump bulunamadı, JSON yedeğe geçiliyor', { err: (pgErr as Error).message });
-  }
+    // pg_dump via direct connection
+    const pgDumpCmd = `PGPASSWORD="${db.pass}" pg_dump -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.db} --format=plain --no-acl --no-owner`;
+    const { stdout } = await execAsync(pgDumpCmd, { maxBuffer: 100 * 1024 * 1024 });
 
-  // Fallback: kritik tabloları JSON olarak dışa aktar
-  const jsonFilename = `backup-${ts}.json`;
-  const jsonPath = path.join(BACKUP_DIR, jsonFilename);
+    let fileData: Buffer | string = stdout;
+
+    // Admin şifresi verilmişse şifrele
+    if (adminPassword) {
+      fileData = await encryptBackup(stdout, adminPassword);
+    }
+
+    fs.writeFileSync(filepath, fileData);
+    const { size } = fs.statSync(filepath);
+    logger.info('Tam SQL yedek oluşturuldu', { filename, size, encrypted: !!adminPassword });
+    return { filename, size, path: filepath };
+  } catch (err) {
+    logger.error('Yedekleme hatası', { err: (err as Error).message });
+    // Fallback: JSON yedek
+    logger.warn('SQL yedek başarısız, JSON yedeğe geçiliyor');
+    return createJsonBackup();
+  }
+}
+
+async function createJsonBackup(): Promise<{ filename: string; size: number; path: string }> {
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `backup-${ts}.json`;
+  const filepath = path.join(BACKUP_DIR, filename);
 
   const [products, categories, brands, orders, users] = await Promise.all([
     prisma.product.findMany({ include: { variants: true, images: true, tags: true } }),
@@ -65,10 +81,10 @@ export async function createBackup(): Promise<{ filename: string; size: number; 
     tables: { products, categories, brands, orders, users },
   };
 
-  fs.writeFileSync(jsonPath, JSON.stringify(dump, null, 2), 'utf-8');
-  const { size } = fs.statSync(jsonPath);
-  logger.info('JSON yedek oluşturuldu', { filename: jsonFilename, size });
-  return { filename: jsonFilename, size, path: jsonPath };
+  fs.writeFileSync(filepath, JSON.stringify(dump, null, 2), 'utf-8');
+  const { size } = fs.statSync(filepath);
+  logger.info('JSON yedek oluşturuldu', { filename, size });
+  return { filename, size, path: filepath };
 }
 
 // ─── Yedek listesi ────────────────────────────────────────────────────────────
@@ -84,7 +100,7 @@ export function listBackups(): BackupFile[] {
   ensureBackupDir();
   return fs
     .readdirSync(BACKUP_DIR)
-    .filter((f) => f.startsWith('backup-') && (f.endsWith('.sql') || f.endsWith('.json')))
+    .filter((f) => (f.startsWith('backup-') || f.startsWith('clean-')) && (f.endsWith('.sql') || f.endsWith('.json') || f.endsWith('.sql.enc')))
     .map((filename) => {
       const stat = fs.statSync(path.join(BACKUP_DIR, filename));
       return {
@@ -100,7 +116,7 @@ export function listBackups(): BackupFile[] {
 export function getBackupPath(filename: string): string | null {
   // Güvenlik: dosya adında dizin geçişi engelle
   const safe = path.basename(filename);
-  if (!safe.startsWith('backup-') || !(safe.endsWith('.sql') || safe.endsWith('.json'))) return null;
+  if (!(safe.startsWith('backup-') || safe.startsWith('clean-')) || !(safe.endsWith('.sql') || safe.endsWith('.json') || safe.endsWith('.sql.enc'))) return null;
   const full = path.join(BACKUP_DIR, safe);
   return fs.existsSync(full) ? full : null;
 }
@@ -175,6 +191,55 @@ export let triggerScheduleReload: (() => void) | undefined;
 
 export function setScheduleReloadHook(fn: () => void) {
   triggerScheduleReload = fn;
+}
+
+// ─── Geri yükleme ────────────────────────────────────────────────────────────
+
+export async function restoreBackup(filename: string, password?: string): Promise<{ success: boolean; message: string }> {
+  const filepath = getBackupPath(filename);
+  if (!filepath) throw new Error('Yedek dosyası bulunamadı');
+
+  const isEncrypted = filename.endsWith('.sql.enc');
+
+  if (!filename.endsWith('.sql') && !filename.endsWith('.sql.enc')) {
+    throw new Error('Sadece SQL yedeklerinden geri yüklenebilir (.sql veya .sql.enc)');
+  }
+
+  const db = parseDbUrl(process.env.DATABASE_URL!);
+  const tmpSqlFile = path.join(BACKUP_DIR, `.restore-${Date.now()}.sql`);
+
+  try {
+    logger.info('Geri yükleme başlıyor', { filename, encrypted: isEncrypted });
+
+    let sql: string;
+
+    // Şifreli dosya ise çöz
+    if (isEncrypted) {
+      if (!password) throw new Error('Şifreli dosya için şifre gerekli');
+      const encryptedBuffer = fs.readFileSync(filepath);
+      sql = await decryptBackup(encryptedBuffer, password);
+    } else {
+      sql = fs.readFileSync(filepath, 'utf-8');
+    }
+
+    // Geçici dosyaya SQL yaz
+    fs.writeFileSync(tmpSqlFile, sql, 'utf-8');
+
+    // psql ile geçici dosyayı yükle
+    const pgDumpCmd = `PGPASSWORD="${db.pass}" psql -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.db} -f "${tmpSqlFile}"`;
+    await execAsync(pgDumpCmd, { maxBuffer: 100 * 1024 * 1024 });
+
+    // Geçici dosyayı sil
+    fs.unlinkSync(tmpSqlFile);
+
+    logger.info('Geri yükleme tamamlandı', { filename });
+    return { success: true, message: 'Veritabanı başarıyla geri yüklendi' };
+  } catch (err) {
+    // Geçici dosyayı temizle
+    try { fs.unlinkSync(tmpSqlFile); } catch { /* ignore */ }
+    logger.error('Geri yükleme hatası', { err: (err as Error).message });
+    throw new Error(`Geri yükleme başarısız: ${(err as Error).message}`);
+  }
 }
 
 // ─── Util ─────────────────────────────────────────────────────────────────────

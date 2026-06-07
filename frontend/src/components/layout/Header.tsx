@@ -30,6 +30,21 @@ export function Header() {
   const [predictions, setPredictions] = useState<Product[]>([]);
   const [loadingPredictions, setLoadingPredictions] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  // Fetch logo from settings
+  useEffect(() => {
+    fetch('/api/store-logo')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data?.logo_url) {
+          setLogoUrl(data.data.logo_url);
+        }
+      })
+      .catch(() => {
+        // Silent fail - use fallback text
+      });
+  }, []);
 
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
@@ -101,8 +116,12 @@ export function Header() {
   return (
     <header className="border-b bg-white sticky top-0 z-50">
       <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
-        <Link to="/" className="text-xl font-bold text-primary">
-          MaBridge
+        <Link to="/" className="flex items-center h-full">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-12 object-contain" />
+          ) : (
+            <span className="text-xl font-bold text-primary">MaBridge</span>
+          )}
         </Link>
  
         <nav className="hidden lg:flex items-center gap-6 text-sm">
@@ -217,19 +236,47 @@ export function Header() {
                   </div>
                 }
               />
-              <DropdownMenuContent align="end" className="w-48">
-                <div className="px-2 py-1.5 text-sm font-medium truncate">
-                  {user?.profile?.firstName ?? user?.email}
+              <DropdownMenuContent align="end" className="w-56">
+                {/* User Info */}
+                <div className="px-3 py-2">
+                  <p className="text-sm font-medium truncate text-black dark:text-white">
+                    {user?.profile?.firstName ?? user?.email}
+                  </p>
+                  <p className="text-xs text-neutral-500 truncate">
+                    {user?.email}
+                  </p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem render={<Link to="/hesabim/profil" />}>
-                  Profilim
+
+                {/* Account Links */}
+                <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                  Hesap Özeti
                 </DropdownMenuItem>
-                <DropdownMenuItem render={<Link to="/hesabim/siparisler" />}>
+                <DropdownMenuItem render={<Link to="/hesabim/siparisler" />} className="text-sm">
                   Siparişlerim
                 </DropdownMenuItem>
+                <DropdownMenuItem render={<Link to="/iletisim" />} className="text-sm">
+                  Soru ve Taleplerim
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link to="/hesabim/profil" />} className="text-sm">
+                  Kullanıcı Bilgilerim
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                  Değerlendirmelerim
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link to="/hesabim/favoriler" />} className="text-sm">
+                  Beğendiklerim
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+
+                {/* Additional Links */}
+                <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                  Kuponlarım
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+
+                {/* Logout */}
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive text-sm">
                   <LogOut className="h-4 w-4 mr-2" />
                   Çıkış Yap
                 </DropdownMenuItem>
@@ -314,12 +361,12 @@ export function Header() {
                     <SheetClose
                       render={
                         <Link
-                          to="/hesabim/profil"
+                          to="/hesabim"
                           className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
                         />
                       }
                     >
-                      Profilim
+                      Hesap Özeti
                     </SheetClose>
                     <SheetClose
                       render={

@@ -886,7 +886,7 @@ export default function ProductDetailPage() {
           <Card
             title="Varyant Özellikleri"
             action={
-              <a href="/attributes" target="_blank" className="text-xs text-primary hover:underline">
+              <a href="/admin/attributes" target="_blank" className="text-xs text-primary hover:underline">
                 Özellik Yönetimi →
               </a>
             }
@@ -894,7 +894,7 @@ export default function ProductDetailPage() {
             {attributes.length === 0 ? (
               <p className="text-sm text-gray-400">
                 Henüz özellik tanımlanmamış.{' '}
-                <a href="/attributes" className="text-primary hover:underline">Özellik Yönetimi</a>
+                <a href="/admin/attributes" className="text-primary hover:underline">Özellik Yönetimi</a>
                 {' '}sayfasından Renk, Beden vb. ekleyin.
               </p>
             ) : (

@@ -195,6 +195,9 @@ export function ProductDetail() {
     queryKey: ['product', slug],
     queryFn: () => productApi.get(slug!),
     enabled: !!slug,
+    staleTime: 1000 * 30, // 30 saniye
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const product = data?.data?.data;

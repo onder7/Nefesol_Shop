@@ -18,9 +18,18 @@ enum Role {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String   @map("password_hash")
+  firstName    String   @default("") @map("first_name")
+  lastName     String   @default("") @map("last_name")
+  passwordHash String?  @map("password_hash")
   role         Role     @default(CUSTOMER)
   isActive     Boolean  @default(true) @map("is_active")
+  refreshTokens String[] @default([]) @map("refresh_tokens")
+
+  // MFA Fields
+  mfaEnabled   Boolean  @default(false) @map("mfa_enabled")
+  mfaSecret    String?  @map("mfa_secret")
+  backupCodes  String[] @default([]) @map("backup_codes")
+
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -46,6 +55,9 @@ model UserProfile {
   lastName  String?  @map("last_name")
   phone     String?
   avatarUrl String?  @map("avatar_url")
+  bio       String?
+  avatar    String?
+  oauthIds  String[] @default([]) @map("oauth_ids")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -282,6 +294,21 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum CancellationStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+enum CancellationReason {
+  CHANGED_MIND
+  DELIVERY_TIME_LONG
+  BETTER_PRICE_FOUND
+  PRODUCT_INFO_ERROR
+  OTHER
+}
+
 model Order {
   id          String      @id @default(cuid())
   userId      String      @map("user_id")
@@ -302,6 +329,7 @@ model Order {
   payment        Payment?
   shipping       Shipping?
   discountUsages DiscountUsage[]
+  cancellation   OrderCancellation?
 
   @@map("orders")
 }
@@ -329,6 +357,27 @@ model OrderStatusLog {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("order_status_logs")
+}
+
+model OrderCancellation {
+  id              String              @id @default(cuid())
+  orderId         String              @unique @map("order_id")
+  status          CancellationStatus  @default(REQUESTED)
+  reason          CancellationReason
+  description     String?
+  refundAmount    Decimal?            @map("refund_amount") @db.Decimal(10, 2)
+  adminNotes      String?             @map("admin_notes")
+  couponOffered   Boolean             @default(false) @map("coupon_offered")
+  couponCode      String?             @map("coupon_code")
+  couponValue     Decimal?            @map("coupon_value") @db.Decimal(10, 2)
+  requestedAt     DateTime            @default(now()) @map("requested_at")
+  approvedAt      DateTime?           @map("approved_at")
+  refundedAt      DateTime?           @map("refunded_at")
+  rejectedAt      DateTime?           @map("rejected_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_cancellations")
 }
 
 // ─── Ödeme & Kargo ────────────────────────────────────────────────────────────

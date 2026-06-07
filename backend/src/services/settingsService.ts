@@ -98,6 +98,28 @@ export async function updateSettingsGroup(
   );
 }
 
+// ─── OAuth Settings ───────────────────────────────────────────────────────────
+
+export interface OAuthSettings {
+  googleClientId?: string;
+  facebookAppId?: string;
+  instagramAppId?: string;
+}
+
+export async function getOAuthSettings(): Promise<OAuthSettings> {
+  return getSettingsGroup('oauth:') as Promise<OAuthSettings>;
+}
+
+export async function updateOAuthSettings(data: OAuthSettings): Promise<OAuthSettings> {
+  const normalizedData: Record<string, string> = {};
+  if (data.googleClientId !== undefined) normalizedData['googleClientId'] = data.googleClientId;
+  if (data.facebookAppId !== undefined) normalizedData['facebookAppId'] = data.facebookAppId;
+  if (data.instagramAppId !== undefined) normalizedData['instagramAppId'] = data.instagramAppId;
+
+  await updateSettingsGroup('oauth:', normalizedData);
+  return getOAuthSettings();
+}
+
 // ─── Team Management ──────────────────────────────────────────────────────────
 
 const SUB_ROLE_PREFIX = 'team_subrole_';

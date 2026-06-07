@@ -19,8 +19,18 @@
     <!-- Twitter Card defaults -->
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Umami Analytics — cookiesiz, GDPR uyumlu -->
-    <script async src="/analytics/script.js" data-website-id="%VITE_UMAMI_WEBSITE_ID%"></script>
+    <!-- Umami Analytics -->
+    <script async src="http://localhost:3000/script.js" data-website-id="72424b18-47f7-4116-8816-bd3d69f6fc2b"></script>
+
+    <!-- Google Sign-In SDK -->
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
+
+    <!-- Facebook SDK -->
+    <div id="fb-root"></div>
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v18.0" nonce="YOUR_NONCE_HERE"></script>
+
+    <!-- Instagram (via Facebook) -->
+    <!-- Uses same FB SDK as above -->
   </head>
   <body>
     <div id="root"></div>

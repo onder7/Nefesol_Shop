@@ -42,7 +42,8 @@ services:
     env_file:
       - .env
     volumes:
-      - uploads_data:/app/uploads
+      - ./backend/uploads:/app/uploads
+      - ./backend/backups:/app/backups
       - /c/Users/OHOME/Documents/node/mabridgeglobal_fresh/backup-2026-06-05T08-27-04.json:/app/backup-2026-06-05T08-27-04.json
     depends_on:
       postgres:
@@ -127,7 +128,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  uploads_data:
   umami_db_data:
   certbot_conf:
   certbot_www:

@@ -11,15 +11,19 @@ async function createAdmin() {
     const passwordHash = await bcrypt.hash('Admin123!', 12);
 
     // Admin kullanıcısını oluştur
-    const admin = await prisma.users.create({
+    const admin = await prisma.user.create({
       data: {
         email: 'admin@ecommerce.com',
         passwordHash: passwordHash,
+        firstName: 'Admin',
+        lastName: 'User',
         role: 'ADMIN',
+        isActive: true,
         userProfile: {
           create: {
-            firstName: 'Admin',
-            lastName: 'User',
+            phone: '',
+            bio: '',
+            avatar: '',
           },
         },
       },
@@ -32,7 +36,7 @@ async function createAdmin() {
     console.log(`
 📧 Email: ${admin.email}
 🔐 Parola: Admin123!
-👤 Ad: ${admin.userProfile.firstName} ${admin.userProfile.lastName}
+👤 Ad: ${admin.firstName} ${admin.lastName}
 🎯 Rol: ${admin.role}
     `);
 

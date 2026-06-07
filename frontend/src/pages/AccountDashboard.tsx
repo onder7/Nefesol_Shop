@@ -1,31 +1,93 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   ShoppingBag,
   Heart,
-  Zap,
-  MessageCircle,
   Star,
   Gift,
   User,
   LogOut,
   ChevronRight,
-  Clock,
-  CheckCircle,
+  Edit2,
+  Mail,
+  Phone,
+  ArrowLeft,
+  MapPin,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { toast } from 'sonner';
+
+function formatPrice(price: number) {
+  return price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
+}
+
+const ORDER_STATUS_MAP: Record<string, { label: string; color: string }> = {
+  PENDING: { label: 'Beklemede', color: 'bg-yellow-100 text-yellow-800' },
+  PROCESSING: { label: 'İşleniyor', color: 'bg-blue-100 text-blue-800' },
+  SHIPPED: { label: 'Kargoda', color: 'bg-purple-100 text-purple-800' },
+  DELIVERED: { label: 'Teslim Edildi', color: 'bg-green-100 text-green-800' },
+  CANCELLED: { label: 'İptal Edildi', color: 'bg-red-100 text-red-800' },
+  REFUNDED: { label: 'İade Edildi', color: 'bg-orange-100 text-orange-800' },
+};
 
 export function AccountDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('overview');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    firstName: user?.profile?.firstName || '',
+    lastName: user?.profile?.lastName || '',
+    phone: user?.profile?.phone || '',
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState<any>(null);
+  const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
 
   function handleLogout() {
     logout();
-    toast.success('Çıkış yapıldı');
     navigate('/');
+  }
+
+  async function handleSelectOrder(orderId: string) {
+    setSelectedOrderId(orderId);
+    setLoadingOrderDetail(true);
+    try {
+      const res = await fetch(`/api/checkout/orders/${orderId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Sipariş detayı yüklenemedi');
+      const data = await res.json();
+      setSelectedOrderDetail(data.data);
+    } catch (err: any) {
+      alert(err.message || 'Sipariş detayı yüklenemedi');
+    } finally {
+      setLoadingOrderDetail(false);
+    }
+  }
+
+  async function handleSaveProfile() {
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileForm),
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Profil güncellenemedi');
+      }
+
+      setIsEditingProfile(false);
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || 'Bir hata oluştu');
+    } finally {
+      setIsSavingProfile(false);
+    }
   }
 
   // Get user initials
@@ -36,6 +98,116 @@ export function AccountDashboard() {
     .join('')
     .toUpperCase() || 'U';
 
+  // Fetch orders
+  const { data: ordersData = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery({
+    queryKey: ['orders'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/checkout/orders', { credentials: 'include' });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.data || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 0, // Her zaman stale
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch favorites
+  const { data: favoritesData = [], isLoading: favoritesLoading, refetch: refetchFavorites } = useQuery({
+    queryKey: ['wishlist'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/wishlist', { credentials: 'include' });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.data?.items || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch reviews
+  const { data: reviewsData = [], isLoading: reviewsLoading, refetch: refetchReviews } = useQuery({
+    queryKey: ['my-reviews'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/reviews/my-reviews', { credentials: 'include' });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.data || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch addresses
+  const { data: addressesData = [], isLoading: addressesLoading, refetch: refetchAddresses } = useQuery({
+    queryKey: ['addresses'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/addresses', { credentials: 'include' });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.data || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch cart
+  const { data: cartData = null, isLoading: cartLoading, refetch: refetchCart } = useQuery({
+    queryKey: ['cart'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/cart', { credentials: 'include' });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.data || null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Refetch data when section changes
+  useEffect(() => {
+    if (activeSection === 'overview') {
+      refetchOrders();
+      refetchFavorites();
+      refetchReviews();
+      refetchCart();
+    } else if (activeSection === 'orders') {
+      refetchOrders();
+    } else if (activeSection === 'favorites') {
+      refetchFavorites();
+    } else if (activeSection === 'reviews') {
+      refetchReviews();
+    } else if (activeSection === 'cart') {
+      refetchCart();
+    } else if (activeSection === 'profile') {
+      refetchAddresses();
+    }
+  }, [activeSection, refetchOrders, refetchFavorites, refetchReviews, refetchCart, refetchAddresses]);
+
   const menuItems = [
     {
       id: 'overview',
@@ -44,34 +216,34 @@ export function AccountDashboard() {
       badge: null,
     },
     {
+      id: 'cart',
+      icon: ShoppingBag,
+      label: 'Sepetim',
+      badge: cartData?.items?.length ? String(cartData.items.length) : null,
+    },
+    {
       id: 'orders',
       icon: ShoppingBag,
       label: 'Siparişlerim',
-      badge: '3',
+      badge: ordersData.length > 0 ? String(ordersData.length) : null,
     },
     {
       id: 'favorites',
       icon: Heart,
       label: 'Beğendiklerim',
-      badge: '12',
+      badge: favoritesData.length > 0 ? String(favoritesData.length) : null,
     },
     {
       id: 'reviews',
       icon: Star,
       label: 'Değerlendirmelerim',
-      badge: '5',
+      badge: reviewsData.length > 0 ? String(reviewsData.length) : null,
     },
     {
       id: 'coupons',
       icon: Gift,
       label: 'Kuponlarım',
-      badge: '2',
-    },
-    {
-      id: 'messages',
-      icon: MessageCircle,
-      label: 'Mesajlarım',
-      badge: '1',
+      badge: null,
     },
     {
       id: 'profile',
@@ -87,24 +259,24 @@ export function AccountDashboard() {
         {/* Sidebar */}
         <div className="lg:col-span-1">
           {/* Profile Card */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6 dark:bg-gray-900 dark:border-gray-700">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6 dark:bg-gray-900 dark:border-gray-700 sticky top-20">
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white font-bold">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white font-bold text-lg">
                 {initials}
               </div>
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-white">
-                  {user?.email?.split('@')[0]}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 dark:text-white truncate">
+                  {user?.profile?.firstName || user?.email?.split('@')[0] || 'Kullanıcı'}
                 </p>
-                <p className="text-sm text-gray-500">{user?.email}</p>
+                <p className="text-sm text-gray-500 truncate">{user?.email}</p>
               </div>
             </div>
-            <Link
-              to="/hesabim/profil"
-              className="text-sm text-primary hover:underline flex items-center gap-1"
+            <button
+              onClick={() => setActiveSection('profile')}
+              className="text-sm text-primary hover:underline flex items-center gap-1 w-full justify-center py-2 hover:bg-primary/10 rounded transition"
             >
-              Profili Düzenle <ChevronRight size={16} />
-            </Link>
+              <Edit2 size={14} /> Düzenle
+            </button>
           </div>
 
           {/* Menu Items */}
@@ -145,24 +317,27 @@ export function AccountDashboard() {
 
         {/* Main Content */}
         <div className="lg:col-span-3">
+          {/* Overview */}
           {activeSection === 'overview' && (
             <div className="space-y-6">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  Hoş geldin, {user?.email?.split('@')[0]}!
+                  Hoş geldin, {user?.profile?.firstName || user?.email?.split('@')[0]}!
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
                   Hesap özeti ve etkinliklerini burada yönetebilirsin.
                 </p>
               </div>
 
-              {/* Stats Cards */}
+              {/* Stats */}
               <div className="grid md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Toplam Sipariş</p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-white">12</p>
+                      <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                        {ordersData.length}
+                      </p>
                     </div>
                     <ShoppingBag size={32} className="text-primary opacity-20" />
                   </div>
@@ -172,7 +347,9 @@ export function AccountDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Beğendiler</p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-white">48</p>
+                      <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                        {favoritesData.length}
+                      </p>
                     </div>
                     <Heart size={32} className="text-red-500 opacity-20" />
                   </div>
@@ -182,7 +359,7 @@ export function AccountDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Kuponlarım</p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-white">5</p>
+                      <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
                     </div>
                     <Gift size={32} className="text-purple-500 opacity-20" />
                   </div>
@@ -191,155 +368,741 @@ export function AccountDashboard() {
                 <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Puanlarım</p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-white">450</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Değerlendirmelerim</p>
+                      <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                        {reviewsData.length}
+                      </p>
                     </div>
-                    <Zap size={32} className="text-yellow-500 opacity-20" />
+                    <Star size={32} className="text-yellow-500 opacity-20" />
                   </div>
                 </div>
               </div>
 
               {/* Recent Orders */}
-              <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Son Siparişler
-                  </h2>
-                </div>
+              {ordersData.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+                  <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Son Siparişler
+                    </h2>
+                  </div>
 
-                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {[
-                    {
-                      id: '1',
-                      date: '15 Haziran 2026',
-                      items: '3 Ürün',
-                      total: '450 TL',
-                      status: 'delivered',
-                    },
-                    {
-                      id: '2',
-                      date: '10 Haziran 2026',
-                      items: '2 Ürün',
-                      total: '280 TL',
-                      status: 'delivered',
-                    },
-                    {
-                      id: '3',
-                      date: '5 Haziran 2026',
-                      items: '1 Ürün',
-                      total: '120 TL',
-                      status: 'processing',
-                    },
-                  ].map((order) => (
-                    <div key={order.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            Sipariş #{order.id}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {order.date} • {order.items}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="font-semibold text-gray-900 dark:text-white">
-                              {order.total}
+                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {ordersData.slice(0, 3).map((order: any) => (
+                      <div key={order.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              Sipariş #{order.id.slice(0, 8)}
                             </p>
-                            {order.status === 'delivered' ? (
-                              <div className="flex items-center gap-1 text-green-600 text-sm">
-                                <CheckCircle size={14} />
-                                Teslim Edildi
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 text-blue-600 text-sm">
-                                <Clock size={14} />
-                                Kargoda
-                              </div>
-                            )}
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {new Date(order.createdAt).toLocaleDateString('tr-TR')} • {order.items?.length || 0} Ürün
+                            </p>
                           </div>
-                          <ChevronRight size={20} className="text-gray-400" />
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {order.total ? formatPrice(order.total) : '-'}
+                              </p>
+                              <span className={`inline-block text-sm font-medium px-2 py-1 rounded mt-1 ${ORDER_STATUS_MAP[order.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                                {ORDER_STATUS_MAP[order.status]?.label || order.status}
+                              </span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
+          )}
 
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          {/* Cart */}
+          {activeSection === 'cart' && (
+            <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sepetim</h2>
+              </div>
+
+              {cartLoading ? (
+                <div className="p-6 text-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+                </div>
+              ) : !cartData || !cartData.items || cartData.items.length === 0 ? (
+                <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                  <ShoppingBag size={48} className="mx-auto mb-4 opacity-20" />
+                  <p className="mb-4">Sepetiniz boş</p>
                   <Link
-                    to="/hesabim/siparisler"
-                    className="text-primary hover:underline text-sm font-medium"
+                    to="/"
+                    className="inline-block text-primary hover:underline font-medium"
                   >
-                    Tüm Siparişleri Gör →
+                    Alışverişe başla →
                   </Link>
                 </div>
+              ) : (
+                <div className="p-6 space-y-6">
+                  {/* Cart Items */}
+                  <div className="space-y-4">
+                    {cartData.items.map((item: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                      >
+                        <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+                          {item.variant?.product?.images?.[0] ? (
+                            <img
+                              src={item.variant.product.images[0].url}
+                              alt={item.variant.product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-300" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <Link
+                              to={`/urun/${item.variant?.product?.slug}`}
+                              className="font-medium text-gray-900 dark:text-white hover:text-primary transition-colors"
+                            >
+                              {item.variant?.product?.name || 'Ürün'}
+                            </Link>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
+                              {new Date(item.createdAt).toLocaleDateString('tr-TR')} {new Date(item.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            Adet: {item.quantity}
+                          </p>
+                          <p className="text-sm font-semibold text-primary mt-2">
+                            {formatPrice((item.priceAtAdd || 0) * item.quantity)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Cart Summary */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <div className="space-y-2 text-sm mb-6">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Ara Toplam</span>
+                        <span className="text-gray-900 dark:text-white">
+                          {formatPrice(
+                            cartData.items.reduce(
+                              (sum: number, item: any) =>
+                                sum + (item.priceAtAdd || 0) * item.quantity,
+                              0
+                            )
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2 font-semibold">
+                        <span>Toplam</span>
+                        <span className="text-primary text-lg">
+                          {formatPrice(
+                            cartData.items.reduce(
+                              (sum: number, item: any) =>
+                                sum + (item.priceAtAdd || 0) * item.quantity,
+                              0
+                            )
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link
+                      to="/sepet"
+                      className="block w-full text-center px-4 py-3 bg-primary text-white font-medium rounded-lg hover:bg-opacity-90 transition-all"
+                    >
+                      Sepete Git →
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Orders */}
+          {activeSection === 'orders' && (
+            <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+              {selectedOrderId ? (
+                // Order Detail View
+                <>
+                  <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        setSelectedOrderId(null);
+                        setSelectedOrderDetail(null);
+                      }}
+                      className="text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <ArrowLeft size={24} />
+                    </button>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      Sipariş #{selectedOrderId.slice(-8).toUpperCase()}
+                    </h2>
+                  </div>
+
+                  {loadingOrderDetail ? (
+                    <div className="p-6 text-center text-gray-600">Yükleniyor...</div>
+                  ) : !selectedOrderDetail ? (
+                    <div className="p-6 text-center text-gray-600">Sipariş bulunamadı</div>
+                  ) : (
+                    (() => {
+                      const order = selectedOrderDetail;
+
+                    return (
+                      <div className="p-6 space-y-6">
+                        {/* Order Header Info */}
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Sipariş No</p>
+                              <p className="font-mono font-semibold text-gray-900 dark:text-white">#TR-{order.id.slice(-8).toUpperCase()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Sipariş Tarihi</p>
+                              <p className="text-sm text-gray-900 dark:text-white">
+                                {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Toplam Tutar</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatPrice(order.total)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Ödeme Yöntemi</p>
+                              <p className="text-sm font-mono text-gray-900 dark:text-white">{order.paymentMethod || '—'}</p>
+                            </div>
+                            {order.paymentId && (
+                              <div>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Ödendi</p>
+                                <p className="text-sm font-mono text-gray-900 dark:text-white">{order.paymentId}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Sipariş Durumu</p>
+                              <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${ORDER_STATUS_MAP[order.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                                {ORDER_STATUS_MAP[order.status]?.label || order.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Order Items */}
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Sipariş Ürünleri</h3>
+                          <div className="space-y-4">
+                            {order.items?.length > 0 ? (
+                              order.items.map((item: any, idx: number) => (
+                                <div key={idx} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+                                    {item.variant?.product?.images?.[0] ? (
+                                      <img
+                                        src={item.variant.product.images[0].url}
+                                        alt={item.variant.product.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full bg-gray-300" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                      {item.variant?.product?.name || 'Ürün'}
+                                    </p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                      Adet: {item.quantity}
+                                    </p>
+                                    <p className="text-sm font-semibold text-primary mt-2">
+                                      {item.priceAtAdd ? formatPrice(item.priceAtAdd * item.quantity) : '-'}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-gray-600 dark:text-gray-400">Ürün bilgisi bulunamadı</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Order Summary */}
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Sipariş Özeti</h3>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Ara Toplam</span>
+                              <span className="text-gray-900 dark:text-white">
+                                {order.subtotal ? formatPrice(order.subtotal) : '-'}
+                              </span>
+                            </div>
+                            {order.shippingCost !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Kargo</span>
+                                <span className="text-gray-900 dark:text-white">
+                                  {order.shippingCost === 0 ? 'Ücretsiz' : formatPrice(order.shippingCost)}
+                                </span>
+                              </div>
+                            )}
+                            {order.tax !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">KDV (%18)</span>
+                                <span className="text-gray-900 dark:text-white">
+                                  {formatPrice(order.tax)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold">
+                              <span>Toplam Tutar</span>
+                              <span className="text-primary text-lg">
+                                {order.total ? formatPrice(order.total) : '-'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Shipping Address */}
+                        {order.address && (
+                          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                              <MapPin size={18} /> Teslimat Adresi
+                            </h3>
+                            <p className="text-gray-700 dark:text-gray-300 text-sm">
+                              {order.address.firstName} {order.address.lastName}
+                            </p>
+                            <p className="text-gray-700 dark:text-gray-300 text-sm mt-1">
+                              {order.address.address}, {order.address.district} / {order.address.city}
+                            </p>
+                            {order.address.phone && (
+                              <p className="text-gray-700 dark:text-gray-300 text-sm mt-2">
+                                📱 {order.address.phone}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Shipping Info */}
+                        {order.shipping && (
+                          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Kargo Bilgileri</h3>
+                            <div className="space-y-2 text-sm">
+                              {order.shipping.carrier && (
+                                <div><span className="text-gray-600 dark:text-gray-400">Kargo Firması:</span> <span className="font-medium text-gray-900 dark:text-white">{order.shipping.carrier}</span></div>
+                              )}
+                              {order.shipping.trackingNumber && (
+                                <div><span className="text-gray-600 dark:text-gray-400">Takip No:</span> <span className="font-mono text-gray-900 dark:text-white">{order.shipping.trackingNumber}</span></div>
+                              )}
+                              {order.shipping.estimatedAt && (
+                                <div><span className="text-gray-600 dark:text-gray-400">Tahmini Teslimat:</span> <span className="text-gray-900 dark:text-white">{new Date(order.shipping.estimatedAt).toLocaleDateString('tr-TR')}</span></div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                    })()
+                  )}
+                </>
+              ) : (
+                // Orders List View
+                <>
+                  <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Siparişlerim</h2>
+                  </div>
+
+                  {ordersLoading ? (
+                    <div className="p-6 text-center">
+                      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+                    </div>
+                  ) : ordersData.length === 0 ? (
+                    <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                      Henüz sipariş bulunmamaktadır.
+                    </div>
+                  ) : (
+                    <div className="p-6 space-y-3">
+                      {ordersData.map((order: any) => {
+                        const firstItem = order.items?.[0];
+                        const productName = firstItem?.variant?.product?.name || '—';
+                        const extraCount = (order.items?.length || 0) - 1;
+
+                        return (
+                          <button
+                            key={order.id}
+                            onClick={() => handleSelectOrder(order.id)}
+                            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-primary dark:hover:border-primary transition-colors text-left group"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                    #{order.id.slice(-8).toUpperCase()}
+                                  </span>
+                                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${ORDER_STATUS_MAP[order.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                                    {ORDER_STATUS_MAP[order.status]?.label || order.status}
+                                  </span>
+                                </div>
+                                <p className="font-medium text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                                  {productName}
+                                  {extraCount > 0 && (
+                                    <span className="text-gray-600 dark:text-gray-400 text-sm"> +{extraCount} ürün</span>
+                                  )}
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                                </p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  {order.total ? formatPrice(order.total) : '-'}
+                                </p>
+                                <ChevronRight size={16} className="text-gray-400 mt-2 ml-auto group-hover:text-primary transition-colors" />
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Favorites */}
+          {activeSection === 'favorites' && (
+            <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Beğendiklerim</h2>
+              </div>
+
+              {favoritesLoading ? (
+                <div className="p-6 text-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+                </div>
+              ) : favoritesData.length === 0 ? (
+                <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                  Henüz beğenilen ürün bulunmamaktadır.
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-3 gap-4 p-6">
+                  {favoritesData.map((item: any) => (
+                    <Link
+                      key={item.id}
+                      to={`/urun/${item.variant?.product?.slug}`}
+                      className="group border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow dark:hover:shadow-lg dark:hover:shadow-primary/20"
+                    >
+                      <div className="aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
+                        {item.variant?.product?.images?.[0] ? (
+                          <img
+                            src={item.variant.product.images[0].url}
+                            alt={item.variant.product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <ShoppingBag size={40} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <p className="font-medium text-gray-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors">
+                          {item.variant?.product?.name || 'Ürün'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {item.variant?.product?.category?.name || 'Kategori'}
+                        </p>
+                        <div className="flex items-baseline gap-2 mt-3">
+                          <p className="text-lg font-bold text-primary">
+                            {item.variant?.price
+                              ? formatPrice(Number(item.variant.price))
+                              : '-'
+                            }
+                          </p>
+                          {item.variant?.compareAt && Number(item.variant.compareAt) > Number(item.variant.price) && (
+                            <p className="text-xs text-gray-400 line-through">
+                              {formatPrice(Number(item.variant.compareAt))}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Profile */}
+          {activeSection === 'profile' && (
+            <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Profil Bilgileri</h2>
+                <button
+                  onClick={() => {
+                    if (isEditingProfile) {
+                      setProfileForm({
+                        firstName: user?.profile?.firstName || '',
+                        lastName: user?.profile?.lastName || '',
+                        phone: user?.profile?.phone || '',
+                      });
+                    }
+                    setIsEditingProfile(!isEditingProfile);
+                  }}
+                  className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  {isEditingProfile ? 'İptal' : '✏️ Düzenle'}
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Ad
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.firstName}
+                      onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                      disabled={!isEditingProfile}
+                      className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                        isEditingProfile
+                          ? 'border-primary bg-white text-gray-900 dark:bg-gray-700 dark:text-white'
+                          : 'border-gray-200 bg-gray-50 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Soyadı
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.lastName}
+                      onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                      disabled={!isEditingProfile}
+                      className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                        isEditingProfile
+                          ? 'border-primary bg-white text-gray-900 dark:bg-gray-700 dark:text-white'
+                          : 'border-gray-200 bg-gray-50 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Mail size={16} className="inline mr-2" />
+                    E-posta (Değiştiremez)
+                  </label>
+                  <input
+                    type="email"
+                    value={user?.email || ''}
+                    disabled
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Phone size={16} className="inline mr-2" />
+                    Telefon
+                  </label>
+                  <input
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    disabled={!isEditingProfile}
+                    placeholder="+90 5XX XXX XXXX"
+                    className={`w-full px-4 py-2 rounded-lg border transition-colors ${
+                      isEditingProfile
+                        ? 'border-primary bg-white text-gray-900 dark:bg-gray-700 dark:text-white'
+                        : 'border-gray-200 bg-gray-50 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white'
+                    }`}
+                  />
+                </div>
+
+                {/* Addresses */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <MapPin size={18} /> Kayıtlı Adresler
+                  </h3>
+                  {addressesLoading ? (
+                    <div className="text-center py-4">
+                      <div className="inline-block animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
+                    </div>
+                  ) : addressesData.length === 0 ? (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Henüz kayıtlı adres bulunmamaktadır.
+                      <Link to="/hesabim/adresler" className="text-primary hover:underline ml-2">
+                        Adres ekle →
+                      </Link>
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {addressesData.map((address: any) => (
+                        <div
+                          key={address.id}
+                          className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary transition-colors"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {address.firstName} {address.lastName}
+                            </p>
+                            <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded">
+                              {address.type === 'SHIPPING' ? '📦 Kargo' : '💳 Fatura'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {address.address}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {address.postalCode} {address.city}
+                          </p>
+                          {address.phone && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              📱 {address.phone}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                      <Link
+                        to="/hesabim/adresler"
+                        className="inline-block text-sm text-primary hover:underline font-medium mt-2"
+                      >
+                        Adreslerinizi Yönetin →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {isEditingProfile && (
+                  <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={isSavingProfile}
+                      className="flex-1 px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-opacity-90 disabled:opacity-50 transition-all"
+                    >
+                      {isSavingProfile ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingProfile(false);
+                        setProfileForm({
+                          firstName: user?.profile?.firstName || '',
+                          lastName: user?.profile?.lastName || '',
+                          phone: user?.profile?.phone || '',
+                        });
+                      }}
+                      className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      İptal
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {activeSection === 'orders' && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Siparişlerim
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Tüm siparişleriniz burada görüntülenebilir.
-              </p>
-            </div>
-          )}
-
-          {activeSection === 'favorites' && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Beğendiklerim
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Beğendiğin ürünler burada görüntülenebilir.
-              </p>
-            </div>
-          )}
-
+          {/* Reviews */}
           {activeSection === 'reviews' && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Değerlendirmelerim
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Yaptığın değerlendirmeler burada görüntülenebilir.
-              </p>
+            <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Değerlendirmelerim</h2>
+              </div>
+
+              {reviewsLoading ? (
+                <div className="p-6 text-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+                </div>
+              ) : reviewsData.length === 0 ? (
+                <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                  Henüz değerlendirme yapılmamıştır.
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {reviewsData.map((review: any) => (
+                    <Link
+                      key={review.id}
+                      to={`/urun/${review.product?.slug}`}
+                      className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors block group"
+                    >
+                      <div className="flex gap-4">
+                        {review.product?.images?.[0] && (
+                          <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
+                            <img
+                              src={review.product.images[0].url}
+                              alt={review.product.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+                                {review.product?.name || 'Ürün'}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                {review.product?.category?.name || 'Kategori'}
+                              </p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <div className="flex gap-0.5">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <span key={star} className={`text-sm ${star <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}>
+                                      ★
+                                    </span>
+                                  ))}
+                                </div>
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {review.rating}/5
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-xs text-gray-500 whitespace-nowrap">
+                                {new Date(review.createdAt).toLocaleDateString('tr-TR')}
+                              </p>
+                              {!review.isApproved && (
+                                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                  ⏳ Onay Beklemede
+                                </p>
+                              )}
+                              {review.isApproved && (
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                  ✓ Onaylandı
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {review.title && (
+                            <p className="font-medium text-gray-900 dark:text-white mt-2">
+                              {review.title}
+                            </p>
+                          )}
+                          {review.body && (
+                            <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 line-clamp-2">
+                              {review.body}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
+          {/* Coupons */}
           {activeSection === 'coupons' && (
             <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Kuponlarım
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Mevcut kuponların burada görüntülenebilir.
-              </p>
-            </div>
-          )}
-
-          {activeSection === 'messages' && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Mesajlarım
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Gelen mesajların burada görüntülenebilir.
-              </p>
-            </div>
-          )}
-
-          {activeSection === 'profile' && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Profil Bilgileri
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Profil bilgilerini düzenlemek için /hesabim/profil adresine git.
-              </p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Kuponlarım</h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Henüz kupon bulunmamaktadır.</p>
             </div>
           )}
         </div>

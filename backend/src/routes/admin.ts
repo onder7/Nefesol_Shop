@@ -20,6 +20,7 @@ router.use(authenticate, requireAdmin);
 router.get('/stats', ctrl.getStats);
 router.get('/analytics', ctrl.getAnalytics);
 router.get('/user-analytics', ctrl.getUserAnalytics);
+router.get('/analytics/traffic', ctrl.getTrafficAnalytics);
 
 // Umami Live Analytics
 router.get('/analytics/live', umamiCtrl.getLiveAnalytics);
@@ -96,6 +97,7 @@ router.post('/tools/backup/create', ctrl.createBackup);
 router.get('/tools/backup/list', ctrl.listBackups);
 router.get('/tools/backup/:filename/download', ctrl.downloadBackup);
 router.delete('/tools/backup/:filename', ctrl.deleteBackup);
+router.post('/tools/backup/:filename/restore', ctrl.restoreBackup);
 router.get('/tools/backup/schedule', ctrl.getBackupSchedule);
 router.put('/tools/backup/schedule', ctrl.saveBackupSchedule);
 

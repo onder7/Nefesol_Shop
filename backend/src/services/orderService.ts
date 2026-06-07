@@ -109,6 +109,7 @@ export async function listOrders(userId: string) {
           variant: { include: { product: { select: { name: true, slug: true } } } },
         },
       },
+      shipping: true,
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -141,5 +142,10 @@ export async function getOrderDetail(userId: string, orderId: string) {
   });
 
   if (!order) throw Object.assign(new Error('Sipariş bulunamadı'), { status: 404 });
-  return order;
+
+  return {
+    ...order,
+    paymentMethod: order.payment?.provider || undefined,
+    paymentId: order.payment?.transactionId || undefined,
+  };
 }

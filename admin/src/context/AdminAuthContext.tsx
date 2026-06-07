@@ -31,17 +31,30 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, password: string) {
     setIsLoading(true);
     try {
-      const res = await api.post<{ success: boolean; data: { accessToken: string; refreshToken: string; user: AdminUser } }>(
-        '/auth/login',
-        { email, password }
-      );
-      if (res.data.user.role !== 'ADMIN') {
+      const res = await api.post<any>('/auth/login', { email, password });
+
+      // Check if MFA is required
+      if (res.mfaRequired || res.data?.mfaRequired) {
+        throw new Error('MFA_REQUIRED');
+      }
+
+      // Normal login response
+      const userData = res.data?.user || res.user;
+      const accessToken = res.data?.accessToken || res.accessToken;
+      const refreshToken = res.data?.refreshToken || res.refreshToken;
+
+      if (!userData || !accessToken) {
+        throw new Error('Giriş başarısız - geçersiz response');
+      }
+
+      if (userData.role !== 'ADMIN') {
         throw new Error('Bu panele erişim için admin yetkisi gereklidir');
       }
-      setToken(res.data.accessToken);
-      setRefreshToken(res.data.refreshToken);
-      localStorage.setItem('admin_user', JSON.stringify(res.data.user));
-      setUser(res.data.user);
+
+      setToken(accessToken);
+      setRefreshToken(refreshToken);
+      localStorage.setItem('admin_user', JSON.stringify(userData));
+      setUser(userData);
     } finally {
       setIsLoading(false);
     }

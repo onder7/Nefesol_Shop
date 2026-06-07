@@ -19,13 +19,14 @@ import Settings from './pages/Settings';
 import AttributesPage from './pages/Attributes';
 import CampaignsPage from './pages/Campaigns';
 import DiscountsPage from './pages/Discounts';
+import { Cancellations } from './pages/Cancellations';
 import DefaultLayout from './layout/DefaultLayout';
-import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
+import { AdminAuthProvider } from './context/AdminAuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAdminAuth();
-  if (!user) return <Navigate to="/auth/signin" replace />;
-  return <>{children}</>;
+  const token = localStorage.getItem('admin_token');
+  if (!token) return <Navigate to="/auth/signin" replace />;
+  return <AdminAuthProvider>{children}</AdminAuthProvider>;
 }
 
 function AppRoutes() {
@@ -196,6 +197,15 @@ function AppRoutes() {
                     </>
                   }
                 />
+                <Route
+                  path="cancellations"
+                  element={
+                    <>
+                      <PageTitle title="İptal & İade | MaBridge Admin" />
+                      <Cancellations />
+                    </>
+                  }
+                />
               </Routes>
             </DefaultLayout>
           </ProtectedRoute>
@@ -205,21 +215,6 @@ function AppRoutes() {
   );
 }
 
-function TestModeBanner() {
-  return (
-    <div className="fixed top-0 left-0 z-[9999] pointer-events-none overflow-hidden w-28 h-28">
-      <div className="absolute bg-amber-500 text-white text-[10px] font-bold text-center py-1 left-[-28px] top-[18px] w-[120px] -rotate-45 shadow tracking-widest">
-        TEST MODU
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
-  return (
-    <AdminAuthProvider>
-      <TestModeBanner />
-      <AppRoutes />
-    </AdminAuthProvider>
-  );
+  return <AppRoutes />;
 }

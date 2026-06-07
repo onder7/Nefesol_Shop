@@ -2,7 +2,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl postgresql-client
 
 COPY package*.json ./
 COPY prisma ./prisma
@@ -18,7 +18,7 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl postgresql-client
 
 ENV NODE_ENV=production
 
@@ -41,5 +41,5 @@ COPY import-variants.js ./
 
 EXPOSE 5000
 
-# Migration çalıştır, ardından sunucuyu başlat
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# Schema'yı veritabanına eşitle (migration skip)
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/server.js"]

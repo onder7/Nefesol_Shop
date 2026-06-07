@@ -72,7 +72,7 @@ export async function register(input: RegisterInput): Promise<TokenPair> {
   return { accessToken, refreshToken };
 }
 
-export async function login(input: LoginInput): Promise<TokenPair & { user: object }> {
+export async function login(input: LoginInput): Promise<(TokenPair & { user: object; mfaRequired?: boolean; tempToken?: string }) | any> {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
     include: { profile: true },
@@ -80,8 +80,29 @@ export async function login(input: LoginInput): Promise<TokenPair & { user: obje
 
   if (!user || !user.isActive) throw new AppError('E-posta veya şifre hatalı', 401);
 
+  if (!user.passwordHash) throw new AppError('Bu hesap sosyal giriş ile oluşturulmuş, şifre ile giriş yapılamaz', 401);
+
   const valid = await bcrypt.compare(input.password, user.passwordHash);
   if (!valid) throw new AppError('E-posta veya şifre hatalı', 401);
+
+  // MFA kontrol et
+  const userAny = user as any;
+  if (userAny.mfaEnabled || userAny.mfa_enabled) {
+    // Geçici token oluştur (MFA doğrulaması için)
+    const tempToken = jwt.sign({ id: user.id, mfaRequired: true }, env.JWT_SECRET as string, {
+      expiresIn: '5m', // 5 dakika geçerli
+    });
+
+    return {
+      mfaRequired: true,
+      tempToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
 
   const accessToken = signAccess(user.id, user.email, user.role);
   const refreshToken = signRefresh(user.id);
@@ -170,6 +191,8 @@ export async function changePassword(
 ): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError('Kullanıcı bulunamadı', 404);
+
+  if (!user.passwordHash) throw new AppError('Bu hesap sosyal giriş ile oluşturulmuş, şifre değiştirilemiyor', 400);
 
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) throw new AppError('Mevcut şifre hatalı', 400);

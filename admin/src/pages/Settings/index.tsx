@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getToken } from '../../lib/api';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import MFATab from './mfa';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api';
 
@@ -162,6 +163,78 @@ function useSave(group: string, initial: Record<string, string>) {
   return { form, set, reset, load, save, saving, saved, error };
 }
 
+// ─── Logo Upload Component ────────────────────────────────────────────────────
+
+function LogoUpload({ currentLogo, onUpload }: { currentLogo?: string; onUpload: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Lütfen bir görüntü dosyası seçin');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Dosya boyutu 5 MB\'dan küçük olmalıdır');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/admin/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Yükleme başarısız');
+
+      const data = await response.json();
+      onUpload(data.data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yükleme hatası');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="border-2 border-dashed border-stroke dark:border-strokedark rounded-lg p-6 text-center hover:border-primary transition-colors">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          disabled={uploading}
+          className="hidden"
+          id="logo-input"
+        />
+        <label htmlFor="logo-input" className="cursor-pointer block">
+          <svg className="mx-auto h-8 w-8 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+            <path d="M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V20m-14-8l-3-3m0 0l-3 3m3-3v8m9 8h-9m0 0l-3 3m3-3l3 3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <p className="text-sm font-medium text-black dark:text-white">
+            {uploading ? 'Yükleniyor...' : 'Tıkla veya dosyayı sürükle'}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">PNG, JPG, SVG (Max. 5 MB)</p>
+        </label>
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 // ─── Tab: Genel ───────────────────────────────────────────────────────────────
 
 function GeneralTab() {
@@ -216,6 +289,14 @@ function GeneralTab() {
             placeholder="Atatürk Bulvarı No:1 Çankaya/Ankara"
           />
         </Field>
+        <Field label="Harita Embed Kodu (Google Maps)" hint="Google Maps'ten 'Paylaş' → 'Haritayı gömün' ile alınan embed src değerini yapıştır">
+          <textarea
+            className={inputCls + ' min-h-[60px] resize-y font-mono text-xs'}
+            value={g.mapEmbed ?? ''}
+            onChange={(e) => s.set('mapEmbed', e.target.value)}
+            placeholder="https://www.google.com/maps/embed?pb=..."
+          />
+        </Field>
       </SectionCard>
 
       <SectionCard title="Yerelleştirme" subtitle="Dil, para birimi ve bölge ayarları">
@@ -244,11 +325,25 @@ function GeneralTab() {
       </SectionCard>
 
       <SectionCard title="Mağaza Logosu" subtitle="Önerilen: 200×60 px, PNG/SVG">
-        <Field label="Logo URL">
-          <input className={inputCls} value={g.logo_url ?? ''} onChange={(e) => s.set('logo_url', e.target.value)} placeholder="https://..." />
+        <Field label="Logo Yükle">
+          <LogoUpload
+            currentLogo={g.logo_url}
+            onUpload={(url) => s.set('logo_url', url)}
+          />
         </Field>
         {g.logo_url && (
-          <img src={g.logo_url} alt="logo" className="mt-3 h-12 object-contain rounded border border-stroke p-2 dark:border-strokedark" />
+          <div className="mt-4 p-3 rounded border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 flex items-center gap-3">
+            <img src={g.logo_url} alt="logo" className="h-12 object-contain" />
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 truncate">{g.logo_url.split('/').pop()}</p>
+            </div>
+            <button
+              onClick={() => s.set('logo_url', '')}
+              className="text-xs text-red-600 hover:text-red-700 font-medium"
+            >
+              Sil
+            </button>
+          </div>
         )}
       </SectionCard>
 
@@ -1313,12 +1408,15 @@ function MaintenanceTab() {
 
 function PagesTab() {
   const [loading, setLoading] = useState(true);
-  const [activePage, setActivePage] = useState<'iletisim' | 'iade' | 'sss' | 'sozlesmeler'>('iletisim');
+  const [activePage, setActivePage] = useState<'iletisim' | 'iade' | 'sss' | 'sozlesmeler' | 'hakkimizda' | 'kvkk' | 'uyelik'>('iletisim');
   const s = useSave('pages', {
     iletisim: '',
     iade: '',
     sss: '',
     sozlesmeler: '',
+    hakkimizda: '',
+    kvkk: '',
+    uyelik: '',
   });
 
   useEffect(() => {
@@ -1337,13 +1435,16 @@ function PagesTab() {
     iade: 'Kolay İade & Değişim',
     sss: 'Sıkça Sorulan Sorular',
     sozlesmeler: 'Şartlar & Politikalar',
+    hakkimizda: 'Hakkımızda',
+    kvkk: 'KVKK Sözleşmesi',
+    uyelik: 'Üyelik Sözleşmesi',
   };
 
   return (
     <div>
       <SectionCard title="Müşteri Hizmetleri Sayfaları" subtitle="Web sitesindeki statik yardım ve kurumsal sayfaları düzenleyin">
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2 border-b border-stroke dark:border-strokedark">
-          {(['iletisim', 'iade', 'sss', 'sozlesmeler'] as const).map((key) => (
+          {(['iletisim', 'iade', 'sss', 'sozlesmeler', 'hakkimizda', 'kvkk', 'uyelik'] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -2367,6 +2468,9 @@ function ToolsTab() {
   });
   const [schedSaving, setSchedSaving] = useState(false);
   const [schedSaved, setSchedSaved] = useState(false);
+  const [restoreModal, setRestoreModal] = useState<{ open: boolean; filename: string; password: string }>({ open: false, filename: '', password: '' });
+  const [restoring, setRestoring] = useState(false);
+  const [encryptBackup, setEncryptBackup] = useState(true);
 
   // ── DB state ─────────────────────────────────────────────────────
   const [dbStats, setDbStats] = useState<DbStatRow[]>([]);
@@ -2409,7 +2513,7 @@ function ToolsTab() {
   const handleCreateBackup = async () => {
     setCreating(true);
     try {
-      await api.post('/admin/tools/backup/create', {});
+      await api.post('/admin/tools/backup/create', { encrypt: encryptBackup });
       await loadBackups();
     } catch { /* ignore */ }
     finally { setCreating(false); }
@@ -2435,6 +2539,22 @@ function ToolsTab() {
         a.click();
         URL.revokeObjectURL(a.href);
       });
+  };
+
+  const handleRestore = async () => {
+    if (!confirm('⚠️ Veritabanı bu yedekten geri yüklenecek! Tüm son değişiklikler kaybolabilir. Emin misiniz?')) return;
+    setRestoring(true);
+    try {
+      await api.post(`/admin/tools/backup/${encodeURIComponent(restoreModal.filename)}/restore`, {
+        password: restoreModal.password,
+      });
+      alert('Veritabanı başarıyla geri yüklendi. Sayfayı yenileyiniz.');
+      setRestoreModal({ open: false, filename: '', password: '' });
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Geri yükleme başarısız');
+    } finally {
+      setRestoring(false);
+    }
   };
 
   const handleSaveSchedule = async () => {
@@ -2485,22 +2605,35 @@ function ToolsTab() {
 
       {/* ── Yedekleme ─────────────────────────────────────────────── */}
       <SectionCard title="Yedekleme" subtitle="Manuel ve zamanlanmış veritabanı yedekleme">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Yedekler, <code className="bg-gray-100 dark:bg-meta-4 px-1 rounded text-xs">/backups</code> klasörüne kaydedilir.
-          </p>
-          <button
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Yedekler, <code className="bg-gray-100 dark:bg-meta-4 px-1 rounded text-xs">/backups</code> klasörüne kaydedilir.
+            </p>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={encryptBackup}
+                  onChange={(e) => setEncryptBackup(e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium text-black dark:text-white">🔒 Şifrele</span>
+              </label>
+              <button
             onClick={handleCreateBackup}
             disabled={creating}
             className="flex items-center gap-2 px-4 py-2 rounded bg-primary text-white text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition"
           >
-            {creating ? (
-              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-            )}
-            {creating ? 'Yedekleniyor…' : 'Şimdi Yedekle'}
-          </button>
+                {creating ? (
+                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                )}
+                {creating ? 'Yedekleniyor…' : 'Şimdi Yedekle'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Backup list */}
@@ -2522,13 +2655,24 @@ function ToolsTab() {
               <tbody>
                 {backups.map((b) => (
                   <tr key={b.filename} className="border-t border-stroke dark:border-strokedark">
-                    <td className="px-4 py-2 font-mono text-xs text-black dark:text-white">{b.filename}</td>
+                    <td className="px-4 py-2 font-mono text-xs text-black dark:text-white">
+                      {b.filename}
+                      {b.filename.endsWith('.sql.enc') && <span className="ml-2 text-amber-600 dark:text-amber-400 font-semibold">🔒</span>}
+                    </td>
                     <td className="px-4 py-2 text-gray-500">{b.sizeHuman}</td>
                     <td className="px-4 py-2 text-gray-500 whitespace-nowrap">
                       {new Date(b.createdAt).toLocaleString('tr-TR')}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex gap-2 justify-end">
+                        {(b.filename.endsWith('.sql') || b.filename.endsWith('.sql.enc')) && (
+                          <button
+                            onClick={() => setRestoreModal({ open: true, filename: b.filename, password: '' })}
+                            className="text-xs px-3 py-1 rounded border border-meta-3 text-meta-3 hover:bg-green-50 dark:hover:bg-meta-3/10 transition"
+                          >
+                            Geri Yükle
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDownload(b.filename)}
                           className="text-xs px-3 py-1 rounded border border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4 transition"
@@ -2732,6 +2876,60 @@ function ToolsTab() {
           </div>
         )}
       </SectionCard>
+
+      {/* Restore Modal */}
+      {restoreModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-meta-4 rounded-lg shadow-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-black dark:text-white mb-4">
+              ⚠️ Veritabanı Geri Yükle
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Dosya: <code className="bg-gray-100 dark:bg-meta-3 px-2 py-1 rounded text-xs">{restoreModal.filename}</code>
+            </p>
+            <p className="text-sm text-meta-1 mb-4 font-medium">
+              ⚠️ Bu işlem tüm veritabanı verilerini değiştirecektir!
+            </p>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium text-black dark:text-white block mb-2">
+                Admin Şifresi
+              </label>
+              <input
+                type="password"
+                value={restoreModal.password}
+                onChange={(e) => setRestoreModal((p) => ({ ...p, password: e.target.value }))}
+                placeholder="Admin şifresini gir"
+                className={inputCls}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRestoreModal({ open: false, filename: '', password: '' })}
+                disabled={restoring}
+                className="flex-1 px-4 py-2 rounded border border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-3 transition text-sm font-medium"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleRestore}
+                disabled={restoring || !restoreModal.password}
+                className="flex-1 px-4 py-2 rounded bg-meta-1 text-white hover:bg-opacity-90 disabled:opacity-50 transition text-sm font-medium flex items-center justify-center gap-2"
+              >
+                {restoring ? (
+                  <>
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Geri Yükleniyor...
+                  </>
+                ) : (
+                  'Geri Yükle'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3056,7 +3254,93 @@ function PopupTab() {
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
-type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign';
+type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa';
+
+function OAuthTab() {
+  const [form, setForm] = useState({
+    googleClientId: '',
+    facebookAppId: '',
+    instagramAppId: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get<{ success: boolean; data: Record<string, string> }>('/admin/settings/oauth')
+      .then((r) => {
+        if (r.data?.data) {
+          setForm((p) => ({ ...p, ...r.data.data }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setSaved(false);
+    try {
+      await api.put('/admin/settings/oauth', form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kayıt hatası');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="flex justify-center py-10"><div className="animate-spin h-7 w-7 border-2 border-primary border-t-transparent rounded-full" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <SectionCard title="OAuth Sağlayıcı Ayarları" subtitle="Google, Facebook ve Instagram giriş ayarları">
+        <div className="space-y-5">
+          <Field label="Google Client ID" hint="https://console.cloud.google.com adresinden alın">
+            <input
+              type="password"
+              value={form.googleClientId}
+              onChange={(e) => setForm((p) => ({ ...p, googleClientId: e.target.value }))}
+              className={inputCls}
+              placeholder="1234567890-abcd.apps.googleusercontent.com"
+            />
+          </Field>
+
+          <Field label="Facebook App ID" hint="https://developers.facebook.com adresinden alın">
+            <input
+              type="password"
+              value={form.facebookAppId}
+              onChange={(e) => setForm((p) => ({ ...p, facebookAppId: e.target.value }))}
+              className={inputCls}
+              placeholder="1234567890123456"
+            />
+          </Field>
+
+          <Field label="Instagram App ID (Facebook ile aynı)" hint="Facebook App ID'yi buraya da girin">
+            <input
+              type="password"
+              value={form.instagramAppId}
+              onChange={(e) => setForm((p) => ({ ...p, instagramAppId: e.target.value }))}
+              className={inputCls}
+              placeholder="1234567890123456"
+            />
+          </Field>
+        </div>
+
+        <SaveBar
+          saving={saving}
+          saved={saved}
+          error={error}
+          onSave={handleSave}
+          onReset={() => setForm({ googleClientId: '', facebookAppId: '', instagramAppId: '' })}
+        />
+      </SectionCard>
+    </div>
+  );
+}
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   {
@@ -3205,6 +3489,24 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    key: 'oauth',
+    label: 'OAuth Ayarları',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+      </svg>
+    ),
+  },
+  {
+    key: 'mfa',
+    label: 'İki Faktörlü Kimlik Doğrulama',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5s-5 2.24-5 5v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+      </svg>
+    ),
+  },
 ];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -3235,6 +3537,8 @@ export default function Settings() {
     chatbot:       <ChatbotTab />,
     popup:         <PopupTab />,
     campaign:      <CampaignTab />,
+    oauth:         <OAuthTab />,
+    mfa:           <MFATab />,
   };
 
   return (

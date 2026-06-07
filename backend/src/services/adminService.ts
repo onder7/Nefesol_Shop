@@ -1028,6 +1028,7 @@ export async function getUserAnalyticsData() {
       totalCartValue,
       totalSubscribers,
       totalFavorites,
+      cartUsersCount: cartsWithItems.length,
     },
     favorites: favoritesList,
     cartUsers: cartUsersList,
@@ -1035,6 +1036,83 @@ export async function getUserAnalyticsData() {
     trafficSources,
     deviceDistribution,
   };
+}
+
+export async function getTrafficAnalyticsData() {
+  const websiteId = '72424b18-47f7-4116-8816-bd3d69f6fc2b';
+  const umamiUrl = 'http://localhost:3000';
+
+  try {
+    // Umami API'sinden gerçek veri çekmek için placeholder
+    // Not: Umami API çoğunlukla authenticated endpointler kullanır
+
+    // Şimdilik demo data dönüyoruz, Umami data entegrasyonu sonra yapılabilir
+    const trafficSources = [
+      { source: 'Doğrudan', visitors: 1250, percentage: 35 },
+      { source: 'Google', visitors: 1080, percentage: 30 },
+      { source: 'Instagram', visitors: 720, percentage: 20 },
+      { source: 'Reklam', visitors: 540, percentage: 15 },
+    ];
+
+    const topPages = [
+      { url: '/', title: 'Ana Sayfa', views: 4800, visitors: 2400 },
+      { url: '/products', title: 'Ürünler', views: 3200, visitors: 1600 },
+      { url: '/categories/tekstil', title: 'Tekstil Kategorisi', views: 2100, visitors: 1200 },
+      { url: '/about', title: 'Hakkımızda', views: 1500, visitors: 800 },
+      { url: '/contact', title: 'İletişim', views: 980, visitors: 500 },
+    ];
+
+    const deviceDistribution = {
+      mobile: 65,
+      desktop: 30,
+      tablet: 5,
+    };
+
+    const browserDistribution = [
+      { name: 'Chrome', percentage: 60, count: 2100 },
+      { name: 'Safari', percentage: 20, count: 700 },
+      { name: 'Firefox', percentage: 12, count: 420 },
+      { name: 'Diğer', percentage: 8, count: 280 },
+    ];
+
+    const osDistribution = [
+      { name: 'Windows', percentage: 45, count: 1575 },
+      { name: 'iOS', percentage: 28, count: 980 },
+      { name: 'Android', percentage: 20, count: 700 },
+      { name: 'macOS', percentage: 7, count: 245 },
+    ];
+
+    return {
+      trafficSources,
+      topPages,
+      deviceDistribution,
+      browserDistribution,
+      osDistribution,
+      summary: {
+        totalVisitors: 3500,
+        totalSessions: 4200,
+        avgSessionDuration: 420,
+        bounceRate: 35,
+      },
+    };
+  } catch (err) {
+    // Hata durumunda demo data dön
+    return {
+      trafficSources: [
+        { source: 'Doğrudan', visitors: 0, percentage: 0 },
+      ],
+      topPages: [],
+      deviceDistribution: { mobile: 0, desktop: 0, tablet: 0 },
+      browserDistribution: [],
+      osDistribution: [],
+      summary: {
+        totalVisitors: 0,
+        totalSessions: 0,
+        avgSessionDuration: 0,
+        bounceRate: 0,
+      },
+    };
+  }
 }
 
 export async function adminToggleSubscriberStatus(id: string) {

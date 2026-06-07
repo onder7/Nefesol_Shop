@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
+import { env } from '../config/env';
 import * as adminService from '../services/adminService';
 import * as settingsService from '../services/settingsService';
 import { getEmailStatus as emailStatus, sendOrderConfirmation } from '../services/emailService';
@@ -236,6 +237,15 @@ export async function getUserAnalytics(req: AuthRequest, res: Response, next: Ne
   }
 }
 
+export async function getTrafficAnalytics(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.getTrafficAnalyticsData();
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getMaintenanceSettings(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const data = await settingsService.getMaintenanceConfig();
@@ -367,7 +377,9 @@ export async function globalSearch(req: AuthRequest, res: Response, next: NextFu
 
 export async function createBackup(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const result = await backupSvc.createBackup();
+    const { encrypt } = req.body as { encrypt?: boolean };
+    const adminPassword = encrypt ? env.ADMIN_PASSWORD : undefined;
+    const result = await backupSvc.createBackup(adminPassword);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 }
@@ -407,6 +419,28 @@ export async function saveBackupSchedule(req: AuthRequest, res: Response, next: 
     // notify cron to reload (fire-and-forget, server module handles it)
     backupSvc.triggerScheduleReload?.();
     res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+export async function restoreBackup(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const filename = req.params.filename as string;
+    const { password } = req.body as { password: string };
+
+    if (!filename || !password) {
+      return res.status(400).json({ success: false, error: 'Dosya adı ve şifre gerekli' });
+    }
+
+    // Şifreyi kontrol et (admin default şifresi)
+    const adminPassword = env.ADMIN_PASSWORD || 'Admin123!';
+    if (password !== adminPassword) {
+      return res.status(403).json({ success: false, error: 'Şifre yanlış' });
+    }
+
+    // Şifreli dosya ise aynı şifreyi kullan, değilse undefined
+    const decryptPassword = filename.endsWith('.sql.enc') ? adminPassword : undefined;
+    await backupSvc.restoreBackup(filename, decryptPassword);
+    res.json({ success: true, message: 'Veritabanı başarıyla geri yüklendi' });
   } catch (err) { next(err); }
 }
 

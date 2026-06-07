@@ -22,6 +22,62 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [viewPassword, setViewPassword] = useState(false);
 
+  const handleGoogleClick = async () => {
+    if (!(window as any).google) {
+      toast.error('Google Sign-In yüklenemiyor');
+      return;
+    }
+
+    (window as any).google.accounts.id.renderButton(
+      document.createElement('div'),
+      {
+        type: 'standard',
+        size: 'large',
+        text: 'signin_with',
+        locale: 'tr',
+      }
+    );
+
+    (window as any).google.accounts.id.prompt(async (notification: any) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        toast.info('Google Sign-In dialog açılıyor...');
+      }
+    });
+  };
+
+  const handleFacebookClick = () => {
+    if (!(window as any).FB) {
+      toast.error('Facebook SDK yüklenemiyor');
+      return;
+    }
+
+    (window as any).FB.login(async (response: any) => {
+      if (response.authResponse) {
+        try {
+          const res = await fetch('/api/auth/oauth/facebook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken: response.authResponse.accessToken })
+          });
+          const data = await res.json();
+          if (data.success) {
+            setUser(data.data.user as User, data.data.accessToken);
+            toast.success('Facebook ile giriş başarılı!');
+            navigate(from, { replace: true });
+          } else {
+            toast.error(data.error || 'Giriş başarısız');
+          }
+        } catch (err) {
+          toast.error('Giriş işlemi başarısız');
+        }
+      }
+    }, { scope: 'public_profile,email' });
+  };
+
+  const handleInstagramClick = () => {
+    toast.info('Instagram ile giriş - Facebook üzerinden yapılır');
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -126,6 +182,44 @@ export function Login() {
                   {loading ? 'Giriş Yapılıyor...' : 'GİRİŞ YAP'}
                 </Button>
               </div>
+
+              {/* Divider */}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-input" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Veya</span>
+                </div>
+              </div>
+
+              {/* Social Login Buttons */}
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={handleGoogleClick}
+                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
+                  title="Google ile giriş yap"
+                >
+                  G
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFacebookClick}
+                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
+                  title="Facebook ile giriş yap"
+                >
+                  f
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInstagramClick}
+                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl hover:scale-105 active:scale-95"
+                  title="Instagram ile giriş yap"
+                >
+                  📷
+                </button>
+              </div>
             </form>
           </div>
 
@@ -144,11 +238,8 @@ export function Login() {
         </div>
       </div>
 
-      {/* Sağ Sütun: Arka Plan Resmi */}
-      <div 
-        className="hidden lg:block h-full w-full bg-cover bg-center"
-        style={{ backgroundImage: `url('/auth-login-bg.svg')` }}
-      />
+      {/* Sağ Sütun: Arka Plan - Gri gradyan */}
+      <div className="hidden lg:block h-full w-full bg-gradient-to-br from-slate-100 to-slate-200" />
     </main>
   );
 }

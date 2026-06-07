@@ -29,6 +29,62 @@ export function Register() {
       setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
+  const handleGoogleClick = async () => {
+    if (!(window as any).google) {
+      toast.error('Google Sign-In yüklenemiyor');
+      return;
+    }
+
+    (window as any).google.accounts.id.renderButton(
+      document.createElement('div'),
+      {
+        type: 'standard',
+        size: 'large',
+        text: 'signup_with',
+        locale: 'tr',
+      }
+    );
+
+    (window as any).google.accounts.id.prompt(async (notification: any) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        toast.info('Google Sign-In dialog açılıyor...');
+      }
+    });
+  };
+
+  const handleFacebookClick = () => {
+    if (!(window as any).FB) {
+      toast.error('Facebook SDK yüklenemiyor');
+      return;
+    }
+
+    (window as any).FB.login(async (response: any) => {
+      if (response.authResponse) {
+        try {
+          const res = await fetch('/api/auth/oauth/facebook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken: response.authResponse.accessToken })
+          });
+          const data = await res.json();
+          if (data.success) {
+            setUser(data.data.user as User, data.data.accessToken);
+            toast.success('Facebook ile kayıt başarılı!');
+            navigate('/', { replace: true });
+          } else {
+            toast.error(data.error || 'Kayıt başarısız');
+          }
+        } catch (err) {
+          toast.error('Kayıt işlemi başarısız');
+        }
+      }
+    }, { scope: 'public_profile,email' });
+  };
+
+  const handleInstagramClick = () => {
+    toast.info('Instagram ile kayıt - Facebook üzerinden yapılır');
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.password !== form.confirmPassword) {
@@ -185,7 +241,7 @@ export function Register() {
 
               <div className="flex justify-between items-center pt-4">
                 <Link to="/giris" className="font-bold text-primary hover:underline text-sm">
-                  Giriş Yapın
+                  Zaten hesabınız var mı? Giriş yapın
                 </Link>
                 <Button
                   type="submit"
@@ -194,6 +250,44 @@ export function Register() {
                 >
                   {loading ? 'Kayıt Yapılıyor...' : 'KAYIT OL'}
                 </Button>
+              </div>
+
+              {/* Divider */}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-input" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Veya</span>
+                </div>
+              </div>
+
+              {/* Social Login Buttons */}
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={handleGoogleClick}
+                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
+                  title="Google ile kayıt ol"
+                >
+                  G
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFacebookClick}
+                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
+                  title="Facebook ile kayıt ol"
+                >
+                  f
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInstagramClick}
+                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl hover:scale-105 active:scale-95"
+                  title="Instagram ile kayıt ol"
+                >
+                  📷
+                </button>
               </div>
             </form>
           </div>
@@ -213,11 +307,8 @@ export function Register() {
         </div>
       </div>
 
-      {/* Arka Plan Resmi */}
-      <div 
-        className="hidden lg:block h-full w-full bg-cover bg-center"
-        style={{ backgroundImage: `url('/auth-register-bg.png')` }}
-      />
+      {/* Arka Plan - Gri gradyan */}
+      <div className="hidden lg:block h-full w-full bg-gradient-to-br from-slate-100 to-slate-200" />
     </main>
   );
 }

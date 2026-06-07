@@ -28,10 +28,10 @@ async function delPending(conversationId: string) {
   await redis.del(pendingKey(conversationId));
 }
 
-function apiBase(req: Request) {
-  // req.protocol respects X-Forwarded-Proto when trust proxy is enabled.
-  // req.get('host') gives the original Host header (no internal port) behind nginx.
-  return `${req.protocol}://${req.get('host') ?? req.hostname}`;
+function apiBase(_req: Request) {
+  // Use configured FRONTEND_URL to ensure correct redirect URLs
+  // This avoids issues with proxy headers or browser-detected ports
+  return env.FRONTEND_URL;
 }
 
 // ─── POST /api/checkout/initialize ───────────────────────────────────────────

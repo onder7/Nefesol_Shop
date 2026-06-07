@@ -76,6 +76,7 @@ export interface CartItem {
   variantId: string;
   quantity: number;
   priceAtAdd: number;
+  createdAt: string;
   variant: ProductVariant & { product: Pick<Product, 'id' | 'name' | 'slug' | 'images'> };
 }
 
@@ -101,6 +102,8 @@ export interface Order {
   createdAt: string;
   address?: Address;
   shipping?: OrderShipping | null;
+  paymentMethod?: string;
+  paymentId?: string;
   items: { id: string; quantity: number; unitPrice: number; variant: ProductVariant & { product: Pick<Product, 'name' | 'slug'> } }[];
 }
 

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import healthRouter from './health';
 import authRouter from './auth';
+import mfaRouter from './mfa';
+import oauthRouter from './oauth';
 import productsRouter from './products';
 import categoriesRouter from './categories';
 import brandsRouter from './brands';
@@ -8,6 +10,8 @@ import cartRouter from './cart';
 import addressesRouter from './addresses';
 import checkoutRouter from './checkout';
 import wishlistRouter from './wishlist';
+import reviewsRouter from './reviews';
+import profileRouter from './profile';
 import adminRouter from './admin';
 import newsletterRouter from './newsletter';
 import pricingRouter from './pricing';
@@ -27,6 +31,8 @@ router.get('/chatbot/rules', getActiveRules);
 router.get('/popup', getActivePopup);
 router.get('/campaign', getActiveCampaign);
 router.use('/auth', authRouter);
+router.use('/mfa', mfaRouter);
+router.use('/', oauthRouter);
 router.use('/products', productsRouter);
 router.use('/categories', categoriesRouter);
 router.use('/brands', brandsRouter);
@@ -34,11 +40,36 @@ router.use('/cart', cartRouter);
 router.use('/addresses', addressesRouter);
 router.use('/checkout', checkoutRouter);
 router.use('/wishlist', wishlistRouter);
+router.use('/reviews', reviewsRouter);
+router.use('/profile', profileRouter);
 router.use('/admin', adminRouter);
 router.use('/newsletter', newsletterRouter);
 router.use('/pricing', pricingRouter);
 router.use('/campaigns', campaignsRouter);
 router.use('/discounts', discountsRouter);
+
+// Mağaza logosu — public (header için)
+router.get('/store-logo', async (_req, res, next) => {
+  try {
+    const data = await getSettingsGroup('general_');
+    res.json({ success: true, data: { logo_url: data.logo_url || null } });
+  } catch (err) { next(err); }
+});
+
+// Firma iletişim bilgileri — public (iletişim sayfası için)
+router.get('/company-info', async (_req, res, next) => {
+  try {
+    const data = await getSettingsGroup('general_');
+    res.json({ success: true, data: {
+      name: data.store_name || 'MaBridge Global',
+      email: data.email || 'info@mabridgeglobal.com',
+      phone: data.phone || '+90 123 456 7890',
+      address: data.address || 'Ankara, Türkiye',
+      city: data.city || 'Ankara',
+      mapEmbed: data.mapEmbed || 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d195884.30030588698!2d32.62267988358488!3d39.90329181165241!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14d347d520730525%3A0xb89a3c7db2bc3397!2sAnkara!5e0!3m2!1str!2str!4v1700000000000!5m2!1str!2str'
+    } });
+  } catch (err) { next(err); }
+});
 
 // Sosyal medya linkleri — public (footer ve ürün sayfası için)
 router.get('/social-links', async (_req, res, next) => {
@@ -74,7 +105,7 @@ router.get('/maintenance-status', async (_req, res, next) => {
 router.get('/pages/:slug', async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const allowedSlugs = ['iletisim', 'iade', 'sss', 'sozlesmeler'];
+    const allowedSlugs = ['iletisim', 'iade', 'sss', 'sozlesmeler', 'hakkimizda', 'kvkk', 'uyelik'];
     if (!allowedSlugs.includes(slug)) {
       return res.status(404).json({ success: false, error: 'Sayfa bulunamadı' });
     }
@@ -141,6 +172,55 @@ router.get('/pages/:slug', async (req, res, next) => {
           <p class="text-slate-400 font-sans">Kişisel verileriniz KVKK kapsamında korunmakta ve üçüncü şahıslarla paylaşılmamaktadır.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">2. Mesafeli Satış Sözleşmesi</h2>
           <p class="text-slate-400 font-sans">Satın alma işlemlerinde Tüketici Hakları Kanunu geçerlidir.</p>
+        </div>
+      `,
+      hakkimizda: `
+        <div class="space-y-6">
+          <h1 class="text-3xl font-extrabold text-white">Hakkımızda</h1>
+          <p class="text-slate-400">MaBridge Global, çeyiz ve ev tekstilinde kalite ve güvenirliliğin simgesidir. Kuruluşundan itibaren müşteri memnuniyetini ön planda tutarak hizmet vermekteyiz.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">Misyonumuz</h2>
+          <p class="text-slate-400 font-sans">En kaliteli ürünleri en uygun fiyatlarla sunarak, her müşterinin evini daha güzel ve konforlu bir yer haline getirmek.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">Vizyonumuz</h2>
+          <p class="text-slate-400 font-sans">Çeyiz ve ev tekstili sektöründe Türkiye'nin en güvenilir ve tercih edilen e-ticaret platformu olmak.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">Değerlerimiz</h2>
+          <ul class="list-disc pl-5 space-y-2 text-slate-400 font-sans">
+            <li>Müşteri Memnuniyeti: Her zaman müşterinin ihtiyaçlarını ön planda tutuyor, hızlı ve kaliteli hizmet sunuyoruz.</li>
+            <li>Kalite: Ürünlerimiz en yüksek kalite standartlarını karşılamak üzere seçilmektedir.</li>
+            <li>Güvenilirlik: Tüm işlemlerde şeffaflık ve dürüstlüğü prensip ediyoruz.</li>
+            <li>İnovasyon: Teknoloji kullanarak müşteri deneyimini sürekli geliştiriyoruz.</li>
+          </ul>
+        </div>
+      `,
+      kvkk: `
+        <div class="space-y-6">
+          <h1 class="text-3xl font-extrabold text-white">KVKK Sözleşmesi (Gizlilik Politikası)</h1>
+          <p class="text-slate-400">6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca, kişisel verilerinizin nasıl işlendiğini açıklamak istiyoruz.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">1. Veri Sahibinin Hakları</h2>
+          <p class="text-slate-400 font-sans">Kişisel verileriniz hakkında bilgi sahibi olmak, düzeltmesini isteyebilmek, silinmesini talep edebilmek gibi haklara sahipsiniz.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">2. Verilerin Kullanımı</h2>
+          <p class="text-slate-400 font-sans">Toplanan kişisel verileriniz, siparişlerinizi işlemek, kargo göndermek, müşteri hizmetleri sağlamak ve kanuni yükümlülükleri yerine getirmek amacıyla kullanılır.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">3. Veri Güvenliği</h2>
+          <p class="text-slate-400 font-sans">Verileriniz en modern şifreleme teknolojileri kullanılarak korunmakta ve üçüncü şahıslarla izinsiz paylaşılmamaktadır.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">4. İletişim</h2>
+          <p class="text-slate-400 font-sans">Veri konusunda sorularınız için: kvkk@mabridgeglobal.com adresine yazabilirsiniz.</p>
+        </div>
+      `,
+      uyelik: `
+        <div class="space-y-6">
+          <h1 class="text-3xl font-extrabold text-white">Üyelik Sözleşmesi</h1>
+          <p class="text-slate-400">MaBridge platformunda üyeliğiniz ile ilgili hak ve sorumlulukları açıklamak istiyoruz.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">1. Üyelik Şartları</h2>
+          <ul class="list-disc pl-5 space-y-2 text-slate-400 font-sans">
+            <li>18 yaşından büyük olmanız gerekir.</li>
+            <li>Gerçek kişi veya yasal tüzel kişi olmanız şarttır.</li>
+            <li>Sahte, yanıltıcı bilgi vermeniz yasaktır.</li>
+          </ul>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">2. Üyelik Hakkı</h2>
+          <p class="text-slate-400 font-sans">Üyelik iptal edilmesi durumunda sipariş verme, cari bakiye ve diğer hizmetlerden faydalanma hakkınız sona erer.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">3. Sorumluluklar</h2>
+          <p class="text-slate-400 font-sans">Şifrenizin gizliliğini sağlamaktan, verdiğiniz bilgilerin doğruluğundan ve hesabınızda yapılan işlemlerden siz sorumlusunuz.</p>
+          <h2 class="text-xl font-bold text-white mt-6 mb-3">4. Kısıtlamalar</h2>
+          <p class="text-slate-400 font-sans">Platform herhangi bir nedenden dolayı hesabı kapatma veya kısıtlama hakkına sahiptir.</p>
         </div>
       `,
     };

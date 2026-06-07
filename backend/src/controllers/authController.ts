@@ -30,7 +30,20 @@ export async function register(req: Request, res: Response, next: NextFunction):
 
 export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await authService.login(req.body);
+    const result = await authService.login(req.body) as any;
+
+    // MFA gerekli mi?
+    if (result.mfaRequired && result.tempToken) {
+      res.json({
+        success: true,
+        mfaRequired: true,
+        tempToken: result.tempToken,
+        user: result.user,
+      });
+      return;
+    }
+
+    // Normal login
     setTokenCookies(res, result.accessToken, result.refreshToken);
     res.json({
       success: true,
