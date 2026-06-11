@@ -2,11 +2,13 @@ import * as speakeasy from 'speakeasy';
 import * as qrcode from 'qrcode';
 import { prisma } from '../config/database';
 import { AppError } from '../types';
+import { getStoreName } from './settingsService';
 
 export async function generateMFASecret(email: string) {
+  const storeName = await getStoreName();
   const secret = speakeasy.generateSecret({
-    name: `MaBridge Global (${email})`,
-    issuer: 'MaBridge Global',
+    name: `${storeName} (${email})`,
+    issuer: storeName,
     length: 32,
   });
 

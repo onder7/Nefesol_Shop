@@ -18,15 +18,22 @@ import pricingRouter from './pricing';
 import campaignsRouter from './campaigns';
 import discountsRouter from './discounts';
 import { getActiveRules } from '../controllers/chatbotController';
+import { getSetupStatus, postSetup } from '../controllers/setupController';
 import { getActivePopup } from '../controllers/popupController';
 import { getActiveCampaign } from '../controllers/discountCampaignController';
-import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig } from '../services/settingsService';
+import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig, getStoreIdentity } from '../services/settingsService';
+import { getPublicUmamiConfig } from '../services/umamiService';
 import { optionalAuthenticate } from '../middlewares/auth';
 import { AuthRequest } from '../types';
 
 const router = Router();
 
 router.use('/health', healthRouter);
+
+// İlk kurulum sihirbazı (public — postSetup admin yoksa çalışır, varsa 409)
+router.get('/setup/status', getSetupStatus);
+router.post('/setup', postSetup);
+
 router.get('/chatbot/rules', getActiveRules);
 router.get('/popup', getActivePopup);
 router.get('/campaign', getActiveCampaign);
@@ -61,13 +68,22 @@ router.get('/company-info', async (_req, res, next) => {
   try {
     const data = await getSettingsGroup('general_');
     res.json({ success: true, data: {
-      name: data.store_name || 'MaBridge Global',
-      email: data.email || 'info@mabridgeglobal.com',
-      phone: data.phone || '+90 123 456 7890',
-      address: data.address || 'Ankara, Türkiye',
-      city: data.city || 'Ankara',
+      name: data.store_name || 'Mağaza',
+      legalName: data.legal_name || data.store_name || 'Mağaza',
+      email: data.email || 'info@example.com',
+      phone: data.phone || '',
+      address: data.address || '',
+      city: data.city || '',
       mapEmbed: data.mapEmbed || 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d195884.30030588698!2d32.62267988358488!3d39.90329181165241!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14d347d520730525%3A0xb89a3c7db2bc3397!2sAnkara!5e0!3m2!1str!2str!4v1700000000000!5m2!1str!2str'
     } });
+  } catch (err) { next(err); }
+});
+
+// Umami izleme script bilgisi — public (frontend tracking için; kimlik bilgisi içermez)
+router.get('/analytics-config', async (_req, res, next) => {
+  try {
+    const data = await getPublicUmamiConfig();
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 });
 
@@ -113,7 +129,10 @@ router.get('/pages/:slug', async (req, res, next) => {
     const row = await prisma.siteSettings.findUnique({
       where: { key: `pages_${slug}` }
     });
-    
+
+    // Varsayılan sayfa içeriklerindeki marka/iletişim bilgisi ayarlardan gelir
+    const store = await getStoreIdentity();
+
     const defaults: Record<string, string> = {
       iletisim: `
         <div class="space-y-6">
@@ -122,7 +141,7 @@ router.get('/pages/:slug', async (req, res, next) => {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <div class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
               <h3 class="text-lg font-semibold text-white mb-2">E-posta</h3>
-              <p class="text-primary font-medium">destek@mabridgeglobal.com</p>
+              <p class="text-primary font-medium">${store.email}</p>
               <p class="text-xs text-slate-500 mt-1">7/24 e-posta gönderebilirsiniz.</p>
             </div>
             <div class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
@@ -136,7 +155,7 @@ router.get('/pages/:slug', async (req, res, next) => {
       iade: `
         <div class="space-y-6">
           <h1 class="text-3xl font-extrabold text-white">Kolay İade & Değişim</h1>
-          <p class="text-slate-400">MaBridge üzerinden satın aldığınız ürünleri, teslimat tarihinden itibaren 14 gün içerisinde ücretsiz olarak iade edebilir veya değiştirebilirsiniz.</p>
+          <p class="text-slate-400">${store.name} üzerinden satın aldığınız ürünleri, teslimat tarihinden itibaren 14 gün içerisinde ücretsiz olarak iade edebilir veya değiştirebilirsiniz.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">İade Koşulları</h2>
           <ul class="list-disc pl-5 space-y-2 text-slate-400 font-sans">
             <li>Ürünün orijinal ambalajı bozulmamış, kullanılmamış ve hasar görmemiş olmalıdır.</li>
@@ -167,7 +186,7 @@ router.get('/pages/:slug', async (req, res, next) => {
       sozlesmeler: `
         <div class="space-y-6">
           <h1 class="text-3xl font-extrabold text-white">Şartlar & Politikalar</h1>
-          <p class="text-slate-400">MaBridge web sitesini kullanarak aşağıdaki üyelik sözleşmesi, gizlilik politikası ve mesafeli satış sözleşmesi şartlarını kabul etmiş olursunuz.</p>
+          <p class="text-slate-400">${store.name} web sitesini kullanarak aşağıdaki üyelik sözleşmesi, gizlilik politikası ve mesafeli satış sözleşmesi şartlarını kabul etmiş olursunuz.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">1. Gizlilik Politikası</h2>
           <p class="text-slate-400 font-sans">Kişisel verileriniz KVKK kapsamında korunmakta ve üçüncü şahıslarla paylaşılmamaktadır.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">2. Mesafeli Satış Sözleşmesi</h2>
@@ -177,7 +196,7 @@ router.get('/pages/:slug', async (req, res, next) => {
       hakkimizda: `
         <div class="space-y-6">
           <h1 class="text-3xl font-extrabold text-white">Hakkımızda</h1>
-          <p class="text-slate-400">MaBridge Global, çeyiz ve ev tekstilinde kalite ve güvenirliliğin simgesidir. Kuruluşundan itibaren müşteri memnuniyetini ön planda tutarak hizmet vermekteyiz.</p>
+          <p class="text-slate-400">${store.name}, kalite ve güvenirliliğin simgesidir. Kuruluşundan itibaren müşteri memnuniyetini ön planda tutarak hizmet vermekteyiz.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">Misyonumuz</h2>
           <p class="text-slate-400 font-sans">En kaliteli ürünleri en uygun fiyatlarla sunarak, her müşterinin evini daha güzel ve konforlu bir yer haline getirmek.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">Vizyonumuz</h2>
@@ -202,13 +221,13 @@ router.get('/pages/:slug', async (req, res, next) => {
           <h2 class="text-xl font-bold text-white mt-6 mb-3">3. Veri Güvenliği</h2>
           <p class="text-slate-400 font-sans">Verileriniz en modern şifreleme teknolojileri kullanılarak korunmakta ve üçüncü şahıslarla izinsiz paylaşılmamaktadır.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">4. İletişim</h2>
-          <p class="text-slate-400 font-sans">Veri konusunda sorularınız için: kvkk@mabridgeglobal.com adresine yazabilirsiniz.</p>
+          <p class="text-slate-400 font-sans">Veri konusunda sorularınız için: ${store.email} adresine yazabilirsiniz.</p>
         </div>
       `,
       uyelik: `
         <div class="space-y-6">
           <h1 class="text-3xl font-extrabold text-white">Üyelik Sözleşmesi</h1>
-          <p class="text-slate-400">MaBridge platformunda üyeliğiniz ile ilgili hak ve sorumlulukları açıklamak istiyoruz.</p>
+          <p class="text-slate-400">${store.name} platformunda üyeliğiniz ile ilgili hak ve sorumlulukları açıklamak istiyoruz.</p>
           <h2 class="text-xl font-bold text-white mt-6 mb-3">1. Üyelik Şartları</h2>
           <ul class="list-disc pl-5 space-y-2 text-slate-400 font-sans">
             <li>18 yaşından büyük olmanız gerekir.</li>

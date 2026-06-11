@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict jYPxj4GG0wbOHbrDe6W5PPKju20YRCfAgnbnWSVU7Ks1EwBif03uj0Z0XpvWC0P
+\restrict e2ikoyy15WeGoHtetDlxhq4hQMknoVxWyUO2QKmkeMFeUWhlZHt9XwjQUOqFIrz
 
 -- Dumped from database version 16.13
 -- Dumped by pg_dump version 16.13
@@ -17,6 +17,20 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+-- *not* creating schema, since initdb creates it
+
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON SCHEMA public IS '';
+
 
 --
 -- Name: AddressType; Type: TYPE; Schema: public; Owner: -
@@ -102,22 +116,6 @@ CREATE TYPE public."Role" AS ENUM (
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: _prisma_migrations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public._prisma_migrations (
-    id character varying(36) NOT NULL,
-    checksum character varying(64) NOT NULL,
-    finished_at timestamp with time zone,
-    migration_name character varying(255) NOT NULL,
-    logs text,
-    rolled_back_at timestamp with time zone,
-    started_at timestamp with time zone DEFAULT now() NOT NULL,
-    applied_steps_count integer DEFAULT 0 NOT NULL
-);
-
 
 --
 -- Name: addresses; Type: TABLE; Schema: public; Owner: -
@@ -211,11 +209,11 @@ CREATE TABLE public.campaigns (
     show_on_home boolean DEFAULT false NOT NULL,
     color text DEFAULT 'primary'::text NOT NULL,
     display_type text DEFAULT 'sticky'::text NOT NULL,
+    image_url text,
     cta_text text,
     cta_link text,
     created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp(3) without time zone NOT NULL,
-    image_url text
+    updated_at timestamp(3) without time zone NOT NULL
 );
 
 
@@ -260,8 +258,8 @@ CREATE TABLE public.categories (
     image_url text,
     sort_order integer DEFAULT 0 NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
-    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    show_in_menu boolean DEFAULT true NOT NULL
+    show_in_menu boolean DEFAULT true NOT NULL,
+    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -388,13 +386,13 @@ CREATE TABLE public.order_cancellations (
     description text,
     refund_amount numeric(10,2),
     admin_notes text,
+    coupon_offered boolean DEFAULT false NOT NULL,
+    coupon_code text,
+    coupon_value numeric(10,2),
     requested_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     approved_at timestamp(3) without time zone,
     refunded_at timestamp(3) without time zone,
-    rejected_at timestamp(3) without time zone,
-    coupon_code text,
-    coupon_offered boolean DEFAULT false NOT NULL,
-    coupon_value numeric(10,2)
+    rejected_at timestamp(3) without time zone
 );
 
 
@@ -543,11 +541,11 @@ CREATE TABLE public.product_variants (
     price numeric(10,2) NOT NULL,
     compare_at numeric(10,2),
     stock_qty integer DEFAULT 0 NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     desi numeric(8,2),
+    is_active boolean DEFAULT true NOT NULL,
     cost_price_override numeric(10,2),
-    markup_percentage_override numeric(5,2)
+    markup_percentage_override numeric(5,2),
+    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -563,14 +561,14 @@ CREATE TABLE public.products (
     slug text NOT NULL,
     description text,
     is_active boolean DEFAULT true NOT NULL,
-    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp(3) without time zone NOT NULL,
     is_featured boolean DEFAULT false NOT NULL,
     vat_rate integer DEFAULT 20 NOT NULL,
     vat_included boolean DEFAULT true NOT NULL,
-    pricing_method text DEFAULT 'fixed'::character varying NOT NULL,
+    pricing_method text DEFAULT 'fixed'::text NOT NULL,
     cost_price numeric(10,2),
-    markup_percentage numeric(5,2)
+    markup_percentage numeric(5,2),
+    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp(3) without time zone NOT NULL
 );
 
 
@@ -628,6 +626,9 @@ CREATE TABLE public.user_profiles (
     last_name text,
     phone text,
     avatar_url text,
+    bio text,
+    avatar text,
+    oauth_ids text[] DEFAULT ARRAY[]::text[],
     updated_at timestamp(3) without time zone NOT NULL
 );
 
@@ -639,9 +640,15 @@ CREATE TABLE public.user_profiles (
 CREATE TABLE public.users (
     id text NOT NULL,
     email text NOT NULL,
-    password_hash text NOT NULL,
+    first_name text DEFAULT ''::text NOT NULL,
+    last_name text DEFAULT ''::text NOT NULL,
+    password_hash text,
     role public."Role" DEFAULT 'CUSTOMER'::public."Role" NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
+    refresh_tokens text[] DEFAULT ARRAY[]::text[],
+    mfa_enabled boolean DEFAULT false NOT NULL,
+    mfa_secret text,
+    backup_codes text[] DEFAULT ARRAY[]::text[],
     created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp(3) without time zone NOT NULL
 );
@@ -682,14 +689,6 @@ CREATE TABLE public.wishlists (
 
 
 --
--- Name: _prisma_migrations _prisma_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public._prisma_migrations
-    ADD CONSTRAINT _prisma_migrations_pkey PRIMARY KEY (id);
-
-
---
 -- Name: addresses addresses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -719,14 +718,6 @@ ALTER TABLE ONLY public.attributes
 
 ALTER TABLE ONLY public.brands
     ADD CONSTRAINT brands_pkey PRIMARY KEY (id);
-
-
---
--- Name: campaign_products campaign_products_campaign_id_product_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.campaign_products
-    ADD CONSTRAINT campaign_products_campaign_id_product_id_key UNIQUE (campaign_id, product_id);
 
 
 --
@@ -1011,6 +1002,13 @@ CREATE UNIQUE INDEX attributes_slug_key ON public.attributes USING btree (slug);
 --
 
 CREATE UNIQUE INDEX brands_slug_key ON public.brands USING btree (slug);
+
+
+--
+-- Name: campaign_products_campaign_id_product_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX campaign_products_campaign_id_product_id_key ON public.campaign_products USING btree (campaign_id, product_id);
 
 
 --
@@ -1419,7 +1417,5 @@ ALTER TABLE ONLY public.wishlists
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jYPxj4GG0wbOHbrDe6W5PPKju20YRCfAgnbnWSVU7Ks1EwBif03uj0Z0XpvWC0P
+\unrestrict e2ikoyy15WeGoHtetDlxhq4hQMknoVxWyUO2QKmkeMFeUWhlZHt9XwjQUOqFIrz
 
--- Truncate all data
-TRUNCATE TABLE user_profiles, addresses, reviews, wishlists, notifications, discount_usages, users, carts, orders, discounts, newsletter_subscribers, product_questions, chatbot_rules, discount_campaigns, popup_notifications, campaigns, product_answers, contact_messages, cart_items, order_items, order_status_logs, payments, shippings, wishlist_items, order_cancellations, products, product_variants, product_images, product_tags, variant_attribute_values, categories, brands, attributes, attribute_values, site_settings, campaign_products CASCADE;

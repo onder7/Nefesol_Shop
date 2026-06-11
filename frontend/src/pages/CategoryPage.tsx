@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SeoHead, SITE_URL } from '@/components/seo/SeoHead';
 import { breadcrumbSchema } from '@/lib/schemas';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
 const SORTS = [
   { value: 'newest', label: 'En Yeni' },
@@ -20,6 +21,7 @@ type Sort = 'newest' | 'price_asc' | 'price_desc' | 'popular';
 
 export function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { name: storeName } = useStoreInfo();
   const [sort, setSort] = useState<Sort>('newest');
   const [page, setPage] = useState(1);
 
@@ -54,7 +56,7 @@ export function CategoryPage() {
         description={
           category?.description
             ? category.description.slice(0, 155)
-            : `${category?.name ?? slug} kategorisindeki ürünleri keşfedin.${pagination ? ` ${pagination.total} ürün seçeneği.` : ''} MaBridge Global kalite güvencesiyle.`
+            : `${category?.name ?? slug} kategorisindeki ürünleri keşfedin.${pagination ? ` ${pagination.total} ürün seçeneği.` : ''} ${storeName} kalite güvencesiyle.`
         }
         keywords={[category?.name, 'ev tekstili', 'satın al', 'fiyat', 'kargo'].filter(Boolean).join(', ')}
         url={`${SITE_URL}/kategori/${slug}`}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import ReactApexChart from 'react-apexcharts';
+import ReactApexChart from '../../lib/react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import { api } from '../../lib/api';
 
@@ -889,6 +889,20 @@ export default function UserAnalytics() {
             </div>
           ) : trafficData ? (
             <div className="space-y-6">
+              {/* Veri kaynağı rozeti */}
+              {trafficData.dataSource === 'demo' ? (
+                <div className="rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+                  ⚠️ Demo veri gösteriliyor — gerçek trafik verileri için{' '}
+                  <a href="/settings" className="font-semibold underline">Sistem Ayarları → Analytics</a>{' '}
+                  bölümünden Umami bağlantısını yapılandırın.
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-meta-3">
+                  <span className="inline-block h-2 w-2 rounded-full bg-meta-3" />
+                  Umami — son 30 günün canlı verisi
+                </div>
+              )}
+
               {/* Summary Cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <KPICard

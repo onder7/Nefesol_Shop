@@ -1,6 +1,6 @@
 import { ApexOptions } from 'apexcharts';
 import React, { useState } from 'react';
-import ReactApexChart from 'react-apexcharts';
+import ReactApexChart from '../../lib/react-apexcharts';
 
 const options: ApexOptions = {
   colors: ['#3C50E0', '#80CAEE'],

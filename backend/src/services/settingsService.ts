@@ -72,6 +72,35 @@ export async function updateTaxConfig(taxRate: number): Promise<TaxConfig> {
   return { taxRate };
 }
 
+// ─── Mağaza Kimliği ───────────────────────────────────────────────────────────
+// Marka adı kodda sabit yazılmaz; kurulumda/ayarlarda girilen değerden gelir.
+
+export async function getStoreName(): Promise<string> {
+  try {
+    const row = await prisma.siteSettings.findUnique({ where: { key: 'general_store_name' } });
+    return row?.value?.trim() || 'Mağaza';
+  } catch {
+    return 'Mağaza';
+  }
+}
+
+export async function getStoreIdentity(): Promise<{ name: string; legalName: string; email: string }> {
+  try {
+    const rows = await prisma.siteSettings.findMany({
+      where: { key: { in: ['general_store_name', 'general_legal_name', 'general_email'] } },
+    });
+    const m = Object.fromEntries(rows.map((r) => [r.key.slice('general_'.length), r.value]));
+    const name = m.store_name?.trim() || 'Mağaza';
+    return {
+      name,
+      legalName: m.legal_name?.trim() || name,
+      email: m.email?.trim() || 'info@example.com',
+    };
+  } catch {
+    return { name: 'Mağaza', legalName: 'Mağaza', email: 'info@example.com' };
+  }
+}
+
 // ─── Generic Key-Value Settings ───────────────────────────────────────────────
 
 export async function getSettingsGroup(prefix: string): Promise<Record<string, string>> {

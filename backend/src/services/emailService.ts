@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
+import { getStoreName } from './settingsService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,9 @@ type EmailConfig = SmtpConfig | BrevoConfig | NoneConfig;
 // ─── Config Resolution (env → DB) ────────────────────────────────────────────
 
 async function resolveEmailConfig(): Promise<EmailConfig> {
+  // Marka adı ayarlardan gelir (kurulumda girilen mağaza adı)
+  const storeName = await getStoreName();
+
   // 1. SMTP from env (highest priority)
   if (env.SMTP_HOST) {
     return {
@@ -38,8 +42,8 @@ async function resolveEmailConfig(): Promise<EmailConfig> {
       port: env.SMTP_PORT,
       user: env.SMTP_USER,
       pass: env.SMTP_PASS,
-      from: env.SMTP_FROM ?? 'noreply@mabridgeglobal.com',
-      fromName: 'MaBridge',
+      from: env.SMTP_FROM ?? 'noreply@example.com',
+      fromName: storeName,
     };
   }
 
@@ -48,8 +52,8 @@ async function resolveEmailConfig(): Promise<EmailConfig> {
     return {
       method: 'brevo',
       apiKey: env.BREVO_API_KEY,
-      senderEmail: env.BREVO_SENDER_EMAIL ?? 'noreply@mabridgeglobal.com',
-      senderName: env.BREVO_SENDER_NAME ?? 'MaBridge',
+      senderEmail: env.BREVO_SENDER_EMAIL ?? 'noreply@example.com',
+      senderName: env.BREVO_SENDER_NAME ?? storeName,
     };
   }
 
@@ -74,8 +78,8 @@ async function resolveEmailConfig(): Promise<EmailConfig> {
         port: Number(m.smtp_port) || 587,
         user: m.smtp_user || undefined,
         pass: m.smtp_pass || undefined,
-        from: m.smtp_from || 'noreply@mabridgeglobal.com',
-        fromName: m.smtp_from_name || 'MaBridge',
+        from: m.smtp_from || 'noreply@example.com',
+        fromName: m.smtp_from_name || storeName,
       };
     }
 
@@ -92,8 +96,8 @@ async function resolveEmailConfig(): Promise<EmailConfig> {
       return {
         method: 'brevo',
         apiKey: bm.brevo_api_key,
-        senderEmail: bm.brevo_sender_email || 'noreply@mabridgeglobal.com',
-        senderName: bm.brevo_sender_name || 'MaBridge',
+        senderEmail: bm.brevo_sender_email || 'noreply@example.com',
+        senderName: bm.brevo_sender_name || storeName,
       };
     }
   } catch (err) {
@@ -278,6 +282,7 @@ export async function sendOrderStatusUpdate(
 ): Promise<void> {
   const orderRef = orderId.slice(-8).toUpperCase();
   const ordersUrl = `${env.FRONTEND_URL}/hesabim/siparisler`;
+  const storeName = await getStoreName();
 
   const statusColors: Record<string, string> = {
     CONFIRMED:  '#16a34a',
@@ -302,7 +307,7 @@ export async function sendOrderStatusUpdate(
           Siparişlerimi Görüntüle
         </a>
       </p>
-      <p style="color:#666;font-size:14px">MaBridge'i tercih ettiğiniz için teşekkürler.</p>
+      <p style="color:#666;font-size:14px">${storeName}'i tercih ettiğiniz için teşekkürler.</p>
     </div>
   `;
 

@@ -20,6 +20,7 @@ export async function maintenanceCheck(req: AuthRequest, res: Response, next: Ne
     path.startsWith('/auth/refresh-token') ||
     path.startsWith('/health') ||
     path.startsWith('/maintenance-status') ||
+    path.startsWith('/setup') ||
     path.startsWith('/admin');
 
   if (isBypass) {

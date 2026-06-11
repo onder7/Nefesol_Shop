@@ -7,7 +7,7 @@ import { prisma } from '../config/database';
 import * as orderSvc from '../services/orderService';
 import * as paymentSvc from '../services/paymentService';
 import * as emailSvc from '../services/emailService';
-import { getShippingConfig, computeShipping, getPaymentMethods } from '../services/settingsService';
+import { getShippingConfig, computeShipping, getPaymentMethods, getStoreName } from '../services/settingsService';
 
 // Pending checkout data stored in Redis with 30-min TTL
 const PENDING_TTL = 1800;
@@ -288,11 +288,12 @@ export async function placeOrder(req: AuthRequest, res: Response, next: NextFunc
 
     const responseData: Record<string, unknown> = { orderId: order.id };
     if (method === 'havale') {
+      const storeName = await getStoreName();
       responseData['havale'] = {
         bankName:    methods.havale.bankName,
         iban:        methods.havale.iban,
         accountName: methods.havale.accountName,
-        description: methods.havale.description || `MaBridge-${order.id.slice(-8).toUpperCase()}`,
+        description: methods.havale.description || `${storeName}-${order.id.slice(-8).toUpperCase()}`,
       };
     }
 

@@ -18,10 +18,12 @@ import { authApi } from '@/services/authApi';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '@/services/productApi';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 import type { Product } from '@/types';
 
 export function Header() {
   const { isAuthenticated, user, logout } = useAuthStore();
+  const { name: storeName } = useStoreInfo();
   const itemCount = useCartStore((s) => s.itemCount);
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,7 +122,7 @@ export function Header() {
           {logoUrl ? (
             <img src={logoUrl} alt="Logo" className="h-12 object-contain" />
           ) : (
-            <span className="text-xl font-bold text-primary">MaBridge</span>
+            <span className="text-xl font-bold text-primary">{storeName}</span>
           )}
         </Link>
  
@@ -324,7 +326,7 @@ export function Header() {
           <SheetContent side="right" className="w-[300px] sm:w-[350px]">
             <div className="flex flex-col gap-6 py-6 h-full">
               <SheetClose render={<Link to="/" className="text-xl font-bold text-primary px-2" />}>
-                MaBridge
+                {storeName}
               </SheetClose>
               <div className="flex flex-col gap-4">
                 <p className="font-semibold text-sm text-muted-foreground px-2">Kategoriler</p>

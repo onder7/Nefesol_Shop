@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { useStoreName } from '../../lib/useStoreName';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -132,6 +133,7 @@ const navItems = [
 const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAdminAuth();
+  const storeName = useStoreName();
   const trigger = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLElement>(null);
 
@@ -178,7 +180,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
       {/* Header */}
       <div className="flex items-center justify-between gap-2 px-6 py-5.5 lg:py-6.5">
         <NavLink to="/" className="text-white text-xl font-bold tracking-tight">
-          MaBridge <span className="text-primary text-sm font-medium">Admin</span>
+          {storeName} <span className="text-primary text-sm font-medium">Admin</span>
         </NavLink>
         <button
           ref={trigger}

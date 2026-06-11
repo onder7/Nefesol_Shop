@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE } from '../../lib/api';
+import { useStoreName } from '../../lib/useStoreName';
 
 const SignIn: React.FC = () => {
   const navigate = useNavigate();
@@ -7,6 +9,10 @@ const SignIn: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [setupDone] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('setup') === 'success',
+  );
+  const storeName = useStoreName();
 
   // MFA states
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -19,7 +25,7 @@ const SignIn: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -56,7 +62,7 @@ const SignIn: React.FC = () => {
 
     setMfaLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/mfa/login-complete', {
+      const res = await fetch(`${API_BASE}/mfa/login-complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,13 +153,19 @@ const SignIn: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-2 dark:bg-boxdark-2 px-4">
       <div className="w-full max-w-md rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark p-8">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-black dark:text-white">MaBridge Admin</h1>
+          <h1 className="text-2xl font-bold text-black dark:text-white">{storeName} Admin</h1>
           <p className="mt-1 text-sm text-body dark:text-bodydark2">Yönetim paneline giriş yapın</p>
         </div>
 
         {error && (
           <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 dark:bg-meta-1/10 dark:border-meta-1 dark:text-meta-1">
             {error}
+          </div>
+        )}
+
+        {setupDone && (
+          <div className="mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-700 dark:bg-green-900/20 dark:text-green-300">
+            ✓ Kurulum tamamlandı. Belirlediğiniz admin bilgileriyle giriş yapın.
           </div>
         )}
 

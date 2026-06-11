@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, X, Send, Bot, User, ChevronDown } from 'lucide-react';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
 // ─── Tip tanımları ────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ const KNOWLEDGE_FALLBACK: KnowledgeRule[] = [
   {
     keywords: ['merhaba', 'selam', 'hi', 'hey', 'iyi günler', 'iyi akşamlar', 'nasılsın'],
     response:
-      'Merhaba! 👋 MaBridge\'e hoş geldiniz. Size nasıl yardımcı olabilirim?\n\nAşağıdaki konularda bilgi alabilirim:',
+      'Merhaba! 👋 Mağazamıza hoş geldiniz. Size nasıl yardımcı olabilirim?\n\nAşağıdaki konularda bilgi alabilirim:',
     quickReplies: ['Kargo & Teslimat', 'İade & İptal', 'Ürün & Stok', 'Ödeme Seçenekleri'],
   },
   {
@@ -150,12 +151,13 @@ function renderText(text: string) {
 const GREETING: Message = {
   id: 'greeting',
   role: 'assistant',
-  text: 'Merhaba! 👋 MaBridge Canlı Asistanı\'na hoş geldiniz.\n\nSize nasıl yardımcı olabilirim?',
+  text: 'Merhaba! 👋 Canlı Asistanımıza hoş geldiniz.\n\nSize nasıl yardımcı olabilirim?',
   ts: Date.now(),
   quickReplies: ['Kargo & Teslimat', 'İade & İptal', 'Ürün & Stok', 'Ödeme Seçenekleri'],
 };
 
 export function LiveChat() {
+  const { name: storeName } = useStoreInfo();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [input, setInput] = useState('');
@@ -313,7 +315,7 @@ export function LiveChat() {
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-400 border-2 border-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm leading-none">MaBridge Asistan</p>
+              <p className="font-semibold text-sm leading-none">{storeName} Asistan</p>
               <p className="text-xs text-primary-foreground/70 mt-0.5 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-400 inline-block" />
                 Çevrimiçi · Genellikle anında yanıt verir
@@ -421,7 +423,7 @@ export function LiveChat() {
                   </button>
                 </div>
                 <p className="text-center text-[10px] text-muted-foreground mt-1.5">
-                  MaBridge Canlı Destek · Gizliliğiniz güvendedir 🔒
+                  {storeName} Canlı Destek · Gizliliğiniz güvendedir 🔒
                 </p>
               </div>
             </>

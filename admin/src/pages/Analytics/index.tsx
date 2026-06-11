@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import ReactApexChart from 'react-apexcharts';
+import ReactApexChart from '../../lib/react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import { api } from '../../lib/api';
 

@@ -1,19 +1,21 @@
 const SITE_URL =
   (import.meta.env.VITE_SITE_URL as string | undefined) ??
-  (typeof window !== 'undefined' ? window.location.origin : 'https://www.mabridgeglobal.com');
+  (typeof window !== 'undefined' ? window.location.origin : '');
+
+// Marka adı çağıran bileşenden (useStoreInfo) gelir; sabit yazılmaz.
+const DEFAULT_NAME = 'Mağaza';
 
 // ── Organization ──────────────────────────────────────────────────────────────
 
-export function organizationSchema() {
+export function organizationSchema(siteName: string = DEFAULT_NAME) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'MaBridge Global',
+    name: siteName,
     url: SITE_URL,
     logo: `${SITE_URL}/favicon.svg`,
     contactPoint: {
       '@type': 'ContactPoint',
-      telephone: '+90-312-000-0000',
       contactType: 'customer service',
       availableLanguage: 'Turkish',
     },
@@ -23,11 +25,11 @@ export function organizationSchema() {
 
 // ── WebSite (sitelinks searchbox) ─────────────────────────────────────────────
 
-export function websiteSchema() {
+export function websiteSchema(siteName: string = DEFAULT_NAME) {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'MaBridge Global',
+    name: siteName,
     url: SITE_URL,
     potentialAction: {
       '@type': 'SearchAction',
@@ -74,7 +76,7 @@ export interface ProductForSchema {
   category: { name: string; slug: string };
 }
 
-export function productSchema(product: ProductForSchema) {
+export function productSchema(product: ProductForSchema, siteName: string = DEFAULT_NAME) {
   const url = `${SITE_URL}/urun/${product.slug}`;
   const primaryImage =
     product.images?.find((i) => i.isPrimary) ?? product.images?.[0];
@@ -113,7 +115,7 @@ export function productSchema(product: ProductForSchema) {
       availability: inStock
         ? 'https://schema.org/InStock'
         : 'https://schema.org/OutOfStock',
-      seller: { '@type': 'Organization', name: 'MaBridge Global' },
+      seller: { '@type': 'Organization', name: siteName },
     },
   };
 

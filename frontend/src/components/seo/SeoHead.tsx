@@ -1,9 +1,9 @@
 import { Helmet } from 'react-helmet-async';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
-const SITE_NAME = 'MaBridge Global';
 const SITE_URL =
   (import.meta.env.VITE_SITE_URL as string | undefined) ??
-  (typeof window !== 'undefined' ? window.location.origin : 'https://www.mabridgeglobal.com');
+  (typeof window !== 'undefined' ? window.location.origin : '');
 
 interface SeoHeadProps {
   title?: string;
@@ -26,7 +26,8 @@ export function SeoHead({
   noindex = false,
   schema,
 }: SeoHeadProps) {
-  const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Kaliteli Ev Tekstili`;
+  const { name: SITE_NAME } = useStoreInfo();
+  const fullTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
   const canonicalUrl = url ?? (typeof window !== 'undefined' ? window.location.href : SITE_URL);
   const ogImage = image ?? `${SITE_URL}/og-default.jpg`;
   const robots = noindex ? 'noindex, nofollow' : 'index, follow';
@@ -66,4 +67,4 @@ export function SeoHead({
   );
 }
 
-export { SITE_URL, SITE_NAME };
+export { SITE_URL };

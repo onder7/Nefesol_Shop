@@ -4,6 +4,8 @@ import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import Loader from './common/Loader';
 import PageTitle from './components/PageTitle';
 import SignIn from './pages/Authentication/SignIn';
+import Setup from './pages/Setup';
+import { api } from './lib/api';
 import Dashboard from './pages/Dashboard/ECommerce';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
@@ -31,6 +33,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const [loading, setLoading] = useState(true);
+  // null = henüz bilinmiyor, true/false = kurulum durumu
+  const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -38,13 +42,27 @@ function AppRoutes() {
   }, [pathname]);
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 500);
+    api
+      .get<{ success: boolean; data: { setupCompleted: boolean } }>('/setup/status')
+      .then((r) => setSetupCompleted(r.data?.setupCompleted ?? true))
+      .catch(() => setSetupCompleted(true)) // hata olursa sihirbazı zorlama
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <Loader />;
+  if (loading || setupCompleted === null) return <Loader />;
+
+  // Kurulum tamamlanmamışsa tüm trafiği sihirbaza yönlendir
+  if (!setupCompleted && pathname !== '/setup') {
+    return <Navigate to="/setup" replace />;
+  }
+  // Kurulum tamamsa sihirbaz tekrar açılamaz
+  if (setupCompleted && pathname === '/setup') {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <Routes>
+      <Route path="/setup" element={<Setup />} />
       <Route path="/auth/signin" element={<SignIn />} />
 
       <Route
@@ -57,7 +75,7 @@ function AppRoutes() {
                   index
                   element={
                     <>
-                      <PageTitle title="Dashboard | MaBridge Admin" />
+                      <PageTitle title="Dashboard | Yönetim Paneli" />
                       <Dashboard />
                     </>
                   }
@@ -66,7 +84,7 @@ function AppRoutes() {
                   path="products"
                   element={
                     <>
-                      <PageTitle title="Ürünler | MaBridge Admin" />
+                      <PageTitle title="Ürünler | Yönetim Paneli" />
                       <Products />
                     </>
                   }
@@ -75,7 +93,7 @@ function AppRoutes() {
                   path="products/new"
                   element={
                     <>
-                      <PageTitle title="Yeni Ürün | MaBridge Admin" />
+                      <PageTitle title="Yeni Ürün | Yönetim Paneli" />
                       <ProductDetailPage />
                     </>
                   }
@@ -84,7 +102,7 @@ function AppRoutes() {
                   path="products/:id"
                   element={
                     <>
-                      <PageTitle title="Ürün Düzenle | MaBridge Admin" />
+                      <PageTitle title="Ürün Düzenle | Yönetim Paneli" />
                       <ProductDetailPage />
                     </>
                   }
@@ -93,7 +111,7 @@ function AppRoutes() {
                   path="orders"
                   element={
                     <>
-                      <PageTitle title="Siparişler | MaBridge Admin" />
+                      <PageTitle title="Siparişler | Yönetim Paneli" />
                       <Orders />
                     </>
                   }
@@ -102,7 +120,7 @@ function AppRoutes() {
                   path="orders/:id"
                   element={
                     <>
-                      <PageTitle title="Sipariş Detayı | MaBridge Admin" />
+                      <PageTitle title="Sipariş Detayı | Yönetim Paneli" />
                       <OrderDetailPage />
                     </>
                   }
@@ -111,7 +129,7 @@ function AppRoutes() {
                   path="customers"
                   element={
                     <>
-                      <PageTitle title="Mü��teriler | MaBridge Admin" />
+                      <PageTitle title="Mü��teriler | Yönetim Paneli" />
                       <Customers />
                     </>
                   }
@@ -120,7 +138,7 @@ function AppRoutes() {
                   path="categories"
                   element={
                     <>
-                      <PageTitle title="Kategoriler | MaBridge Admin" />
+                      <PageTitle title="Kategoriler | Yönetim Paneli" />
                       <Categories />
                     </>
                   }
@@ -129,7 +147,7 @@ function AppRoutes() {
                   path="brands"
                   element={
                     <>
-                      <PageTitle title="Markalar | MaBridge Admin" />
+                      <PageTitle title="Markalar | Yönetim Paneli" />
                       <Brands />
                     </>
                   }
@@ -138,7 +156,7 @@ function AppRoutes() {
                   path="discounts"
                   element={
                     <>
-                      <PageTitle title="İndirimler | MaBridge Admin" />
+                      <PageTitle title="İndirimler | Yönetim Paneli" />
                       <DiscountsPage />
                     </>
                   }
@@ -147,7 +165,7 @@ function AppRoutes() {
                   path="analytics"
                   element={
                     <>
-                      <PageTitle title="Raporlar | MaBridge Admin" />
+                      <PageTitle title="Raporlar | Yönetim Paneli" />
                       <Analytics />
                     </>
                   }
@@ -156,7 +174,7 @@ function AppRoutes() {
                   path="user-analytics"
                   element={
                     <>
-                      <PageTitle title="Kullanıcı İstatistikleri | MaBridge Admin" />
+                      <PageTitle title="Kullanıcı İstatistikleri | Yönetim Paneli" />
                       <UserAnalytics />
                     </>
                   }
@@ -165,7 +183,7 @@ function AppRoutes() {
                   path="settings"
                   element={
                     <>
-                      <PageTitle title="Sistem Ayarları | MaBridge Admin" />
+                      <PageTitle title="Sistem Ayarları | Yönetim Paneli" />
                       <Settings />
                     </>
                   }
@@ -174,7 +192,7 @@ function AppRoutes() {
                   path="settings/shipping"
                   element={
                     <>
-                      <PageTitle title="Kargo Ayarları | MaBridge Admin" />
+                      <PageTitle title="Kargo Ayarları | Yönetim Paneli" />
                       <ShippingSettings />
                     </>
                   }
@@ -183,7 +201,7 @@ function AppRoutes() {
                   path="attributes"
                   element={
                     <>
-                      <PageTitle title="Ürün Özellikleri | MaBridge Admin" />
+                      <PageTitle title="Ürün Özellikleri | Yönetim Paneli" />
                       <AttributesPage />
                     </>
                   }
@@ -192,7 +210,7 @@ function AppRoutes() {
                   path="campaigns"
                   element={
                     <>
-                      <PageTitle title="Kampanyalar | MaBridge Admin" />
+                      <PageTitle title="Kampanyalar | Yönetim Paneli" />
                       <CampaignsPage />
                     </>
                   }
@@ -201,7 +219,7 @@ function AppRoutes() {
                   path="cancellations"
                   element={
                     <>
-                      <PageTitle title="İptal & İade | MaBridge Admin" />
+                      <PageTitle title="İptal & İade | Yönetim Paneli" />
                       <Cancellations />
                     </>
                   }

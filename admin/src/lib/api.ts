@@ -1,4 +1,6 @@
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api';
+// Ortam-bağımsız API kökü: prod'da build arg ile '/api', dev'de localhost.
+// Login/MFA gibi interceptor (401→refresh→redirect) istemeyen yerler de bunu kullanır.
+export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api';
 
 export function getToken(): string | null {
   return localStorage.getItem('admin_token');
@@ -34,7 +36,7 @@ async function doRefresh(): Promise<string> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) throw new Error('no_refresh_token');
 
-  const res = await fetch(`${BASE}/auth/refresh-token`, {
+  const res = await fetch(`${API_BASE}/auth/refresh-token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
@@ -55,7 +57,7 @@ async function uploadRequest<T>(path: string, file: File, retry = true): Promise
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body: formData });
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: formData });
   const json = await res.json().catch(() => ({}));
 
   if (res.status === 401 && retry) {
@@ -96,7 +98,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   const json = await res.json().catch(() => ({}));
 
   if (res.status === 401 && retry) {

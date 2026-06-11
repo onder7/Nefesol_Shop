@@ -1,21 +1,5 @@
+import { useEffect, useState } from 'react';
 import { Wrench, Globe, Mail } from 'lucide-react';
-
-const Github = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    width="24"
-    height="24"
-    stroke="currentColor"
-    strokeWidth="2"
-    fill="none"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-    <path d="M9 18c-4.51 2-5-2-7-2" />
-  </svg>
-);
 
 interface MaintenanceProps {
   message?: string;
@@ -24,6 +8,15 @@ interface MaintenanceProps {
 export default function Maintenance({ message }: MaintenanceProps) {
   const currentYear = new Date().getFullYear();
   const displayMessage = message || 'Sistemimizde güncelleme ve iyileştirme çalışmaları yapılmaktadır. En kısa sürede yeniden hizmetinizde olacağız. Anlayışınız için teşekkür ederiz.';
+
+  // Bu sayfa provider'ların dışında render edildiği için mağaza bilgisini kendisi çeker
+  const [store, setStore] = useState<{ name: string; email: string }>({ name: 'Mağaza', email: '' });
+  useEffect(() => {
+    fetch('/api/company-info')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j?.data) setStore({ name: j.data.name || 'Mağaza', email: j.data.email || '' }); })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-950 px-6 py-12 text-slate-100 selection:bg-primary selection:text-white">
@@ -46,7 +39,7 @@ export default function Maintenance({ message }: MaintenanceProps) {
 
         {/* Company Logo or Name */}
         <span className="mb-2 text-xs font-semibold tracking-[0.2em] text-primary uppercase">
-          MaBridge Global
+          {store.name}
         </span>
 
         {/* Title */}
@@ -64,37 +57,28 @@ export default function Maintenance({ message }: MaintenanceProps) {
 
         {/* Contact/Social Links */}
         <div className="flex items-center justify-center gap-4 border-t border-slate-900 pt-8 w-full">
+          {store.email && (
+            <a
+              href={`mailto:${store.email}`}
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 border border-slate-800 hover:border-primary hover:text-primary transition-all duration-300"
+              title="E-posta Gönder"
+            >
+              <Mail className="h-4 w-4" />
+            </a>
+          )}
           <a
-            href="mailto:info@mabridgeglobal.com"
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 border border-slate-800 hover:border-primary hover:text-primary transition-all duration-300"
-            title="E-posta Gönder"
-          >
-            <Mail className="h-4 w-4" />
-          </a>
-          <a
-            href="https://mabridgeglobal.com"
-            target="_blank"
-            rel="noreferrer"
+            href="/"
             className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 border border-slate-800 hover:border-primary hover:text-primary transition-all duration-300"
             title="Web Sitesi"
           >
             <Globe className="h-4 w-4" />
-          </a>
-          <a
-            href="https://github.com/onder7"
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 border border-slate-800 hover:border-primary hover:text-primary transition-all duration-300"
-            title="GitHub"
-          >
-            <Github className="h-4 w-4" />
           </a>
         </div>
       </div>
 
       {/* Footer copyright */}
       <div className="absolute bottom-8 text-center text-xs text-slate-600">
-        <p>© {currentYear} MaBridge. Tüm hakları saklıdır.</p>
+        <p>© {currentYear} {store.name}. Tüm hakları saklıdır.</p>
       </div>
     </div>
   );

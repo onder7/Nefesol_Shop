@@ -18,14 +18,16 @@ import { useRecentlyViewedStore } from '@/store/recentlyViewedStore';
 import { SeoHead, SITE_URL } from '@/components/seo/SeoHead';
 import { productSchema, breadcrumbSchema } from '@/lib/schemas';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
 const WA_NUMBER_FALLBACK = import.meta.env.VITE_WHATSAPP_NUMBER ?? '905551234567';
 
 function ProductShareBar({ name, url }: { name: string; url: string }) {
   const [copied, setCopied] = useState(false);
+  const { name: storeName } = useStoreInfo();
 
   const encodedUrl  = encodeURIComponent(url);
-  const encodedText = encodeURIComponent(name + ' — MaBridge Global');
+  const encodedText = encodeURIComponent(`${name} — ${storeName}`);
 
   const copy = useCallback(async () => {
     try {
@@ -164,6 +166,7 @@ function formatPrice(price: number | string): string {
 
 export function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
+  const { name: storeName } = useStoreInfo();
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState<'reviews' | 'qa'>('reviews');
@@ -278,7 +281,7 @@ export function ProductDetail() {
         url={`${SITE_URL}/urun/${product.slug}`}
         type="product"
         schema={[
-          productSchema(product),
+          productSchema(product, storeName),
           breadcrumbSchema([
             { name: 'Ana Sayfa', url: SITE_URL },
             {

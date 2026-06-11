@@ -1,6 +1,12 @@
 import { prisma } from '../config/database';
 import { AppError } from '../types';
 import { Prisma } from '@prisma/client';
+import {
+  getUmamiConfig,
+  fetchStats,
+  fetchMetrics,
+  UmamiMetric,
+} from './umamiService';
 
 // ─── Dashboard Stats ─────────────────────────────────────────────────────────
 
@@ -1009,19 +1015,29 @@ export async function getUserAnalyticsData() {
     status: sub.status as 'confirmed' | 'pending',
   }));
 
-  // Trafik Kaynakları (ApexCharts için sabit oranlar)
-  const trafficSources = [
+  // Trafik Kaynakları ve Cihaz Dağılımı — Umami yapılandırılmışsa gerçek veri,
+  // değilse demo oranlar (Sistem Ayarları → Analytics)
+  let trafficSources = [
     { label: 'Doğrudan', value: 35 },
     { label: 'Google', value: 30 },
     { label: 'Instagram', value: 20 },
     { label: 'Reklam', value: 15 },
   ];
+  let deviceDistribution = { mobile: 75, desktop: 25 };
 
-  // Cihaz Dağılımı
-  const deviceDistribution = {
-    mobile: 75,
-    desktop: 25,
-  };
+  const umami = await getUmamiData30d();
+  if (umami) {
+    if (umami.referrers.length > 0) {
+      trafficSources = umami.referrers.slice(0, 4).map((r) => ({
+        label: r.source,
+        value: r.percentage,
+      }));
+    }
+    deviceDistribution = {
+      mobile: umami.devices.mobile + umami.devices.tablet,
+      desktop: umami.devices.desktop,
+    };
+  }
 
   return {
     kpi: {
@@ -1038,81 +1054,175 @@ export async function getUserAnalyticsData() {
   };
 }
 
-export async function getTrafficAnalyticsData() {
-  const websiteId = '72424b18-47f7-4116-8816-bd3d69f6fc2b';
-  const umamiUrl = 'http://localhost:3000';
+// ─── Umami yardımcıları ───────────────────────────────────────────────────────
+
+function pct(part: number, total: number): number {
+  return total > 0 ? Math.round((part / total) * 100) : 0;
+}
+
+// Referrer domain'ini okunur kaynak adına çevirir ('' → Doğrudan)
+function referrerLabel(x: string | null): string {
+  if (!x) return 'Doğrudan';
+  const host = x.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  if (/google\./.test(host)) return 'Google';
+  if (/instagram\.com/.test(host)) return 'Instagram';
+  if (/facebook\.com|fb\.com/.test(host)) return 'Facebook';
+  if (/(^|\.)t\.co$|twitter\.com|x\.com/.test(host)) return 'X (Twitter)';
+  if (/youtube\.com|youtu\.be/.test(host)) return 'YouTube';
+  if (/bing\.com/.test(host)) return 'Bing';
+  if (/yandex\./.test(host)) return 'Yandex';
+  return host;
+}
+
+interface UmamiData30d {
+  referrers: Array<{ source: string; visitors: number; percentage: number }>;
+  topPages: Array<{ url: string; views: number }>;
+  devices: { mobile: number; desktop: number; tablet: number };
+  browsers: Array<{ name: string; percentage: number; count: number }>;
+  os: Array<{ name: string; percentage: number; count: number }>;
+  summary: {
+    totalVisitors: number;
+    totalSessions: number;
+    avgSessionDuration: number;
+    bounceRate: number;
+  };
+}
+
+// Son 30 günün Umami verisini tek seferde çeker.
+// Umami yapılandırılmamışsa veya erişilemiyorsa null döner.
+async function getUmamiData30d(): Promise<UmamiData30d | null> {
+  const cfg = await getUmamiConfig();
+  if (!cfg) return null;
+
+  const endAt = Date.now();
+  const startAt = endAt - 30 * 24 * 60 * 60 * 1000;
 
   try {
-    // Umami API'sinden gerçek veri çekmek için placeholder
-    // Not: Umami API çoğunlukla authenticated endpointler kullanır
+    const [stats, referrers, pages, devices, browsers, os] = await Promise.all([
+      fetchStats(cfg, startAt, endAt),
+      fetchMetrics(cfg, 'referrer', startAt, endAt, 10),
+      fetchMetrics(cfg, 'url', startAt, endAt, 5),
+      fetchMetrics(cfg, 'device', startAt, endAt, 10),
+      fetchMetrics(cfg, 'browser', startAt, endAt, 10),
+      fetchMetrics(cfg, 'os', startAt, endAt, 10),
+    ]);
 
-    // Şimdilik demo data dönüyoruz, Umami data entegrasyonu sonra yapılabilir
-    const trafficSources = [
+    // Aynı etikete denk düşen referrer'ları birleştir (örn. google.com + google.com.tr)
+    const refMap = new Map<string, number>();
+    for (const r of referrers) {
+      const label = referrerLabel(r.x);
+      refMap.set(label, (refMap.get(label) ?? 0) + r.y);
+    }
+    const refTotal = [...refMap.values()].reduce((a, b) => a + b, 0);
+    const mappedReferrers = [...refMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, visitors]) => ({
+        source,
+        visitors,
+        percentage: pct(visitors, refTotal),
+      }));
+
+    const deviceOf = (name: string) =>
+      devices.filter((d) => (d.x ?? '').toLowerCase() === name)
+        .reduce((a, d) => a + d.y, 0);
+    const mobile = deviceOf('mobile');
+    const tablet = deviceOf('tablet');
+    const desktop = deviceOf('desktop') + deviceOf('laptop');
+    const deviceTotal = devices.reduce((a, d) => a + d.y, 0);
+
+    const toDistribution = (rows: UmamiMetric[]) => {
+      const total = rows.reduce((a, r) => a + r.y, 0);
+      return rows
+        .sort((a, b) => b.y - a.y)
+        .map((r) => ({
+          name: r.x || 'Bilinmiyor',
+          percentage: pct(r.y, total),
+          count: r.y,
+        }));
+    };
+
+    const visits = stats.visits?.value ?? 0;
+
+    return {
+      referrers: mappedReferrers,
+      topPages: pages.map((p) => ({ url: p.x || '/', views: p.y })),
+      devices: {
+        mobile: pct(mobile, deviceTotal),
+        desktop: pct(desktop, deviceTotal),
+        tablet: pct(tablet, deviceTotal),
+      },
+      browsers: toDistribution(browsers),
+      os: toDistribution(os),
+      summary: {
+        totalVisitors: stats.visitors?.value ?? 0,
+        totalSessions: visits,
+        avgSessionDuration: visits > 0 ? Math.round((stats.totaltime?.value ?? 0) / visits) : 0,
+        bounceRate: visits > 0 ? pct(stats.bounces?.value ?? 0, visits) : 0,
+      },
+    };
+  } catch (err) {
+    // Umami'ye ulaşılamadı — çağıran taraf demo veriye düşer
+    console.error('Umami veri çekme hatası:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+export async function getTrafficAnalyticsData() {
+  const umami = await getUmamiData30d();
+
+  if (umami) {
+    return {
+      dataSource: 'umami' as const,
+      trafficSources: umami.referrers,
+      topPages: umami.topPages.map((p) => ({
+        url: p.url,
+        title: p.url,
+        views: p.views,
+        visitors: p.views,
+      })),
+      deviceDistribution: umami.devices,
+      browserDistribution: umami.browsers,
+      osDistribution: umami.os,
+      summary: umami.summary,
+    };
+  }
+
+  // Umami yapılandırılmamış → demo veri (Sistem Ayarları → Analytics'ten bağlanır)
+  return {
+    dataSource: 'demo' as const,
+    trafficSources: [
       { source: 'Doğrudan', visitors: 1250, percentage: 35 },
       { source: 'Google', visitors: 1080, percentage: 30 },
       { source: 'Instagram', visitors: 720, percentage: 20 },
       { source: 'Reklam', visitors: 540, percentage: 15 },
-    ];
-
-    const topPages = [
+    ],
+    topPages: [
       { url: '/', title: 'Ana Sayfa', views: 4800, visitors: 2400 },
       { url: '/products', title: 'Ürünler', views: 3200, visitors: 1600 },
       { url: '/categories/tekstil', title: 'Tekstil Kategorisi', views: 2100, visitors: 1200 },
       { url: '/about', title: 'Hakkımızda', views: 1500, visitors: 800 },
       { url: '/contact', title: 'İletişim', views: 980, visitors: 500 },
-    ];
-
-    const deviceDistribution = {
-      mobile: 65,
-      desktop: 30,
-      tablet: 5,
-    };
-
-    const browserDistribution = [
+    ],
+    deviceDistribution: { mobile: 65, desktop: 30, tablet: 5 },
+    browserDistribution: [
       { name: 'Chrome', percentage: 60, count: 2100 },
       { name: 'Safari', percentage: 20, count: 700 },
       { name: 'Firefox', percentage: 12, count: 420 },
       { name: 'Diğer', percentage: 8, count: 280 },
-    ];
-
-    const osDistribution = [
+    ],
+    osDistribution: [
       { name: 'Windows', percentage: 45, count: 1575 },
       { name: 'iOS', percentage: 28, count: 980 },
       { name: 'Android', percentage: 20, count: 700 },
       { name: 'macOS', percentage: 7, count: 245 },
-    ];
-
-    return {
-      trafficSources,
-      topPages,
-      deviceDistribution,
-      browserDistribution,
-      osDistribution,
-      summary: {
-        totalVisitors: 3500,
-        totalSessions: 4200,
-        avgSessionDuration: 420,
-        bounceRate: 35,
-      },
-    };
-  } catch (err) {
-    // Hata durumunda demo data dön
-    return {
-      trafficSources: [
-        { source: 'Doğrudan', visitors: 0, percentage: 0 },
-      ],
-      topPages: [],
-      deviceDistribution: { mobile: 0, desktop: 0, tablet: 0 },
-      browserDistribution: [],
-      osDistribution: [],
-      summary: {
-        totalVisitors: 0,
-        totalSessions: 0,
-        avgSessionDuration: 0,
-        bounceRate: 0,
-      },
-    };
-  }
+    ],
+    summary: {
+      totalVisitors: 3500,
+      totalSessions: 4200,
+      avgSessionDuration: 420,
+      bounceRate: 35,
+    },
+  };
 }
 
 export async function adminToggleSubscriberStatus(id: string) {

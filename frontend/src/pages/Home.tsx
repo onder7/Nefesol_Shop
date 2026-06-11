@@ -19,6 +19,7 @@ import {
 import { SeoHead } from '@/components/seo/SeoHead';
 import { organizationSchema, websiteSchema } from '@/lib/schemas';
 import { CampaignBanner } from '@/components/common/CampaignDisplay';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
 
 
@@ -51,6 +52,7 @@ const CATEGORY_TAG_MAP: Record<string, string> = {
 const DEFAULT_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600';
 
 export function Home() {
+  const { name: storeName } = useStoreInfo();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [bannerCampaign, setBannerCampaign] = useState<any | null>(null);
 
@@ -179,9 +181,8 @@ export function Home() {
   return (
     <main className="bg-neutral-50/50 pb-16">
       <SeoHead
-        description="Nevresim takımları, çeyiz setleri, banyo havluları ve ev tekstilinde kalite. Hızlı kargo, kolay iade, uygun fiyat garantisiyle MaBridge Global'i keşfedin."
-        keywords="nevresim takımı, çeyiz, ev tekstili, banyo havlusu, yatak örtüsü, pike, battaniye, halı, satın al"
-        schema={[organizationSchema(), websiteSchema()]}
+        description={`Hızlı kargo, kolay iade ve uygun fiyat garantisiyle ${storeName} ürünlerini keşfedin.`}
+        schema={[organizationSchema(storeName), websiteSchema(storeName)]}
       />
       {/* Hero Carousel */}
       <section className="relative overflow-hidden bg-white border-b border-neutral-100">

@@ -258,10 +258,10 @@ function GeneralTab() {
       <SectionCard title="Firma Bilgileri" subtitle="Yasal ve kurumsal kimlik bilgileri">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field label="Mağaza Adı *">
-            <input className={inputCls} value={g.store_name ?? ''} onChange={(e) => s.set('store_name', e.target.value)} placeholder="MaBridge Global" />
+            <input className={inputCls} value={g.store_name ?? ''} onChange={(e) => s.set('store_name', e.target.value)} placeholder="Örn. Mağaza Adı" />
           </Field>
           <Field label="Yasal Şirket Unvanı">
-            <input className={inputCls} value={g.legal_name ?? ''} onChange={(e) => s.set('legal_name', e.target.value)} placeholder="MaBridge Global A.Ş." />
+            <input className={inputCls} value={g.legal_name ?? ''} onChange={(e) => s.set('legal_name', e.target.value)} placeholder="Örn. Mağaza Ticaret A.Ş." />
           </Field>
           <Field label="Vergi Dairesi">
             <input className={inputCls} value={g.tax_office ?? ''} onChange={(e) => s.set('tax_office', e.target.value)} placeholder="Ankara Vergi Dairesi" />
@@ -275,7 +275,7 @@ function GeneralTab() {
       <SectionCard title="İletişim Bilgileri">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field label="Müşteri Hizmetleri E-postası *">
-            <input className={inputCls} type="email" value={g.email ?? ''} onChange={(e) => s.set('email', e.target.value)} placeholder="destek@mabridgeglobal.com" />
+            <input className={inputCls} type="email" value={g.email ?? ''} onChange={(e) => s.set('email', e.target.value)} placeholder="destek@example.com" />
           </Field>
           <Field label="Telefon">
             <input className={inputCls} type="tel" value={g.phone ?? ''} onChange={(e) => s.set('phone', e.target.value)} placeholder="+90 312 000 00 00" />
@@ -479,7 +479,7 @@ function PaymentTab() {
                   className={inputCls}
                   value={g.havale_account_name ?? ''}
                   onChange={(e) => s.set('havale_account_name', e.target.value)}
-                  placeholder="MaBridge Global A.Ş."
+                  placeholder="Örn. Mağaza Ticaret A.Ş."
                 />
               </Field>
             </div>
@@ -1064,12 +1064,12 @@ function NotificationsTab() {
               />
             </Field>
           </div>
-          <Field label="Gönderen Adı" hint="Boş bırakılırsa 'MaBridge' kullanılır">
+          <Field label="Gönderen Adı" hint="Boş bırakılırsa mağaza adı kullanılır">
             <input
               className={inputCls}
               value={g.brevo_sender_name ?? ''}
               onChange={(e) => s.set('brevo_sender_name', e.target.value)}
-              placeholder="MaBridge"
+              placeholder="Örn. Mağaza Adı"
             />
           </Field>
           <Field label="Gönderen E-posta" hint="Brevo'da doğrulanmış bir adres olmalıdır">
@@ -1078,7 +1078,7 @@ function NotificationsTab() {
               type="email"
               value={g.brevo_sender_email ?? ''}
               onChange={(e) => s.set('brevo_sender_email', e.target.value)}
-              placeholder="noreply@mabridgeglobal.com"
+              placeholder="noreply@example.com"
             />
           </Field>
         </div>
@@ -1100,10 +1100,10 @@ function NotificationsTab() {
             <input className={inputCls} type="password" value={g.smtp_pass ?? ''} onChange={(e) => s.set('smtp_pass', e.target.value)} placeholder="••••••••" autoComplete="new-password" />
           </Field>
           <Field label="Gönderen Adı">
-            <input className={inputCls} value={g.smtp_from_name ?? ''} onChange={(e) => s.set('smtp_from_name', e.target.value)} placeholder="MaBridge Global" />
+            <input className={inputCls} value={g.smtp_from_name ?? ''} onChange={(e) => s.set('smtp_from_name', e.target.value)} placeholder="Örn. Mağaza Adı" />
           </Field>
           <Field label="Gönderen E-posta">
-            <input className={inputCls} type="email" value={g.smtp_from_email ?? ''} onChange={(e) => s.set('smtp_from_email', e.target.value)} placeholder="noreply@mabridgeglobal.com" />
+            <input className={inputCls} type="email" value={g.smtp_from_email ?? ''} onChange={(e) => s.set('smtp_from_email', e.target.value)} placeholder="noreply@example.com" />
           </Field>
         </div>
       </SectionCard>
@@ -3254,7 +3254,115 @@ function PopupTab() {
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
-type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa';
+type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
+
+function AnalyticsTab() {
+  const [form, setForm] = useState({
+    umami_url: '',
+    umami_website_id: '',
+    umami_username: '',
+    umami_password: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get<{ success: boolean; data: Record<string, string> }>('/admin/settings/analytics')
+      .then((r) => {
+        if (r.data?.data) {
+          setForm((p) => ({ ...p, ...r.data.data }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setSaved(false);
+    try {
+      await api.put('/admin/settings/analytics', form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kayıt hatası');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="flex justify-center py-10"><div className="animate-spin h-7 w-7 border-2 border-primary border-t-transparent rounded-full" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <SectionCard
+        title="Umami Analytics"
+        subtitle="Self-hosted Umami sunucu bağlantısı — trafik kaynakları ve ziyaretçi istatistikleri buradan beslenir"
+      >
+        <div className="space-y-5">
+          <Field label="Umami Sunucu URL" hint="Umami kurulumunuzun kök adresi (örn. https://analytics.nefesol.net)">
+            <input
+              type="url"
+              value={form.umami_url}
+              onChange={(e) => setForm((p) => ({ ...p, umami_url: e.target.value }))}
+              className={inputCls}
+              placeholder="https://analytics.nefesol.net"
+            />
+          </Field>
+
+          <Field label="Website ID" hint="Umami panelinde Websites → ilgili site → Edit ekranındaki UUID">
+            <input
+              type="text"
+              value={form.umami_website_id}
+              onChange={(e) => setForm((p) => ({ ...p, umami_website_id: e.target.value }))}
+              className={inputCls}
+              placeholder="örn. 72424b18-47f7-4116-8816-bd3d69f6fc2b"
+            />
+          </Field>
+
+          <Field label="Kullanıcı Adı" hint="Umami panel girişinde kullandığınız kullanıcı (API erişimi için)">
+            <input
+              type="text"
+              value={form.umami_username}
+              onChange={(e) => setForm((p) => ({ ...p, umami_username: e.target.value }))}
+              className={inputCls}
+              placeholder="admin"
+            />
+          </Field>
+
+          <Field label="Şifre" hint="Umami panel şifresi — yalnızca backend'de saklanır, ziyaretçilere açılmaz">
+            <input
+              type="password"
+              value={form.umami_password}
+              onChange={(e) => setForm((p) => ({ ...p, umami_password: e.target.value }))}
+              className={inputCls}
+              placeholder="••••••••"
+            />
+          </Field>
+
+          <div className="rounded-md border border-stroke bg-gray-50 p-4 text-xs leading-relaxed text-gray-600 dark:border-strokedark dark:bg-meta-4 dark:text-gray-300">
+            <p className="font-semibold mb-1">Nasıl çalışır?</p>
+            <p>URL ve Website ID kaydedildiğinde mağaza sayfalarına Umami izleme script'i otomatik eklenir.
+            Kullanıcı adı + şifre girildiğinde ise <strong>Kullanıcı Analitiği → Trafik Kaynakları</strong> sekmesi
+            demo veri yerine Umami'deki gerçek verileri (kaynak, cihaz, tarayıcı, işletim sistemi) gösterir.
+            Alanlar boş bırakılırsa sistem demo veriyle çalışmaya devam eder.</p>
+          </div>
+        </div>
+
+        <SaveBar
+          saving={saving}
+          saved={saved}
+          error={error}
+          onSave={handleSave}
+          onReset={() => setForm({ umami_url: '', umami_website_id: '', umami_username: '', umami_password: '' })}
+        />
+      </SectionCard>
+    </div>
+  );
+}
 
 function OAuthTab() {
   const [form, setForm] = useState({
@@ -3507,6 +3615,15 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    key: 'analytics',
+    label: 'Analytics',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+      </svg>
+    ),
+  },
 ];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -3539,6 +3656,7 @@ export default function Settings() {
     campaign:      <CampaignTab />,
     oauth:         <OAuthTab />,
     mfa:           <MFATab />,
+    analytics:     <AnalyticsTab />,
   };
 
   return (

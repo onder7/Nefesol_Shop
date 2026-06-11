@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
 const FacebookIcon = () => (
   <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
@@ -72,6 +73,7 @@ function SocialBtn({ href, children }: SocialLinkProps) {
 }
 
 export function Footer() {
+  const { name: storeName } = useStoreInfo();
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -138,7 +140,7 @@ export function Footer() {
       {/* Main Links Section */}
       <div className="container mx-auto px-4 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-sm">
         <div>
-          <h3 className="text-lg font-bold text-white mb-4">MaBridge</h3>
+          <h3 className="text-lg font-bold text-white mb-4">{storeName}</h3>
           <p className="text-neutral-400 mb-6 leading-relaxed">
             Çeyiz ve ev tekstilinin en kaliteli adresinde, güvenli ödeme ve hızlı kargo seçenekleriyle binlerce ürünü keşfedin.
           </p>
@@ -223,12 +225,8 @@ export function Footer() {
       </div>
 
       <div className="border-t border-neutral-900 bg-neutral-950/50 py-6 text-center text-xs text-neutral-500">
-        <div className="container mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>© {new Date().getFullYear()} MaBridge. Tüm hakları saklıdır.</p>
-          <p className="flex items-center gap-1">
-            <span>Powered by</span>
-            <span className="font-semibold text-neutral-400">MaBridge Tech</span>
-          </p>
+        <div className="container mx-auto px-4 text-center">
+          <p>© {new Date().getFullYear()} {storeName}. Tüm hakları saklıdır.</p>
         </div>
       </div>
     </footer>

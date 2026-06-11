@@ -222,11 +222,23 @@ export async function restoreBackup(filename: string, password?: string): Promis
       sql = fs.readFileSync(filepath, 'utf-8');
     }
 
-    // Geçici dosyaya SQL yaz
-    fs.writeFileSync(tmpSqlFile, sql, 'utf-8');
+    // Yedekler --clean/DROP içermeyen düz pg_dump'lar. Mevcut (dolu) bir şemanın
+    // üzerine uygulanırsa CREATE TABLE'lar "already exists" verir ve geri yükleme
+    // sessizce hiçbir şey yapmaz. Bu yüzden önce şemayı sıfırlıyoruz; böylece dump
+    // temiz bir public şemaya uygulanır.
+    const resetPrefix = [
+      '-- restoreBackup: temiz geri yükleme için şema sıfırlama',
+      'DROP SCHEMA IF EXISTS public CASCADE;',
+      'CREATE SCHEMA public;',
+      '',
+    ].join('\n');
 
-    // psql ile geçici dosyayı yükle
-    const pgDumpCmd = `PGPASSWORD="${db.pass}" psql -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.db} -f "${tmpSqlFile}"`;
+    // Geçici dosyaya SQL yaz
+    fs.writeFileSync(tmpSqlFile, resetPrefix + sql, 'utf-8');
+
+    // psql ile geçici dosyayı yükle.
+    // ON_ERROR_STOP=1: gerçek bir hata olursa sessizce geçmek yerine başarısız ol.
+    const pgDumpCmd = `PGPASSWORD="${db.pass}" psql -v ON_ERROR_STOP=1 -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.db} -f "${tmpSqlFile}"`;
     await execAsync(pgDumpCmd, { maxBuffer: 100 * 1024 * 1024 });
 
     // Geçici dosyayı sil

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import CardDataStats from '../../components/CardDataStats';
 import { api } from '../../lib/api';
-import ReactApexChart from 'react-apexcharts';
+import ReactApexChart from '../../lib/react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 
 interface Stats {

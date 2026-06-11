@@ -3,7 +3,19 @@
     "allow": [
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "PowerShell('===')",
+      "PowerShell(Get-Content backend\\\\package.json; '==='; \\(Get-Content frontend\\\\package.json | ConvertFrom-Json\\).scripts; '==='; \\(Get-Content admin\\\\package.json | ConvertFrom-Json\\).scripts; '==='; Test-Path .env; Test-Path backend\\\\.env)",
+      "PowerShell(Start-Sleep -Seconds 12; Get-Content \"$env:TEMP\\\\claude\\\\C--Users-OHOME-Documents-node-shop\\\\432e3dd6-4c4c-41f9-a64a-30cbef3bf9c1\\\\tasks\\\\bbjfrzco0.output\" -Tail 25)",
+      "PowerShell($f = Get-Content node_modules\\\\react-apexcharts\\\\dist\\\\react-apexcharts.min.js -Raw; $f.Substring\\(0, 400\\); '...'; $f.Substring\\($f.Length - 300\\); '==='; Select-String -Path node_modules\\\\react-apexcharts\\\\dist\\\\react-apexcharts.min.js -Pattern '__esModule' -Quiet)",
+      "PowerShell(Set-Location C:\\\\Users\\\\OHOME\\\\Documents\\\\node\\\\shop\\\\backend; npm audit --omit=dev --json 2>$null | ConvertFrom-Json | ForEach-Object { $_.metadata.vulnerabilities } | ConvertTo-Json)",
+      "Bash(docker exec *)",
+      "Bash(echo \"exit: $?\")",
+      "Read(//tmp/**)",
+      "Bash(git mv *)",
+      "Bash(cp /tmp/setup_dryrun.ts src/_dryrun.ts)",
+      "Bash(sed -i \"s#'./src/services/setupService'#'./services/setupService'#; s#'./src/config/database'#'./config/database'#\" src/_dryrun.ts)",
+      "Bash(DATABASE_URL='postgresql://ecom:ecom_pass@localhost:5433/setup_test' npx ts-node --transpile-only src/_dryrun.ts)"
     ]
   }
 }

@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
 export function Login() {
+  const { name: storeName } = useStoreInfo();
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser } = useAuthStore();
@@ -115,7 +117,7 @@ export function Login() {
           {/* Logo */}
           <div className="mb-12">
             <Link to="/" className="text-2xl font-bold tracking-tight text-primary">
-              MaBridge
+              {storeName}
             </Link>
           </div>
 
