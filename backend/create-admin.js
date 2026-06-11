@@ -19,7 +19,7 @@ async function createAdmin() {
         lastName: 'User',
         role: 'ADMIN',
         isActive: true,
-        userProfile: {
+        profile: {
           create: {
             phone: '',
             bio: '',
@@ -28,7 +28,7 @@ async function createAdmin() {
         },
       },
       include: {
-        userProfile: true,
+        profile: true,
       },
     });
 
