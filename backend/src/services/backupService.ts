@@ -222,6 +222,11 @@ export async function restoreBackup(filename: string, password?: string): Promis
       sql = fs.readFileSync(filepath, 'utf-8');
     }
 
+    // Sürüm uyumsuzluğu koruması: daha yeni bir pg_dump (ör. PG17) ile alınmış
+    // yedekler, daha eski bir sunucunun (ör. PG16) tanımadığı SET satırları içerir
+    // (transaction_timeout vb.). Bu satırlar geri yüklemeyi bozar; ayıklıyoruz.
+    sql = sql.replace(/^\s*SET\s+transaction_timeout\b.*$/gim, '-- (uyumsuz SET ayıklandı)');
+
     // Yedekler --clean/DROP içermeyen düz pg_dump'lar. Mevcut (dolu) bir şemanın
     // üzerine uygulanırsa CREATE TABLE'lar "already exists" verir ve geri yükleme
     // sessizce hiçbir şey yapmaz. Bu yüzden önce şemayı sıfırlıyoruz; böylece dump
@@ -237,8 +242,10 @@ export async function restoreBackup(filename: string, password?: string): Promis
     fs.writeFileSync(tmpSqlFile, resetPrefix + sql, 'utf-8');
 
     // psql ile geçici dosyayı yükle.
-    // ON_ERROR_STOP=1: gerçek bir hata olursa sessizce geçmek yerine başarısız ol.
-    const pgDumpCmd = `PGPASSWORD="${db.pass}" psql -v ON_ERROR_STOP=1 -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.db} -f "${tmpSqlFile}"`;
+    // --single-transaction: TÜM işlem (DROP + CREATE + veri) tek transaction'da çalışır;
+    //   herhangi bir hata olursa HER ŞEY geri sarılır (rollback) → DB asla boş/yarım kalmaz.
+    // ON_ERROR_STOP=1: ilk hatada dur (single-transaction'ın rollback tetiklemesi için şart).
+    const pgDumpCmd = `PGPASSWORD="${db.pass}" psql -v ON_ERROR_STOP=1 --single-transaction -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.db} -f "${tmpSqlFile}"`;
     await execAsync(pgDumpCmd, { maxBuffer: 100 * 1024 * 1024 });
 
     // Geçici dosyayı sil
