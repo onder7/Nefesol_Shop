@@ -292,6 +292,7 @@ export async function getSettings(req: AuthRequest, res: Response, next: NextFun
   try {
     const group = String(req.params.group);
     const data = await settingsService.getSettingsGroup(group + '_');
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
