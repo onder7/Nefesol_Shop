@@ -3284,7 +3284,10 @@ function AnalyticsTab() {
     setError('');
     setSaved(false);
     try {
-      await api.put('/admin/settings/analytics', form);
+      const response = await api.put<{ success: boolean; data: Record<string, string> }>('/admin/settings/analytics', form);
+      if (response?.data?.data) {
+        setForm((p) => ({ ...p, ...response.data.data }));
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
