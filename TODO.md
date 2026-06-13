@@ -11,24 +11,18 @@
 
 ### 0.1 — Temel Sunucu Güvenliği
 Sunucu bilgileri:
-ip  adresi : 109.236.48.221
-Kullanıcı: root
-Şifre: 4cde68bf0a6ehostivon
+
 
 
 
 - [x] SSH ile root olarak bağlan, yeni sudo kullanıcısı oluştur
   ```bash
-  adduser deploy
-  usermod -aG sudo deploy
-  şifre : =nd3r1379!1Qa
 
-domain https://mabridgeglobal.com/
-ip  adresi : 109.236.48.221
-kullanıcı : deploy
-şifre : =nd3r1379!1Qa
 
-***REMOVED-REVOKED-TOKEN***
+
+
+
+
   ```
 - [x] SSH key-based authentication kur, root SSH girişini kapat
   ```bash
