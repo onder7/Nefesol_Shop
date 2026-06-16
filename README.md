@@ -1,6 +1,34 @@
-# 🛒 E-Ticaret Platformu
+# 🛒 Nefesol Shop — E-Ticaret Platformu
 
 > React + Node.js + PostgreSQL + Redis + Nginx + Docker üzerine kurulu tam kapsamlı online alışveriş sistemi.
+
+🔗 **Repo:** https://github.com/onder7/Nefesol_Shop
+
+---
+
+## ✨ Uygulanan Özellikler
+
+**Mağaza (Frontend)**
+- Ürün kataloğu, varyant seçimi, filtreleme/arama, kategori sayfaları
+- Sepet, kupon/indirim uygulama, çok adımlı ödeme (İyzico + Havale/EFT + Kapıda Ödeme)
+- Üyelik, giriş/kayıt, şifre sıfırlama, **MFA (çok faktörlü kimlik doğrulama)**
+- Hesabım paneli: siparişler, favoriler, profil, **Soru & Cevaplarım**
+- Ürün değerlendirmeleri ve **Soru-Cevap** (admin onaylı)
+- Canlı destek / chatbot, açılır kampanya bildirimleri (popup)
+
+**Yönetim Paneli (Admin)**
+- Dashboard (KPI, grafikler, analiz), ürün/kategori/marka CRUD
+- Sipariş yönetimi ve durum güncelleme, iptal/iade yönetimi
+- **İndirim & kupon kampanyaları**, **KDV (vergi) yönetimi** (fiyatlar KDV hariç net)
+- **Değerlendirme moderasyonu** ve **Soru-Cevap moderasyonu** (sadece sorular onaylı)
+- Site ayarları, e-posta şablonları, ödeme yöntemleri, chatbot kuralları
+- Veritabanı yedekleme/geri yükleme araçları
+
+**E-posta Bildirim Sistemi**
+- SMTP veya Brevo API üzerinden gönderim; panelden **test e-postası**
+- **Müşteri bildirimleri** (düzenlenebilir şablonlar): sipariş alındı, kargoya verildi, teslim edildi ve diğer durum güncellemeleri
+- **Yönetici uyarıları:** yeni sipariş, düşük stok, yeni değerlendirme
+- Şablon değişkenleri: `{{ad}}`, `{{siparis_no}}`, `{{toplam}}`, `{{magaza}}`, `{{durum}}`
 
 ---
 
@@ -263,12 +291,15 @@ POST   /api/admin/discounts
 
 | Servis | Image | Port | Açıklama |
 |--------|-------|------|----------|
-| nginx | nginx:alpine | 80, 443 | Reverse proxy, SSL termination |
-| frontend | node:20-alpine | 3000 | React uygulaması |
-| admin | node:20-alpine | 3001 | Admin paneli |
-| backend | node:20-alpine | 5000 | Express API |
-| postgres | postgres:16-alpine | 5432 | Ana veritabanı |
-| redis | redis:7-alpine | 6379 | Cache ve session |
+| nginx | nginx:alpine | **80, 443** | Tek giriş noktası — reverse proxy, SSL termination |
+| frontend | node:20-alpine | (dahili) | React uygulaması — nginx üzerinden `/` |
+| admin | node:20-alpine | (dahili) | Admin paneli — nginx üzerinden `/admin` |
+| backend | node:20-alpine | (dahili) | Express API — nginx üzerinden `/api` |
+| postgres | postgres:16-alpine | (dahili) | Ana veritabanı |
+| redis | redis:7-alpine | (dahili) | Cache ve session |
+
+> Yalnızca **nginx** dışarıya port açar. Tüm trafik tek noktadan (`http://localhost`) yönlenir:
+> Mağaza → `/` · Admin → `/admin` · API → `/api`
 
 ---
 
@@ -361,7 +392,7 @@ src/components/
 | State | Zustand | Redux | Daha az boilerplate |
 | HTTP Client | Axios | Fetch | Interceptor desteği |
 | Ödeme | İyzico / Stripe | PayTR | Türkiye + uluslararası |
-| Email | Nodemailer + SMTP | SendGrid | Maliyet avantajı |
+| Email | Nodemailer (SMTP) + Brevo API | SendGrid | Esnek gönderim, maliyet avantajı |
 | Dosya Yükleme | Multer + Cloudinary | AWS S3 | Kolay kurulum |
 | Validation | Zod | Joi | TypeScript-first |
 | Loglama | Winston | Pino | Geniş ekosistem |
@@ -373,27 +404,27 @@ src/components/
 
 ```bash
 # Repo klonla
-git clone https://github.com/siz/ecommerce.git
-cd ecommerce
+git clone https://github.com/onder7/Nefesol_Shop.git
+cd Nefesol_Shop
 
-# Ortam değişkenlerini kopyala
+# Ortam değişkenlerini kopyala ve düzenle (DB, JWT, SMTP/Brevo, İyzico...)
 cp .env.example .env
 
-# Docker ile tüm servisleri başlat
-docker-compose up -d
+# Docker ile tüm servisleri build edip başlat
+docker compose up -d --build
 
-# Backend bağımlılıklarını kur ve migration çalıştır
-cd backend
-npm install
-npx prisma migrate dev
-npx prisma db seed
+# Migrationlar container başlangıcında otomatik uygulanır (prisma).
+# İlk admin kullanıcıyı oluşturmak için:
+docker compose exec backend node create-admin.js
 
-# Uygulama adresleri:
-# Frontend  → http://localhost:3000
-# Admin     → http://localhost:3001
-# Backend   → http://localhost:5000
-# API Docs  → http://localhost:5000/api-docs  (Swagger)
+# Uygulama adresleri (tek giriş: nginx):
+# Mağaza  → http://localhost
+# Admin   → http://localhost/admin
+# API     → http://localhost/api
 ```
+
+> **Not:** Üretimde `.env`, veritabanı yedekleri (`backend/backups/backup-*.sql`) ve `*.tar.gz`
+> dosyaları `.gitignore` ile korunur — bunlar **asla** repoya gönderilmez.
 
 ---
 
