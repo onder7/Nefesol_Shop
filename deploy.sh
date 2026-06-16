@@ -95,27 +95,15 @@ mv nginx/conf.d/active.conf nginx/conf.d/default.conf
 docker compose build --no-cache
 docker compose up -d nginx frontend admin backend postgres redis
 
-# ─── 7. Let's Encrypt sertifikası ─────────────────────────────────
-info "Let's Encrypt sertifikası alınıyor..."
-sleep 10  # nginx'in başlaması için bekle
-
-docker compose run --rm certbot certonly \
-  --webroot \
-  --webroot-path=/var/www/certbot \
-  --email "$EMAIL" \
-  --agree-tos \
-  --no-eff-email \
-  -d "$DOMAIN" \
-  -d "www.$DOMAIN"
+# ─── 7. SSL sertifikası (manuel yönetim) ─────────────────────────
+info "SSL sertifikası için Certbot'u manuel olarak yönetmeniz gerekir."
+info "Let's Encrypt sertifikası için: certbot certonly --webroot -d $DOMAIN"
 
 # ─── 8. SSL config'e geç ──────────────────────────────────────────
 info "HTTPS konfigürasyonuna geçiliyor..."
 mv nginx/conf.d/default.conf.bak nginx/conf.d/default.conf
 
 docker compose restart nginx
-
-# ─── 9. Certbot yenileme servisini başlat ─────────────────────────
-docker compose up -d certbot
 
 info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 info "Kurulum tamamlandı!"

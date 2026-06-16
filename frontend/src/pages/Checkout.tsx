@@ -330,7 +330,20 @@ export function Checkout() {
   const subtotal = cart.items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0);
   const codFee = payMethod === 'cod' ? (methods.cod.fee ?? 0) : 0;
   const shippingFee = initData?.shippingFee ?? (subtotal >= 500 ? 0 : 49.9);
-  const total = initData?.total ?? (subtotal + shippingFee + codFee);
+
+  // KDV oranı (public ayar) — fiyatlar KDV hariç (net), KDV net üzerinden eklenir
+  const { data: taxConfig } = useQuery({
+    queryKey: ['tax-config'],
+    queryFn: async () => {
+      const res = await fetch('/api/tax-config');
+      const json = await res.json();
+      return json.data as { taxRate: number };
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+  const taxRate = taxConfig?.taxRate ?? 18;
+  const tax = initData?.tax ?? Math.round(subtotal * taxRate) / 100;
+  const total = initData?.total ?? (subtotal + tax + shippingFee + codFee);
 
   const handleProceed = () => {
     if (!selectedAddress) return;
@@ -506,8 +519,12 @@ export function Checkout() {
       {/* Price breakdown */}
       <div className="border rounded-lg p-4 space-y-2">
         <div className="flex justify-between text-sm">
-          <span>Ara Toplam</span>
+          <span>Ara Toplam (KDV Hariç)</span>
           <span>{formatPrice(subtotal)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span>KDV (%{taxRate})</span>
+          <span>{formatPrice(tax)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span>Kargo</span>

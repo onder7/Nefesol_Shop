@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { checkoutApi } from '@/services/checkoutApi';
 import {
   ShoppingBag,
   Heart,
@@ -34,7 +35,7 @@ export function AccountDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState('overview');
+  const [activeSection, setActiveSection] = useState('orders');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -45,6 +46,7 @@ export function AccountDashboard() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<any>(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
+  const [appliedCoupons, setAppliedCoupons] = useState<any[]>([]);
 
   function handleLogout() {
     logout();
@@ -205,8 +207,21 @@ export function AccountDashboard() {
       refetchCart();
     } else if (activeSection === 'profile') {
       refetchAddresses();
+    } else if (activeSection === 'coupons') {
+      fetchAppliedCoupons();
     }
   }, [activeSection, refetchOrders, refetchFavorites, refetchReviews, refetchCart, refetchAddresses]);
+
+  // Kullanıcının kazandığı kuponları tek endpoint'ten çek
+  async function fetchAppliedCoupons() {
+    try {
+      const res = await checkoutApi.getMyCoupons();
+      setAppliedCoupons(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch applied coupons:', err);
+      setAppliedCoupons([]);
+    }
+  }
 
   const menuItems = [
     {
@@ -571,7 +586,7 @@ export function AccountDashboard() {
                             </div>
                             <div>
                               <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Toplam Tutar</p>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatPrice(order.total)}</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatPrice(Number(order.total))}</p>
                             </div>
                             <div>
                               <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Ödeme Yöntemi</p>
@@ -634,31 +649,37 @@ export function AccountDashboard() {
                           <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Sipariş Özeti</h3>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">Ara Toplam</span>
+                              <span className="text-gray-600 dark:text-gray-400">Ara Toplam (KDV Hariç)</span>
                               <span className="text-gray-900 dark:text-white">
-                                {order.subtotal ? formatPrice(order.subtotal) : '-'}
+                                {order.subtotal ? formatPrice(Number(order.subtotal)) : '-'}
                               </span>
                             </div>
-                            {order.shippingCost !== undefined && (
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Kargo</span>
-                                <span className="text-gray-900 dark:text-white">
-                                  {order.shippingCost === 0 ? 'Ücretsiz' : formatPrice(order.shippingCost)}
+                            {order.discount !== undefined && Number(order.discount) > 0 && (
+                              <div className="flex justify-between text-green-600">
+                                <span className="text-gray-600 dark:text-gray-400">İndirim</span>
+                                <span className="font-medium">
+                                  −{formatPrice(Number(order.discount))}
                                 </span>
                               </div>
                             )}
-                            {order.tax !== undefined && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">KDV</span>
+                              <span className="text-gray-900 dark:text-white">
+                                {formatPrice(Math.max(0, Math.round((Number(order.total) - Number(order.shippingFee || 0) - (Number(order.subtotal) - Number(order.discount || 0))) * 100) / 100))}
+                              </span>
+                            </div>
+                            {order.shippingFee !== undefined && (
                               <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">KDV (%18)</span>
+                                <span className="text-gray-600 dark:text-gray-400">Kargo</span>
                                 <span className="text-gray-900 dark:text-white">
-                                  {formatPrice(order.tax)}
+                                  {Number(order.shippingFee) === 0 ? 'Ücretsiz' : formatPrice(Number(order.shippingFee))}
                                 </span>
                               </div>
                             )}
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold">
                               <span>Toplam Tutar</span>
                               <span className="text-primary text-lg">
-                                {order.total ? formatPrice(order.total) : '-'}
+                                {order.total ? formatPrice(Number(order.total)) : '-'}
                               </span>
                             </div>
                           </div>
@@ -701,6 +722,31 @@ export function AccountDashboard() {
                             </div>
                           </div>
                         )}
+
+                        {/* Status History */}
+                        {order.statusHistory && order.statusHistory.length > 0 && (
+                          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Sipariş Geçmişi</h3>
+                            <ol className="relative border-l border-gray-200 dark:border-gray-700 ml-2 space-y-4">
+                              {order.statusHistory.map((log: any, idx: number) => (
+                                <li key={idx} className="ml-4">
+                                  <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-primary" />
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${ORDER_STATUS_MAP[log.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                                      {ORDER_STATUS_MAP[log.status]?.label || log.status}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {new Date(log.createdAt).toLocaleDateString('tr-TR')}
+                                    </span>
+                                  </div>
+                                  {log.note && (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{log.note}</p>
+                                  )}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
                       </div>
                     );
                     })()
@@ -724,41 +770,50 @@ export function AccountDashboard() {
                   ) : (
                     <div className="p-6 space-y-3">
                       {ordersData.map((order: any) => {
-                        const firstItem = order.items?.[0];
-                        const productName = firstItem?.variant?.product?.name || '—';
+                        const images = order.items?.map((item: any) => item.variant?.product?.images?.[0]?.url).filter(Boolean) || [];
                         const extraCount = (order.items?.length || 0) - 1;
 
                         return (
                           <button
                             key={order.id}
                             onClick={() => handleSelectOrder(order.id)}
-                            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-primary dark:hover:border-primary transition-colors text-left group"
+                            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                           >
-                            <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                              {/* Product Images */}
+                              <div className="flex gap-1 flex-shrink-0">
+                                {images.slice(0, 2).map((img: string, idx: number) => (
+                                  <div key={idx} className="w-14 h-14 rounded bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                    <img src={img} alt="Ürün" className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                                {extraCount > 1 && (
+                                  <div className="w-14 h-14 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">+{extraCount}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Order Info */}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                    #{order.id.slice(-8).toUpperCase()}
-                                  </span>
-                                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${ORDER_STATUS_MAP[order.status]?.color || 'bg-gray-100 text-gray-800'}`}>
-                                    {ORDER_STATUS_MAP[order.status]?.label || order.status}
+                                  <span className="text-sm text-primary font-medium">Sipariş no: {order.id.slice(-8).toUpperCase()}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${ORDER_STATUS_MAP[order.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                                    ✓ {ORDER_STATUS_MAP[order.status]?.label || order.status}
                                   </span>
                                 </div>
-                                <p className="font-medium text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
-                                  {productName}
-                                  {extraCount > 0 && (
-                                    <span className="text-gray-600 dark:text-gray-400 text-sm"> +{extraCount} ürün</span>
-                                  )}
-                                </p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              </div>
+
+                              {/* Date & Price */}
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
                                   {new Date(order.createdAt).toLocaleDateString('tr-TR')}
                                 </p>
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                  {order.total ? formatPrice(order.total) : '-'}
+                                <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                                  {order.total ? formatPrice(Number(order.total)) : '-'}
                                 </p>
-                                <ChevronRight size={16} className="text-gray-400 mt-2 ml-auto group-hover:text-primary transition-colors" />
                               </div>
                             </div>
                           </button>
@@ -1101,8 +1156,54 @@ export function AccountDashboard() {
           {/* Coupons */}
           {activeSection === 'coupons' && (
             <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Kuponlarım</h2>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Henüz kupon bulunmamaktadır.</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Kuponlarım</h2>
+              {appliedCoupons.length === 0 ? (
+                <div className="text-center py-12">
+                  <Gift size={48} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">Henüz kullanılan kupon bulunmamaktadır.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Sipariş iptali sırasında kupon kabul ederek kupon kazanabilirsiniz.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {appliedCoupons.map((coupon, idx) => (
+                    <div
+                      key={idx}
+                      className="border-2 border-green-200 rounded-lg p-4 bg-gradient-to-br from-green-50 to-emerald-50 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="text-xs text-green-700 font-semibold uppercase tracking-wide mb-1">Kupon Kodu</p>
+                          <p className="font-mono font-bold text-xl text-green-800">{coupon.code}</p>
+                        </div>
+                        <Gift size={24} className="text-green-600" />
+                      </div>
+                      <div className="border-t border-green-200 pt-3">
+                        <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Kupon Değeri</p>
+                        <p className="text-lg font-bold text-green-700">{formatPrice(coupon.value)}</p>
+                      </div>
+                      <div className="border-t border-green-200 mt-3 pt-3">
+                        <p className="text-xs text-gray-600 font-semibold uppercase mb-1">Kullanım Tarihi</p>
+                        <p className="text-sm text-gray-700">
+                          {new Date(coupon.appliedAt).toLocaleDateString('tr-TR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(coupon.code);
+                          alert('Kupon kodu kopyalandı!');
+                        }}
+                        className="w-full mt-3 py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors"
+                      >
+                        📋 Kodu Kopyala
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -118,6 +118,19 @@ export async function getOrderCancellation(req: AuthRequest, res: Response, next
   }
 }
 
+export async function getUserCoupons(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Oturum açmanız gerekli' });
+
+    const coupons = await cancellationService.getUserCoupons(userId);
+
+    res.json({ success: true, data: coupons });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function unrejectCancellation(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const cancellationId = req.params.cancellationId as string;
@@ -125,6 +138,22 @@ export async function unrejectCancellation(req: AuthRequest, res: Response, next
     await cancellationService.unrejectCancellation(cancellationId);
 
     res.json({ success: true, message: 'İptal reddi iptal edildi' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function withdrawCancellation(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const orderId = req.params.orderId as string;
+    const userId = req.user?.id;
+
+    if (!userId) return res.status(401).json({ success: false, message: 'Oturum açmanız gerekli' });
+    if (!orderId) return res.status(400).json({ success: false, message: 'Sipariş ID gerekli' });
+
+    await cancellationService.withdrawCancellation(orderId, userId);
+
+    res.json({ success: true, message: 'İptal talebiniz geri alındı. Kupon başarıyla teklif edildi!' });
   } catch (err) {
     next(err);
   }

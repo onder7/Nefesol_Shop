@@ -166,6 +166,21 @@ export async function deleteCategory(req: AuthRequest, res: Response, next: Next
   } catch (err) { next(err); }
 }
 
+// Stock Management
+export async function getStockManagement(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.getStockManagement();
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function updateVariantStock(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.updateVariantStock(String(req.params.id), req.body.newQty, req.user?.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 // Brands
 export async function listBrands(req: AuthRequest, res: Response, next: NextFunction) {
   try {

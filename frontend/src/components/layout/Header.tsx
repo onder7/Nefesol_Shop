@@ -116,125 +116,93 @@ export function Header() {
   };
 
   return (
-    <header className="border-b bg-white sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
-        <Link to="/" className="flex items-center h-full">
+    <header className="border-b bg-white sticky top-0 z-40">
+      {/* ─── Üst Bar: Logo + Arama + İkonlar ─────────────────────────── */}
+      <div className="container mx-auto px-2 sm:px-4 h-20 flex items-center gap-3 sm:gap-6">
+        <Link to="/" className="flex items-center h-full flex-shrink-0">
           {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="h-12 object-contain" />
+            <img src={logoUrl} alt="Logo" className="h-10 sm:h-12 object-contain max-w-[120px] sm:max-w-[150px]" />
           ) : (
-            <span className="text-xl font-bold text-primary">{storeName}</span>
+            <span className="text-lg sm:text-xl font-bold text-primary">{storeName}</span>
           )}
         </Link>
- 
-        <nav className="hidden lg:flex items-center gap-6 text-sm">
-          {categories.slice(0, 6).map((cat) => (
-            <Link
-              key={cat.id}
-              to={`/kategori/${cat.slug}`}
-              className="hover:text-primary transition-colors font-medium whitespace-nowrap"
-            >
-              {cat.name}
-            </Link>
-          ))}
-          {categories.length > 6 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer outline-none font-medium whitespace-nowrap">
-                Diğer <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                {categories.slice(6).map((cat) => (
-                  <DropdownMenuItem
-                    key={cat.id}
-                    render={<Link to={`/kategori/${cat.slug}`} className="w-full cursor-pointer" />}
-                  >
-                    {cat.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <form onSubmit={handleSearchSubmit} className="search-container relative w-48 xl:w-64 ml-4">
-            <Input
-              type="text"
-              placeholder="Ürün ara..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setShowPredictions(true)}
-              className="h-9 pr-8 bg-neutral-50 border-neutral-200 focus-visible:ring-primary focus-visible:bg-white text-xs rounded-lg placeholder-neutral-400"
-            />
-            <button type="submit" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-primary transition-colors cursor-pointer">
-              <Search className="h-4 w-4" />
-            </button>
 
-            {showPredictions && searchQuery.trim().length >= 2 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-neutral-100 shadow-xl overflow-hidden z-[100] max-h-80 overflow-y-auto">
-                {loadingPredictions ? (
-                  <div className="p-4 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    <span>Aranıyor...</span>
-                  </div>
-                ) : predictions.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-neutral-400">
-                    Uyumlu ürün bulunamadı.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-neutral-50">
-                    {predictions.map((prod) => {
-                      const primaryImg = prod.images?.find(img => img.isPrimary)?.url || prod.images?.[0]?.url || 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=100';
-                      const price = prod.variants?.[0]?.price ? Number(prod.variants[0].price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '';
-                      return (
-                        <Link
-                          key={prod.id}
-                          to={`/urun/${prod.slug}`}
-                          onClick={() => {
-                            setSearchQuery('');
-                            setShowPredictions(false);
-                          }}
-                          className="flex items-center gap-3 p-3 hover:bg-neutral-50 transition-colors"
-                        >
-                          <img
-                            src={primaryImg}
-                            alt={prod.name}
-                            className="h-10 w-10 object-cover rounded bg-neutral-100 shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-semibold text-neutral-800 truncate">{prod.name}</p>
-                            <p className="text-[9px] text-neutral-400 truncate">{prod.category?.name}</p>
+        {/* Ana Arama Çubuğu (ortada, büyük) */}
+        <form onSubmit={handleSearchSubmit} className="search-container relative flex-1 max-w-2xl mx-auto">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400 pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Ürün, kategori veya marka ara"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setShowPredictions(true)}
+            className="h-11 pl-11 pr-4 bg-white border-2 border-neutral-300 focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:border-neutral-400 text-sm rounded-lg placeholder-neutral-400 shadow-sm"
+          />
+
+          {showPredictions && searchQuery.trim().length >= 2 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg sm:rounded-xl border border-neutral-100 shadow-xl overflow-hidden z-[100] max-h-60 sm:max-h-80 overflow-y-auto">
+              {loadingPredictions ? (
+                <div className="p-4 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <span>Aranıyor...</span>
+                </div>
+              ) : predictions.length === 0 ? (
+                <div className="p-4 text-center text-xs text-neutral-400">
+                  Uyumlu ürün bulunamadı.
+                </div>
+              ) : (
+                <div className="divide-y divide-neutral-50">
+                  {predictions.map((prod) => {
+                    const primaryImg = prod.images?.find(img => img.isPrimary)?.url || prod.images?.[0]?.url || 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=100';
+                    const price = prod.variants?.[0]?.price ? Number(prod.variants[0].price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '';
+                    return (
+                      <Link
+                        key={prod.id}
+                        to={`/urun/${prod.slug}`}
+                        onClick={() => {
+                          setSearchQuery('');
+                          setShowPredictions(false);
+                        }}
+                        className="flex items-center gap-3 p-3 hover:bg-neutral-50 transition-colors"
+                      >
+                        <img
+                          src={primaryImg}
+                          alt={prod.name}
+                          className="h-10 w-10 object-cover rounded bg-neutral-100 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold text-neutral-800 truncate">{prod.name}</p>
+                          <p className="text-[9px] text-neutral-400 truncate">{prod.category?.name}</p>
+                        </div>
+                        {price && (
+                          <div className="text-[11px] font-bold text-neutral-900 shrink-0">
+                            {price}
                           </div>
-                          {price && (
-                            <div className="text-[11px] font-bold text-neutral-900 shrink-0">
-                              {price}
-                            </div>
-                          )}
-                        </Link>
-                      );
-                    })}
-                    <Link
-                      to={`/ara?search=${encodeURIComponent(searchQuery)}`}
-                      onClick={() => setShowPredictions(false)}
-                      className="block text-center text-[10px] font-semibold text-primary hover:underline p-2.5 bg-neutral-50/50"
-                    >
-                      Tüm sonuçları gör
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-          </form>
-        </nav>
+                        )}
+                      </Link>
+                    );
+                  })}
+                  <Link
+                    to={`/ara?search=${encodeURIComponent(searchQuery)}`}
+                    onClick={() => setShowPredictions(false)}
+                    className="block text-center text-[10px] font-semibold text-primary hover:underline p-2.5 bg-neutral-50/50"
+                  >
+                    Tüm sonuçları gör
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </form>
 
-        <div className="flex items-center gap-6">
-          <Button variant="ghost" size="icon" className="lg:hidden" render={<Link to="/ara" />}>
-            <Search className="h-5 w-5" />
-          </Button>
-
+        <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <div className="flex flex-col items-center gap-1 text-neutral-700 hover:text-primary transition-colors cursor-pointer outline-none bg-transparent border-none">
                     <UserCircle className="h-6 w-6 stroke-[1.5]" />
-                    <span className="text-[11px] font-medium">Hesabım</span>
+                    <span className="hidden md:block text-[10px] sm:text-[11px] font-medium">Hesabım</span>
                   </div>
                 }
               />
@@ -290,16 +258,16 @@ export function Header() {
               className="flex flex-col items-center gap-1 text-neutral-700 hover:text-primary transition-colors"
             >
               <UserCircle className="h-6 w-6 stroke-[1.5]" />
-              <span className="text-[11px] font-medium">Hesabım</span>
+              <span className="hidden md:block text-[10px] sm:text-[11px] font-medium">Hesabım</span>
             </Link>
           )}
 
           <Link
             to="/hesabim/favoriler"
-            className="flex flex-col items-center gap-1 text-neutral-700 hover:text-primary transition-colors"
+            className="hidden sm:flex flex-col items-center gap-1 text-neutral-700 hover:text-primary transition-colors"
           >
             <Heart className="h-6 w-6 stroke-[1.5]" />
-            <span className="text-[11px] font-medium">Favorilerim</span>
+            <span className="hidden md:block text-[11px] font-medium">Favorilerim</span>
           </Link>
 
           <Link
@@ -312,10 +280,11 @@ export function Header() {
                 {itemCount}
               </span>
             </div>
-            <span className="text-[11px] font-medium">Sepetim</span>
+            <span className="hidden md:block text-[11px] font-medium">Sepetim</span>
           </Link>
+        </div>
 
-          <Sheet>
+        <Sheet>
             <SheetTrigger
               nativeButton={true}
               className="inline-flex lg:hidden h-10 w-10 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 transition-colors"
@@ -323,8 +292,8 @@ export function Header() {
             >
               <Menu className="h-5 w-5" />
             </SheetTrigger>
-          <SheetContent side="right" className="w-[300px] sm:w-[350px]">
-            <div className="flex flex-col gap-6 py-6 h-full">
+          <SheetContent side="right" className="w-[85vw] sm:w-[300px] md:w-[350px] p-0">
+            <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 py-4 sm:py-6 px-4 sm:px-6 h-full overflow-y-auto">
               <SheetClose render={<Link to="/" className="text-xl font-bold text-primary px-2" />}>
                 {storeName}
               </SheetClose>
@@ -406,12 +375,84 @@ export function Header() {
                   </SheetClose>
                 )}
               </div>
-                </div>
-              </div>
+            </div>
+            </div>
             </SheetContent>
           </Sheet>
-        </div>
       </div>
+
+      {/* ─── Renkli Gradient Şerit ───────────────────────────────────── */}
+      <div
+        className="h-1 w-full"
+        style={{
+          background:
+            'linear-gradient(90deg, rgb(0, 0, 0) 0%, rgba(251, 146, 60, 0.12) 12%, rgb(49, 51, 52) 28%, rgb(58, 66, 67) 42%, rgb(79, 74, 68) 58%, rgb(31, 30, 35) 72%, rgb(147, 139, 143) 88%, rgb(17, 16, 16) 100%)',
+        }}
+      />
+
+      {/* ─── Kategori Navigasyon Barı ────────────────────────────────── */}
+      <nav className="hidden lg:block bg-white border-t border-neutral-100">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between gap-1 py-2.5">
+            {categories.slice(0, 9).map((cat, idx) => {
+              const children = (cat.children ?? []).filter((c: any) => c.showInMenu !== false);
+              const hasChildren = children.length > 0;
+              return (
+                <div key={cat.id} className="flex-1 flex items-center justify-center">
+                  <div className="group relative">
+                    <Link
+                      to={`/kategori/${cat.slug}`}
+                      className="inline-flex items-center justify-center gap-1 text-center px-2 py-1.5 rounded-md text-[13px] leading-tight font-semibold text-neutral-700 group-hover:text-primary group-hover:bg-orange-50 group-hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                      <span className="whitespace-pre-line">{cat.name}</span>
+                      {hasChildren && (
+                        <ChevronDown className="h-3 w-3 shrink-0 transition-transform duration-200 group-hover:rotate-180" />
+                      )}
+                    </Link>
+
+                    {/* Alt Kategori Dropdown */}
+                    {hasChildren && (
+                      <div className="invisible opacity-0 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-150 absolute left-1/2 -translate-x-1/2 top-full pt-2 z-50">
+                        <div className="bg-white rounded-lg shadow-xl border border-neutral-100 py-2 min-w-[200px]">
+                          {children.map((child: any) => (
+                            <Link
+                              key={child.id}
+                              to={`/kategori/${child.slug}`}
+                              className="block px-4 py-2 text-sm text-neutral-700 hover:bg-orange-50 hover:text-primary transition-colors whitespace-nowrap"
+                            >
+                              {child.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {idx < categories.slice(0, 9).length - 1 && (
+                    <span className="text-neutral-200 select-none" aria-hidden="true">|</span>
+                  )}
+                </div>
+              );
+            })}
+            {categories.length > 9 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-1 px-2 text-[13px] font-semibold text-neutral-700 hover:text-primary transition-colors cursor-pointer outline-none whitespace-nowrap">
+                  Diğer <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {categories.slice(9).map((cat) => (
+                    <DropdownMenuItem
+                      key={cat.id}
+                      render={<Link to={`/kategori/${cat.slug}`} className="w-full cursor-pointer" />}
+                    >
+                      {cat.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+      </nav>
     </header>
   );
 }

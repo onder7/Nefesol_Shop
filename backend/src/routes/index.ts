@@ -22,7 +22,6 @@ import { getSetupStatus, postSetup } from '../controllers/setupController';
 import { getActivePopup } from '../controllers/popupController';
 import { getActiveCampaign } from '../controllers/discountCampaignController';
 import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig, getStoreIdentity } from '../services/settingsService';
-import { getPublicUmamiConfig } from '../services/umamiService';
 import { optionalAuthenticate } from '../middlewares/auth';
 import { AuthRequest } from '../types';
 
@@ -76,14 +75,6 @@ router.get('/company-info', async (_req, res, next) => {
       city: data.city || '',
       mapEmbed: data.mapEmbed || 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d195884.30030588698!2d32.62267988358488!3d39.90329181165241!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14d347d520730525%3A0xb89a3c7db2bc3397!2sAnkara!5e0!3m2!1str!2str!4v1700000000000!5m2!1str!2str'
     } });
-  } catch (err) { next(err); }
-});
-
-// Umami izleme script bilgisi — public (frontend tracking için; kimlik bilgisi içermez)
-router.get('/analytics-config', async (_req, res, next) => {
-  try {
-    const data = await getPublicUmamiConfig();
-    res.json({ success: true, data });
   } catch (err) { next(err); }
 });
 

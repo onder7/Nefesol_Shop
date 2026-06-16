@@ -6,7 +6,7 @@ import { updateSettingsGroup } from './settingsService';
 // ─── İlk Kurulum Sihirbazı ────────────────────────────────────────────────────
 // Altyapı (DATABASE_URL, REDIS_URL, JWT_SECRET) uygulama açılmadan gerektiği için
 // .env / deploy.sh'da kalır. Bu sihirbaz yalnızca uygulama seviyesi ayarları
-// (admin hesabı, mağaza bilgisi, e-posta, Umami) tek seferde kaydeder.
+// (admin hesabı, mağaza bilgisi, e-posta) tek seferde kaydeder.
 
 export interface SetupInput {
   admin: {
@@ -25,12 +25,6 @@ export interface SetupInput {
     provider: 'smtp' | 'brevo' | 'none';
     smtp?: { host: string; port?: string; user?: string; pass?: string; from?: string; fromName?: string };
     brevo?: { apiKey: string; senderEmail?: string; senderName?: string };
-  };
-  umami?: {
-    url: string;
-    websiteId: string;
-    username?: string;
-    password?: string;
   };
 }
 
@@ -111,17 +105,7 @@ export async function completeSetup(input: SetupInput): Promise<{ email: string 
     });
   }
 
-  // 4) Umami (opsiyonel) — getUmamiConfig analytics_ ayarlarını okuyor
-  if (input.umami && input.umami.url && input.umami.websiteId) {
-    await updateSettingsGroup('analytics_', {
-      umami_url: input.umami.url.trim(),
-      umami_website_id: input.umami.websiteId.trim(),
-      umami_username: input.umami.username?.trim() || '',
-      umami_password: input.umami.password || '',
-    });
-  }
-
-  // 5) İşaretle (admin varlığı asıl kapı olsa da niyet kaydı için)
+  // 4) İşaretle (admin varlığı asıl kapı olsa da niyet kaydı için)
   await updateSettingsGroup('setup_', { completed: 'true', completed_at: new Date().toISOString() });
 
   return { email };

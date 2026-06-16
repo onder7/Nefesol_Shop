@@ -104,7 +104,8 @@ export interface Order {
   shipping?: OrderShipping | null;
   paymentMethod?: string;
   paymentId?: string;
-  items: { id: string; quantity: number; unitPrice: number; variant: ProductVariant & { product: Pick<Product, 'name' | 'slug'> } }[];
+  items: { id: string; quantity: number; unitPrice: number; variant: ProductVariant & { product: Pick<Product, 'name' | 'slug' | 'images'> } }[];
+  statusHistory?: { id: string; status: string; note?: string; createdAt: string }[];
 }
 
 export interface CheckoutInitResponse {
@@ -112,6 +113,7 @@ export interface CheckoutInitResponse {
   token: string;
   conversationId: string;
   subtotal: number;
+  tax?: number;
   shippingFee: number;
   total: number;
 }

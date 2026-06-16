@@ -31,7 +31,11 @@ router.get('/orders/:id', authenticate, ctrl.getOrder);
 
 // Order Cancellation (customer)
 router.post('/orders/:orderId/cancel-request', authenticate, cancelCtrl.requestCancellation as any);
+router.delete('/orders/:orderId/cancel-request', authenticate, cancelCtrl.withdrawCancellation as any);
 router.get('/orders/:orderId/cancellation', authenticate, cancelCtrl.getOrderCancellation as any);
+
+// Kullanıcının kazandığı kuponlar
+router.get('/my-coupons', authenticate, cancelCtrl.getUserCoupons as any);
 
 // Cancellation Management (admin)
 router.get('/admin/cancellations', authenticate, requireAdmin, cancelCtrl.listCancellations as any);

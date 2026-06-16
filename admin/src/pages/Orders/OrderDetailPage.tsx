@@ -243,6 +243,13 @@ export default function OrderDetailPage() {
 
   async function handleUpdateStatus() {
     if (!order) return;
+
+    // Redirect to Cancellations if CANCELLED or REFUNDED selected
+    if (['CANCELLED', 'REFUNDED'].includes(newStatus)) {
+      navigate('/admin/cancellations');
+      return;
+    }
+
     setUpdating(true);
     setError('');
     try {

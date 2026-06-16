@@ -301,7 +301,7 @@ export function LiveChat() {
       {/* Açık chat penceresi */}
       {open && (
         <div
-          className={`fixed bottom-24 right-4 sm:right-6 z-50 flex flex-col rounded-2xl shadow-2xl border border-border bg-background overflow-hidden transition-all duration-300 ${
+          className={`fixed bottom-28 lg:bottom-6 right-4 sm:right-6 z-[70] flex flex-col rounded-2xl shadow-2xl border border-border bg-background overflow-hidden transition-all duration-300 ${
             minimized ? 'h-14 w-72' : 'w-[340px] sm:w-[380px] h-[520px]'
           }`}
           style={{ animation: 'chatSlideUp 0.3s cubic-bezier(0.16,1,0.3,1)' }}
@@ -434,7 +434,7 @@ export function LiveChat() {
       {/* FAB tetikleyici buton */}
       <button
         onClick={open ? () => setOpen(false) : handleOpen}
-        className="fixed bottom-5 right-4 sm:right-6 z-50 h-14 w-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group"
+        className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-[70] h-14 w-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group"
         style={{ background: 'oklch(0.55 0.2 250)' }}
         title="Canlı Destek"
         aria-label="Canlı Destek Chatbotunu Aç"

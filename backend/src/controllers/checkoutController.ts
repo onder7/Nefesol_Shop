@@ -7,7 +7,7 @@ import { prisma } from '../config/database';
 import * as orderSvc from '../services/orderService';
 import * as paymentSvc from '../services/paymentService';
 import * as emailSvc from '../services/emailService';
-import { getShippingConfig, computeShipping, getPaymentMethods, getStoreName } from '../services/settingsService';
+import { getShippingConfig, computeShipping, getPaymentMethods, getStoreName, getTaxConfig } from '../services/settingsService';
 
 // Pending checkout data stored in Redis with 30-min TTL
 const PENDING_TTL = 1800;
@@ -56,7 +56,11 @@ export async function initialize(req: AuthRequest, res: Response, next: NextFunc
     );
     const shippingConfig = await getShippingConfig();
     const shippingFee = computeShipping(subtotal, shippingConfig);
-    const total = subtotal + shippingFee;
+
+    // Fiyatlar KDV hariç (net). KDV indirim sonrası net tutar üzerinden hesaplanır.
+    const { taxRate } = await getTaxConfig();
+    const tax = Math.round(subtotal * taxRate) / 100;
+    const total = subtotal + tax + shippingFee;
 
     const conversationId = `${userId.slice(-6)}-${Date.now()}`;
     await setPending(conversationId, { userId, addressId });
@@ -121,6 +125,7 @@ export async function initialize(req: AuthRequest, res: Response, next: NextFunc
         token: formRes.token,
         conversationId,
         subtotal,
+        tax,
         shippingFee,
         total,
       },

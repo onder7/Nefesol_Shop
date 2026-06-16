@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { BottomNav } from '@/components/layout/BottomNav';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { LiveChat } from '@/components/common/LiveChat';
@@ -20,7 +21,7 @@ import { Search } from '@/pages/Search';
 import { Cart } from '@/pages/Cart';
 import { Checkout } from '@/pages/Checkout';
 import { OrderSuccess } from '@/pages/OrderSuccess';
-import { Orders, OrderDetail } from '@/pages/Orders';
+import { OrderDetail } from '@/pages/Orders';
 import { Profile } from '@/pages/Profile';
 import { Favorites } from '@/pages/Favorites';
 import { Addresses } from '@/pages/Addresses';
@@ -77,7 +78,7 @@ function AppContent() {
         <Route element={<ProtectedRoute />}>
           <Route path="/odeme" element={<Checkout />} />
           <Route path="/hesabim" element={<AccountDashboard />} />
-          <Route path="/hesabim/siparisler" element={<Orders />} />
+          <Route path="/hesabim/siparisler" element={<AccountDashboard />} />
           <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
           <Route path="/hesabim/profil" element={<Profile />} />
           <Route path="/hesabim/favoriler" element={<Favorites />} />
@@ -87,6 +88,7 @@ function AppContent() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       {!isAuthPage && <Footer />}
+      <BottomNav />
       {!isAuthPage && <LiveChat />}
       {!isAuthPage && <PopupNotification />}
       <CookieConsent />

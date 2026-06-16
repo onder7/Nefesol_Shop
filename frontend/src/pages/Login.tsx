@@ -76,10 +76,6 @@ export function Login() {
     }, { scope: 'public_profile,email' });
   };
 
-  const handleInstagramClick = () => {
-    toast.info('Instagram ile giriş - Facebook üzerinden yapılır');
-  };
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -112,18 +108,18 @@ export function Login() {
   return (
     <main className="grid grid-cols-1 lg:grid-cols-2 min-h-screen bg-background">
       {/* Sol Sütun: Form Alanı */}
-      <div className="flex flex-col justify-center items-center px-6 py-12 lg:px-16 xl:px-24">
-        <div className="w-full max-w-[440px] flex flex-col justify-between min-h-[85vh]">
+      <div className="flex flex-col justify-center items-center px-4 sm:px-6 py-6 sm:py-12 lg:px-16 xl:px-24">
+        <div className="w-full max-w-xs sm:max-w-sm md:max-w-md flex flex-col justify-between min-h-screen sm:min-h-[85vh]">
           {/* Logo */}
-          <div className="mb-12">
-            <Link to="/" className="text-2xl font-bold tracking-tight text-primary">
+          <div className="mb-8 sm:mb-12">
+            <Link to="/" className="text-xl sm:text-2xl font-bold tracking-tight text-primary">
               {storeName}
             </Link>
           </div>
 
           {/* Form İçeriği */}
           <div className="flex-1 flex flex-col justify-center">
-            <h1 className="text-2xl font-bold mb-8">Giriş Yap</h1>
+            <h1 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8">Giriş Yap</h1>
             
             <form onSubmit={handleSubmit} className="space-y-6 w-full">
               <div className="space-y-2">
@@ -172,14 +168,19 @@ export function Login() {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center pt-4">
-                <Link to="/kayit" className="font-bold text-primary hover:underline text-sm">
-                  Yeni hesap oluştur
-                </Link>
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4">
+                <div className="flex gap-4 text-sm">
+                  <Link to="/kayit" className="font-bold text-primary hover:underline">
+                    Yeni hesap oluştur
+                  </Link>
+                  <Link to="#" className="font-bold text-primary hover:underline">
+                    Şifremi Unuttum
+                  </Link>
+                </div>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="h-12 px-10 text-sm font-bold uppercase tracking-wider rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  className="h-12 px-10 text-sm font-bold uppercase tracking-wider rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors w-full sm:w-auto"
                 >
                   {loading ? 'Giriş Yapılıyor...' : 'GİRİŞ YAP'}
                 </Button>
@@ -196,7 +197,7 @@ export function Login() {
               </div>
 
               {/* Social Login Buttons */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={handleGoogleClick}
@@ -213,28 +214,17 @@ export function Login() {
                 >
                   f
                 </button>
-                <button
-                  type="button"
-                  onClick={handleInstagramClick}
-                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl hover:scale-105 active:scale-95"
-                  title="Instagram ile giriş yap"
-                >
-                  📷
-                </button>
               </div>
             </form>
           </div>
 
           {/* Footer Linkleri */}
-          <footer className="mt-16 flex flex-wrap gap-4 justify-between text-xs font-bold text-muted-foreground">
+          <footer className="mt-4 sm:mt-6 flex gap-2 sm:gap-4 justify-center sm:justify-between text-[10px] sm:text-xs font-bold text-muted-foreground flex-wrap">
             <Link to="#" className="hover:text-foreground transition-colors">
               Kullanım Koşulları
             </Link>
             <Link to="#" className="hover:text-foreground transition-colors">
               Gizlilik Politikası
-            </Link>
-            <Link to="#" className="hover:text-foreground transition-colors">
-              Şifremi Unuttum
             </Link>
           </footer>
         </div>

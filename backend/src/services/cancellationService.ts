@@ -1,5 +1,6 @@
 import { prisma } from '../config/database';
 import { CancellationReason, CancellationStatus, OrderStatus } from '@prisma/client';
+import { getTaxConfig } from './settingsService';
 
 const CANCELLATION_REASON_LABELS: Record<CancellationReason, string> = {
   CHANGED_MIND: 'Siparişten Vazgeçtim',
@@ -229,6 +230,28 @@ export async function getOrderCancellation(orderId: string) {
   });
 }
 
+// Kullanıcının kazandığı tüm kuponları döndürür (iptalden vazgeçip kupon kabul edenler)
+export async function getUserCoupons(userId: string) {
+  const cancellations = await prisma.orderCancellation.findMany({
+    where: {
+      status: 'REFUNDED',
+      couponCode: { not: null },
+      order: { userId },
+    },
+    include: {
+      order: { select: { id: true, createdAt: true } },
+    },
+    orderBy: { refundedAt: 'desc' },
+  });
+
+  return cancellations.map((c) => ({
+    code: c.couponCode,
+    value: c.couponValue ? Number(c.couponValue) : 0,
+    orderId: c.orderId,
+    appliedAt: c.refundedAt || c.order.createdAt,
+  }));
+}
+
 export async function unrejectCancellation(cancellationId: string) {
   const cancellation = await prisma.orderCancellation.findUnique({
     where: { id: cancellationId },
@@ -240,5 +263,52 @@ export async function unrejectCancellation(cancellationId: string) {
   // Delete the cancellation so customer can request again
   await prisma.orderCancellation.delete({
     where: { id: cancellationId },
+  });
+}
+
+export async function withdrawCancellation(orderId: string, userId: string) {
+  // Find and verify cancellation belongs to user
+  const cancellation = await prisma.orderCancellation.findUnique({
+    where: { orderId },
+    include: { order: true },
+  });
+
+  if (!cancellation) throw new Error('İptal talebi bulunamadı');
+  if (cancellation.order.userId !== userId) throw new Error('Bu talebe erişim yetkiniz yok');
+  if (cancellation.status !== 'APPROVED') throw new Error('Sadece onaylı talepleri geri alabilirsiniz');
+  if (!cancellation.couponCode) throw new Error('Kupon teklifi olmayan talepler geri alınamaz');
+
+  const order = cancellation.order;
+  const couponAmount = Number(cancellation.couponValue) || 0;
+  const newDiscount = Number(order.discount) + couponAmount;
+
+  // İndirim KDV hariç (net) tutara uygulanır, KDV indirim sonrası net üzerinden yeniden hesaplanır.
+  const { taxRate } = await getTaxConfig();
+  const taxableBase = Number(order.subtotal) - newDiscount;
+  const tax = Math.round(taxableBase * taxRate) / 100;
+  const newTotal = taxableBase + tax + Number(order.shippingFee);
+
+  // Update order with coupon discount applied
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      discount: newDiscount,
+      total: newTotal,
+    },
+  });
+
+  // Update cancellation as completed (coupon offered)
+  await prisma.orderCancellation.update({
+    where: { id: cancellation.id },
+    data: { status: 'REFUNDED', refundedAt: new Date() },
+  });
+
+  // Add status log
+  await prisma.orderStatusLog.create({
+    data: {
+      orderId,
+      status: 'PROCESSING',
+      note: `Kupon Teklifi Kabul Edildi: ${cancellation.couponCode} (${couponAmount} TRY)`,
+    },
   });
 }

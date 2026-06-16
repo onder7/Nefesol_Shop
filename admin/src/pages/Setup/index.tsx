@@ -40,10 +40,6 @@ export default function Setup() {
   const [smtpFrom, setSmtpFrom] = useState('');
   const [brevoKey, setBrevoKey] = useState('');
   const [brevoSender, setBrevoSender] = useState('');
-  const [umamiUrl, setUmamiUrl] = useState('');
-  const [umamiId, setUmamiId] = useState('');
-  const [umamiUser, setUmamiUser] = useState('');
-  const [umamiPass, setUmamiPass] = useState('');
 
   const validateStep1 = (): string | null => {
     if (!adminEmail.trim()) return 'Admin e-posta gerekli';
@@ -77,9 +73,6 @@ export default function Setup() {
         payload.email = { provider: 'smtp', smtp: { host: smtpHost.trim(), port: smtpPort.trim(), user: smtpUser.trim(), pass: smtpPass, from: smtpFrom.trim() } };
       } else if (emailProvider === 'brevo' && brevoKey.trim()) {
         payload.email = { provider: 'brevo', brevo: { apiKey: brevoKey.trim(), senderEmail: storeEmail.trim(), senderName: brevoSender.trim() } };
-      }
-      if (umamiUrl.trim() && umamiId.trim()) {
-        payload.umami = { url: umamiUrl.trim(), websiteId: umamiId.trim(), username: umamiUser.trim(), password: umamiPass };
       }
 
       await api.post('/setup', payload);
@@ -239,31 +232,6 @@ export default function Setup() {
                 </div>
               )}
 
-              <div className="space-y-4 rounded-md border border-stroke p-4 dark:border-strokedark">
-                <label className={label}>Umami Analytics (opsiyonel)</label>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className={label}>Sunucu URL</label>
-                    <input className={input} value={umamiUrl} onChange={(e) => setUmamiUrl(e.target.value)} placeholder="https://analytics.siteniz.com" />
-                  </div>
-                  <div>
-                    <label className={label}>Website ID</label>
-                    <input className={input} value={umamiId} onChange={(e) => setUmamiId(e.target.value)} placeholder="UUID" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className={label}>Kullanıcı Adı</label>
-                    <input className={input} value={umamiUser} onChange={(e) => setUmamiUser(e.target.value)} placeholder="admin" />
-                  </div>
-                  <div>
-                    <label className={label}>Şifre</label>
-                    <input className={input} type="password" value={umamiPass} onChange={(e) => setUmamiPass(e.target.value)} placeholder="••••••••" />
-                  </div>
-                </div>
-                <p className={hint}>Gerçek trafik kaynağı verileri için. Boş bırakılırsa demo veri gösterilir.</p>
-              </div>
-
               <p className="text-xs text-gray-500">
                 Not: Ödeme (İyzico) anahtarları güvenlik gereği sunucudaki <code>.env</code> dosyasından yapılandırılır.
               </p>
@@ -279,7 +247,6 @@ export default function Setup() {
               <Row k="İletişim e-posta" v={storeEmail || '—'} />
               <Row k="Telefon" v={storePhone || '—'} />
               <Row k="E-posta sağlayıcı" v={emailProvider === 'none' ? 'Yok' : emailProvider.toUpperCase()} />
-              <Row k="Umami" v={umamiUrl && umamiId ? 'Yapılandırıldı' : 'Yok'} />
               <p className="pt-2 text-xs text-gray-500">
                 Onayladığınızda admin hesabınız oluşturulur ve giriş ekranına yönlendirilirsiniz.
               </p>

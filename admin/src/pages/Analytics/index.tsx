@@ -4,16 +4,6 @@ import ReactApexChart from '../../lib/react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import { api } from '../../lib/api';
 
-// ─── Umami Live Types ────────────────────────────────────────────────────────
-
-interface LiveData {
-  activeVisitors: number;
-  todayPageviews: number;
-  todayVisitors: number;
-  topPages: Array<{ x: string; y: number }>;
-  topCountries: Array<{ x: string; y: number }>;
-}
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface KPI {
@@ -120,106 +110,6 @@ const PAYMENT_LABEL: Record<string, { label: string; color: string }> = {
   FAILED:   { label: 'Başarısız', color: 'bg-red-100 text-red-800' },
   REFUNDED: { label: 'İade',      color: 'bg-gray-100 text-gray-600' },
 };
-
-// ─── Live Visitor Widget ─────────────────────────────────────────────────────
-
-function LiveWidget() {
-  const [data, setData] = useState<LiveData | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const fetchLive = useCallback(() => {
-    api
-      .get<{ success: boolean; data: LiveData | null }>('/admin/analytics/live')
-      .then((r) => {
-        if (r.data) {
-          setData(r.data);
-          setLastUpdated(new Date());
-        }
-      })
-      .catch(() => {/* Umami offline ise sessiz hata */});
-  }, []);
-
-  useEffect(() => {
-    fetchLive();
-    const interval = setInterval(fetchLive, 30_000);
-    return () => clearInterval(interval);
-  }, [fetchLive]);
-
-  if (!data) return null;
-
-  const countryFlag = (code: string) =>
-    code
-      .toUpperCase()
-      .replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
-
-  return (
-    <div className="mb-5 rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
-      <div className="px-5 py-3 border-b border-stroke dark:border-strokedark flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-meta-3 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-meta-3" />
-          </span>
-          <h3 className="text-sm font-semibold text-black dark:text-white">Canlı Ziyaretçiler</h3>
-        </div>
-        {lastUpdated && (
-          <span className="text-xs text-gray-400">
-            {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} güncellendi
-          </span>
-        )}
-      </div>
-
-      <div className="px-5 py-4 grid grid-cols-1 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-        {/* Active now */}
-        <div className="flex flex-col items-center justify-center py-2 px-4 rounded bg-meta-3/10 dark:bg-meta-3/20 border border-meta-3/30">
-          <span className="text-3xl font-bold text-meta-3">{data.activeVisitors}</span>
-          <span className="text-xs text-gray-500 mt-0.5">Şu an sitede</span>
-        </div>
-
-        {/* Today stats */}
-        <div className="flex flex-col items-center justify-center py-2 px-4 rounded bg-gray-50 dark:bg-meta-4 border border-stroke dark:border-strokedark">
-          <span className="text-2xl font-bold text-black dark:text-white">{data.todayVisitors.toLocaleString('tr-TR')}</span>
-          <span className="text-xs text-gray-500 mt-0.5">Bugün — ziyaretçi</span>
-        </div>
-        <div className="flex flex-col items-center justify-center py-2 px-4 rounded bg-gray-50 dark:bg-meta-4 border border-stroke dark:border-strokedark">
-          <span className="text-2xl font-bold text-black dark:text-white">{data.todayPageviews.toLocaleString('tr-TR')}</span>
-          <span className="text-xs text-gray-500 mt-0.5">Bugün — sayfa görüntüleme</span>
-        </div>
-
-        {/* Top pages */}
-        <div className="sm:col-span-1 xl:col-span-1">
-          <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">En Çok Ziyaret</p>
-          <ul className="space-y-1">
-            {data.topPages.slice(0, 4).map((p) => (
-              <li key={p.x} className="flex items-center justify-between gap-2 text-xs">
-                <span className="truncate text-gray-700 dark:text-gray-300 max-w-[120px]" title={p.x}>{p.x || '/'}</span>
-                <span className="flex-shrink-0 font-medium text-black dark:text-white">{p.y}</span>
-              </li>
-            ))}
-            {data.topPages.length === 0 && <li className="text-xs text-gray-400">Veri yok</li>}
-          </ul>
-        </div>
-
-        {/* Top countries */}
-        <div className="sm:col-span-1 xl:col-span-1">
-          <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Ülkeler</p>
-          <ul className="space-y-1">
-            {data.topCountries.slice(0, 4).map((c) => (
-              <li key={c.x} className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-gray-700 dark:text-gray-300">
-                  <span className="mr-1">{countryFlag(c.x)}</span>
-                  {c.x.toUpperCase()}
-                </span>
-                <span className="flex-shrink-0 font-medium text-black dark:text-white">{c.y}</span>
-              </li>
-            ))}
-            {data.topCountries.length === 0 && <li className="text-xs text-gray-400">Veri yok</li>}
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -834,9 +724,6 @@ export default function Analytics() {
           <p className="text-sm text-gray-500 mt-0.5">Satış, kullanıcı ve lojistik performans analizi</p>
         </div>
       </div>
-
-      {/* ── Umami Live Widget ── */}
-      <LiveWidget />
 
       {/* ── Tabs ── */}
       <div className="mb-5 border-b border-stroke dark:border-strokedark print-hide">

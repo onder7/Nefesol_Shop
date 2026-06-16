@@ -8,12 +8,16 @@ interface Props {
   cols?: 2 | 3 | 4;
 }
 
-const colClass = { 2: 'grid-cols-2', 3: 'grid-cols-2 md:grid-cols-3', 4: 'grid-cols-2 md:grid-cols-4' };
+const colClass = {
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+};
 
 export function ProductGrid({ products, loading = false, cols = 4 }: Props) {
   if (loading) {
     return (
-      <div className={`grid ${colClass[cols]} gap-4`}>
+      <div className={`grid ${colClass[cols]} gap-2 sm:gap-3 md:gap-4`}>
         {Array.from({ length: cols * 2 }).map((_, i) => (
           <div key={i} className="border rounded-xl overflow-hidden">
             <Skeleton className="aspect-square w-full" />
@@ -38,7 +42,7 @@ export function ProductGrid({ products, loading = false, cols = 4 }: Props) {
   }
 
   return (
-    <div className={`grid ${colClass[cols]} gap-4`}>
+    <div className={`grid ${colClass[cols]} gap-2 sm:gap-3 md:gap-4`}>
       {products.map((p) => <ProductCard key={p.id} product={p} />)}
     </div>
   );

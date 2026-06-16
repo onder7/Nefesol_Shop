@@ -6,6 +6,7 @@ export interface CheckoutInitResponse {
   token: string;
   conversationId: string;
   subtotal: number;
+  tax?: number;
   shippingFee: number;
   total: number;
 }
@@ -60,4 +61,12 @@ export const checkoutApi = {
 
   getOrder: (id: string) =>
     api.get<{ success: boolean; data: Order }>(`/checkout/orders/${id}`),
+
+  // Cancellation
+  getOrderCancellation: (orderId: string) =>
+    api.get<{ success: boolean; data: any }>(`/checkout/orders/${orderId}/cancellation`),
+
+  // Kullanıcının kazandığı kuponlar
+  getMyCoupons: () =>
+    api.get<{ success: boolean; data: Array<{ code: string; value: number; orderId: string; appliedAt: string }> }>('/checkout/my-coupons'),
 };

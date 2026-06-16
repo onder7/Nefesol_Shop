@@ -1,12 +1,6 @@
 import { prisma } from '../config/database';
 import { AppError } from '../types';
 import { Prisma } from '@prisma/client';
-import {
-  getUmamiConfig,
-  fetchStats,
-  fetchMetrics,
-  UmamiMetric,
-} from './umamiService';
 
 // ─── Dashboard Stats ─────────────────────────────────────────────────────────
 
@@ -243,6 +237,10 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
 
       // Mevcut varyantları güncelle
       for (const v of data.variants.filter((v) => v.id)) {
+        const oldVariant = await tx.productVariant.findUnique({ where: { id: v.id! } });
+        const oldStockQty = oldVariant?.stockQty ?? 0;
+        const newStockQty = v.stockQty;
+
         await tx.productVariant.update({
           where: { id: v.id! },
           data: {
@@ -254,6 +252,20 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
             isActive: true,
           },
         });
+
+        // Stok değişmişse log oluştur
+        if (oldStockQty !== newStockQty) {
+          await tx.stockMovement.create({
+            data: {
+              variantId: v.id!,
+              oldQty: oldStockQty,
+              newQty: newStockQty,
+              difference: newStockQty - oldStockQty,
+              reason: 'admin_update',
+            },
+          });
+        }
+
         // Junction tablosunu sıfırla ve yeniden oluştur
         if (v.attributeValueIds !== undefined) {
           await tx.variantAttributeValue.deleteMany({ where: { variantId: v.id! } });
@@ -407,7 +419,10 @@ export async function adminUpdateOrderStatus(
   status: string,
   note?: string
 ) {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { include: { variant: true } } },
+  });
   if (!order) throw new AppError('Sipariş bulunamadı', 404);
 
   const validStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
@@ -421,6 +436,32 @@ export async function adminUpdateOrderStatus(
     await tx.orderStatusLog.create({
       data: { orderId, status: status as never, note },
     });
+
+    // Sipariş iptal/iade olursa stok geri ekle
+    if ((status === 'CANCELLED' || status === 'REFUNDED') && order.items.length > 0) {
+      for (const item of order.items) {
+        const variant = item.variant;
+        const newQty = variant.stockQty + item.quantity;
+
+        // Varyant stoğunu güncelle
+        await tx.productVariant.update({
+          where: { id: variant.id },
+          data: { stockQty: newQty },
+        });
+
+        // Stok hareketi logu oluştur
+        await tx.stockMovement.create({
+          data: {
+            variantId: variant.id,
+            oldQty: variant.stockQty,
+            newQty,
+            difference: item.quantity,
+            reason: status === 'CANCELLED' ? 'order_cancelled' : 'order_cancelled',
+          },
+        });
+      }
+    }
+
     if (status === 'SHIPPED') {
       await tx.shipping.upsert({
         where: { orderId },
@@ -585,6 +626,84 @@ export async function adminDeleteCategory(id: string) {
   if (category._count.children > 0)
     throw new AppError(`Bu kategorinin ${category._count.children} alt kategorisi var. Önce alt kategorileri silin.`, 409);
   await prisma.category.delete({ where: { id } });
+}
+
+export async function getStockManagement() {
+  const variants = await prisma.productVariant.findMany({
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          category: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const movements = await prisma.stockMovement.findMany({
+    include: {
+      variant: { select: { sku: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+
+  const stocks = variants.map((v) => ({
+    variantId: v.id,
+    productId: v.product.id,
+    productName: v.product.name,
+    sku: v.sku,
+    stockQty: v.stockQty,
+    price: Number(v.price),
+    categoryName: v.product.category.name,
+    status: v.stockQty === 0 ? 'kritik' : v.stockQty < 5 ? 'düşük' : 'normal',
+  }));
+
+  return {
+    stocks,
+    movements: movements.map((m) => ({
+      id: m.id,
+      sku: m.variant.sku,
+      oldQty: m.oldQty,
+      newQty: m.newQty,
+      difference: m.difference,
+      reason: m.reason,
+      createdAt: m.createdAt,
+    })),
+  };
+}
+
+export async function updateVariantStock(variantId: string, newQty: number, adminUserId?: string) {
+  if (newQty < 0) throw new AppError('Stok negatif olamaz', 400);
+
+  const variant = await prisma.productVariant.findUnique({ where: { id: variantId } });
+  if (!variant) throw new AppError('Varyant bulunamadı', 404);
+
+  const oldStockQty = variant.stockQty;
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.productVariant.update({
+      where: { id: variantId },
+      data: { stockQty: newQty },
+    });
+
+    if (oldStockQty !== newQty) {
+      await tx.stockMovement.create({
+        data: {
+          variantId,
+          oldQty: oldStockQty,
+          newQty,
+          difference: newQty - oldStockQty,
+          reason: 'admin_update',
+          adminUserId,
+        },
+      });
+    }
+
+    return updated;
+  });
 }
 
 export async function adminListBrands() {
@@ -1015,29 +1134,14 @@ export async function getUserAnalyticsData() {
     status: sub.status as 'confirmed' | 'pending',
   }));
 
-  // Trafik Kaynakları ve Cihaz Dağılımı — Umami yapılandırılmışsa gerçek veri,
-  // değilse demo oranlar (Sistem Ayarları → Analytics)
-  let trafficSources = [
+  // Trafik Kaynakları ve Cihaz Dağılımı — Demo veriler
+  const trafficSources = [
     { label: 'Doğrudan', value: 35 },
     { label: 'Google', value: 30 },
     { label: 'Instagram', value: 20 },
     { label: 'Reklam', value: 15 },
   ];
-  let deviceDistribution = { mobile: 75, desktop: 25 };
-
-  const umami = await getUmamiData30d();
-  if (umami) {
-    if (umami.referrers.length > 0) {
-      trafficSources = umami.referrers.slice(0, 4).map((r) => ({
-        label: r.source,
-        value: r.percentage,
-      }));
-    }
-    deviceDistribution = {
-      mobile: umami.devices.mobile + umami.devices.tablet,
-      desktop: umami.devices.desktop,
-    };
-  }
+  const deviceDistribution = { mobile: 75, desktop: 25 };
 
   return {
     kpi: {
@@ -1054,140 +1158,7 @@ export async function getUserAnalyticsData() {
   };
 }
 
-// ─── Umami yardımcıları ───────────────────────────────────────────────────────
-
-function pct(part: number, total: number): number {
-  return total > 0 ? Math.round((part / total) * 100) : 0;
-}
-
-// Referrer domain'ini okunur kaynak adına çevirir ('' → Doğrudan)
-function referrerLabel(x: string | null): string {
-  if (!x) return 'Doğrudan';
-  const host = x.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-  if (/google\./.test(host)) return 'Google';
-  if (/instagram\.com/.test(host)) return 'Instagram';
-  if (/facebook\.com|fb\.com/.test(host)) return 'Facebook';
-  if (/(^|\.)t\.co$|twitter\.com|x\.com/.test(host)) return 'X (Twitter)';
-  if (/youtube\.com|youtu\.be/.test(host)) return 'YouTube';
-  if (/bing\.com/.test(host)) return 'Bing';
-  if (/yandex\./.test(host)) return 'Yandex';
-  return host;
-}
-
-interface UmamiData30d {
-  referrers: Array<{ source: string; visitors: number; percentage: number }>;
-  topPages: Array<{ url: string; views: number }>;
-  devices: { mobile: number; desktop: number; tablet: number };
-  browsers: Array<{ name: string; percentage: number; count: number }>;
-  os: Array<{ name: string; percentage: number; count: number }>;
-  summary: {
-    totalVisitors: number;
-    totalSessions: number;
-    avgSessionDuration: number;
-    bounceRate: number;
-  };
-}
-
-// Son 30 günün Umami verisini tek seferde çeker.
-// Umami yapılandırılmamışsa veya erişilemiyorsa null döner.
-async function getUmamiData30d(): Promise<UmamiData30d | null> {
-  const cfg = await getUmamiConfig();
-  if (!cfg) return null;
-
-  const endAt = Date.now();
-  const startAt = endAt - 30 * 24 * 60 * 60 * 1000;
-
-  try {
-    const [stats, referrers, pages, devices, browsers, os] = await Promise.all([
-      fetchStats(cfg, startAt, endAt),
-      fetchMetrics(cfg, 'referrer', startAt, endAt, 10),
-      fetchMetrics(cfg, 'url', startAt, endAt, 5),
-      fetchMetrics(cfg, 'device', startAt, endAt, 10),
-      fetchMetrics(cfg, 'browser', startAt, endAt, 10),
-      fetchMetrics(cfg, 'os', startAt, endAt, 10),
-    ]);
-
-    // Aynı etikete denk düşen referrer'ları birleştir (örn. google.com + google.com.tr)
-    const refMap = new Map<string, number>();
-    for (const r of referrers) {
-      const label = referrerLabel(r.x);
-      refMap.set(label, (refMap.get(label) ?? 0) + r.y);
-    }
-    const refTotal = [...refMap.values()].reduce((a, b) => a + b, 0);
-    const mappedReferrers = [...refMap.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([source, visitors]) => ({
-        source,
-        visitors,
-        percentage: pct(visitors, refTotal),
-      }));
-
-    const deviceOf = (name: string) =>
-      devices.filter((d) => (d.x ?? '').toLowerCase() === name)
-        .reduce((a, d) => a + d.y, 0);
-    const mobile = deviceOf('mobile');
-    const tablet = deviceOf('tablet');
-    const desktop = deviceOf('desktop') + deviceOf('laptop');
-    const deviceTotal = devices.reduce((a, d) => a + d.y, 0);
-
-    const toDistribution = (rows: UmamiMetric[]) => {
-      const total = rows.reduce((a, r) => a + r.y, 0);
-      return rows
-        .sort((a, b) => b.y - a.y)
-        .map((r) => ({
-          name: r.x || 'Bilinmiyor',
-          percentage: pct(r.y, total),
-          count: r.y,
-        }));
-    };
-
-    const visits = stats.visits?.value ?? 0;
-
-    return {
-      referrers: mappedReferrers,
-      topPages: pages.map((p) => ({ url: p.x || '/', views: p.y })),
-      devices: {
-        mobile: pct(mobile, deviceTotal),
-        desktop: pct(desktop, deviceTotal),
-        tablet: pct(tablet, deviceTotal),
-      },
-      browsers: toDistribution(browsers),
-      os: toDistribution(os),
-      summary: {
-        totalVisitors: stats.visitors?.value ?? 0,
-        totalSessions: visits,
-        avgSessionDuration: visits > 0 ? Math.round((stats.totaltime?.value ?? 0) / visits) : 0,
-        bounceRate: visits > 0 ? pct(stats.bounces?.value ?? 0, visits) : 0,
-      },
-    };
-  } catch (err) {
-    // Umami'ye ulaşılamadı — çağıran taraf demo veriye düşer
-    console.error('Umami veri çekme hatası:', err instanceof Error ? err.message : err);
-    return null;
-  }
-}
-
 export async function getTrafficAnalyticsData() {
-  const umami = await getUmamiData30d();
-
-  if (umami) {
-    return {
-      dataSource: 'umami' as const,
-      trafficSources: umami.referrers,
-      topPages: umami.topPages.map((p) => ({
-        url: p.url,
-        title: p.url,
-        views: p.views,
-        visitors: p.views,
-      })),
-      deviceDistribution: umami.devices,
-      browserDistribution: umami.browsers,
-      osDistribution: umami.os,
-      summary: umami.summary,
-    };
-  }
-
-  // Umami yapılandırılmamış → demo veri (Sistem Ayarları → Analytics'ten bağlanır)
   return {
     dataSource: 'demo' as const,
     trafficSources: [

@@ -116,15 +116,10 @@ Sunucu bilgileri:
   systemctl enable nginx
   ```
 - [ ] Domain'i sunucu IP'sine yönlendir (DNS A kaydı)
-- [ ] Certbot ile Let's Encrypt SSL al
-  ```bash
-  apt install certbot python3-certbot-nginx -y
-  certbot --nginx -d domain.com -d www.domain.com -d admin.domain.com
-  ```
-- [ ] SSL otomatik yenileme doğrula
-  ```bash
-  certbot renew --dry-run
-  ```
+- [ ] SSL sertifikası manuel yönetim (Certbot, Let's Encrypt veya başka sağlayıcı)
+  - Host seviyesinde SSL sertifikasını kendiniz yönetiniz
+  - `/etc/nginx/ssl/` altında sertifikaları ve private key'i yerleştirin
+  - Nginx config'inde ssl_certificate ve ssl_certificate_key ayarlayın
 - [ ] Nginx yapılandırma dosyaları oluştur (geliştirme aşamasında placeholder)
 
 ### 0.5 — Node.js Kurulumu (Lokal geliştirme için)

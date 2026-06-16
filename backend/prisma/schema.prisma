@@ -44,6 +44,7 @@ model User {
   productQuestions ProductQuestion[]
   productAnswers   ProductAnswer[]
   contactMessages  ContactMessage[]
+  stockMovements   StockMovement[]
 
   @@map("users")
 }
@@ -182,6 +183,7 @@ model ProductVariant {
   orderItems      OrderItem[]
   wishlistItems   WishlistItem[]
   attributeValues VariantAttributeValue[]
+  stockMovements  StockMovement[]
 
   @@map("product_variants")
 }
@@ -679,4 +681,26 @@ model NewsletterSubscriber {
 
   @@map("newsletter_subscribers")
 }
+
+// ─── Stok Hareketi Logu ───────────────────────────────────────────────────────
+
+model StockMovement {
+  id           String   @id @default(cuid())
+  variantId    String   @map("variant_id")
+  oldQty       Int      @map("old_qty")
+  newQty       Int      @map("new_qty")
+  difference   Int
+  reason       String   // "admin_update", "order_placed", "order_cancelled", "adjustment"
+  adminUserId  String?  @map("admin_user_id")
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  admin   User?          @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([variantId])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
 

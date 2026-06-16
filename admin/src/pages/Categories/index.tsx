@@ -1,5 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../lib/api';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Category {
   id: string;
@@ -24,6 +28,7 @@ interface FormState {
   isActive: boolean;
   showInMenu: boolean;
   parentId: string;
+  imageUrl: string;
 }
 
 function toSlug(s: string) {
@@ -36,10 +41,136 @@ function toSlug(s: string) {
 }
 
 const defaultForm = (): FormState => ({
-  name: '', slug: '', description: '', sortOrder: '0', isActive: true, showInMenu: true, parentId: '',
+  name: '', slug: '', description: '', sortOrder: '0', isActive: true, showInMenu: true, parentId: '', imageUrl: '',
 });
 
 const inputCls = 'w-full rounded border border-stroke bg-transparent px-3 py-2 text-sm text-black outline-none transition focus:border-primary dark:border-strokedark dark:text-white dark:focus:border-primary';
+
+interface DraggableCategoryRowProps {
+  cat: Category;
+  isParent: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: (id: string) => void;
+  onEdit: (cat: Category) => void;
+  onDelete: (id: string) => void;
+  onToggleActive: (id: string) => Promise<void>;
+  onToggleMenu: (id: string) => Promise<void>;
+  togglingActive?: string | null;
+  togglingMenu?: string | null;
+}
+
+function DraggableCategoryRow({ cat, isParent, isExpanded = true, onToggleExpand, onEdit, onDelete, onToggleActive, onToggleMenu, togglingActive, togglingMenu }: DraggableCategoryRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={`border-b border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4/30 ${
+        isDragging ? 'bg-blue-50 dark:bg-blue-950' : ''
+      }`}
+      {...(isParent ? attributes : {})}
+    >
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-2">
+          {isParent && cat.children.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand?.(cat.id);
+              }}
+              className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white transition"
+              title={isExpanded ? 'Gizle' : 'Göster'}
+            >
+              {isExpanded ? '▼' : '▶'}
+            </button>
+          )}
+          {isParent && cat.children.length === 0 && <span className="w-5" />}
+          {isParent && (
+            <span
+              className="mr-2 text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600"
+              {...listeners}
+              title="Sürükleyerek sırala"
+            >
+              ⋮⋮
+            </span>
+          )}
+          <div>
+            <div className="font-medium text-black dark:text-white">{isParent ? cat.name : `↳ ${cat.name}`}</div>
+            <div className="text-xs text-gray-400">/{cat.slug}</div>
+          </div>
+        </div>
+      </td>
+      <td className="px-5 py-4 text-gray-600">
+        {isParent ? <span className="text-gray-400 italic">Ana Kategori</span> : cat.parent?.name}
+      </td>
+      <td className="px-5 py-4 text-center font-medium">{cat._count.products}</td>
+      <td className="px-5 py-4 text-center">{cat.children.length}</td>
+      <td className="px-5 py-4 text-center text-gray-600">{cat.sortOrder}</td>
+      <td className="px-5 py-4">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleActive(cat.id);
+          }}
+          disabled={togglingActive === cat.id}
+          className={`px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition ${
+            cat.isActive
+              ? 'bg-green-100 text-green-800 hover:bg-green-200'
+              : 'bg-red-100 text-red-800 hover:bg-red-200'
+          } ${togglingActive === cat.id ? 'opacity-50' : ''}`}
+          title="Durumu değiştirmek için tıklayın"
+        >
+          {togglingActive === cat.id ? '...' : cat.isActive ? 'Aktif' : 'Pasif'}
+        </button>
+      </td>
+      <td className="px-5 py-4 text-center">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleMenu(cat.id);
+          }}
+          disabled={togglingMenu === cat.id}
+          className={`px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition ${
+            cat.showInMenu
+              ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+          } ${togglingMenu === cat.id ? 'opacity-50' : ''}`}
+          title="Menüde gösterilip gösterilmeyeceğini değiştirmek için tıklayın"
+        >
+          {togglingMenu === cat.id ? '...' : cat.showInMenu ? 'Evet' : 'Hayır'}
+        </button>
+      </td>
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(cat);
+            }}
+            className="px-3 py-1 rounded bg-blue-50 text-blue-700 text-xs hover:bg-blue-100 transition"
+          >
+            Düzenle
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(cat.id);
+            }}
+            className="px-3 py-1 rounded bg-red-50 text-meta-1 text-xs hover:bg-red-100 transition"
+          >
+            Sil
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -51,6 +182,10 @@ export default function Categories() {
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [uploading, setUploading] = useState(false);
+  const [togglingActive, setTogglingActive] = useState<string | null>(null);
+  const [togglingMenu, setTogglingMenu] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -79,6 +214,7 @@ export default function Categories() {
       isActive: cat.isActive,
       showInMenu: cat.showInMenu,
       parentId: cat.parentId ?? '',
+      imageUrl: cat.imageUrl ?? '',
     });
     setError('');
     setFormOpen(true);
@@ -92,6 +228,21 @@ export default function Categories() {
     setForm((f) => ({ ...f, name, slug: editingId ? f.slug : toSlug(name) }));
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const res = await api.upload<{ data: { url: string } }>('/admin/upload', file);
+      set('imageUrl', res.data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Resim yükleme hatası');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -103,6 +254,7 @@ export default function Categories() {
       isActive: form.isActive,
       showInMenu: form.showInMenu,
       parentId: form.parentId || undefined,
+      imageUrl: form.imageUrl || undefined,
     };
     setSaving(true);
     try {
@@ -133,7 +285,74 @@ export default function Categories() {
     }
   }
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = categories.findIndex((c) => c.id === active.id);
+    const newIndex = categories.findIndex((c) => c.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newCategories = arrayMove(categories, oldIndex, newIndex);
+    setCategories(newCategories);
+
+    const updates = newCategories.map((cat, idx) => ({
+      id: cat.id,
+      sortOrder: idx,
+    }));
+
+    try {
+      await Promise.all(
+        updates.map((upd) =>
+          api.patch(`/admin/categories/${upd.id}`, { sortOrder: upd.sortOrder })
+        )
+      );
+    } catch (err) {
+      console.error('Sıralama güncellenirken hata:', err);
+      load();
+    }
+  }
+
+  async function handleToggleActive(id: string) {
+    setTogglingActive(id);
+    try {
+      const cat = categories.find((c) => c.id === id);
+      if (!cat) return;
+      await api.patch(`/admin/categories/${id}`, { isActive: !cat.isActive });
+      setCategories((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c))
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Durum güncellenirken hata oluştu');
+    } finally {
+      setTogglingActive(null);
+    }
+  }
+
+  async function handleToggleMenu(id: string) {
+    setTogglingMenu(id);
+    try {
+      const cat = categories.find((c) => c.id === id);
+      if (!cat) return;
+      await api.patch(`/admin/categories/${id}`, { showInMenu: !cat.showInMenu });
+      setCategories((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, showInMenu: !c.showInMenu } : c))
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Menü durumu güncellenirken hata oluştu');
+    } finally {
+      setTogglingMenu(null);
+    }
+  }
+
   const topLevel = categories.filter((c) => !c.parentId);
+  const sortableIds = categories.filter((c) => !c.parentId).map((c) => c.id);
 
   return (
     <div>
@@ -189,6 +408,23 @@ export default function Categories() {
                 <label className="block text-sm font-medium text-black dark:text-white mb-1">Açıklama</label>
                 <textarea value={form.description} onChange={(e) => set('description', e.target.value)}
                   rows={3} className={inputCls} placeholder="Kategori açıklaması..." />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-black dark:text-white mb-1">Kategori Resmi</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploading}
+                  className={`${inputCls} disabled:opacity-50`}
+                />
+                <p className="text-xs text-gray-400 mt-1">{uploading ? 'Yükleniyor...' : 'JPG, PNG, WebP vb.'}</p>
+                {form.imageUrl && (
+                  <div className="mt-3 rounded overflow-hidden border border-stroke dark:border-strokedark">
+                    <img src={form.imageUrl} alt={form.name} className="w-full h-32 object-cover" />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -254,72 +490,86 @@ export default function Categories() {
       </div>
 
       {/* Tablo */}
-      <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
-        {loading ? (
-          <div className="flex justify-center items-center h-48">
-            <div className="animate-spin h-8 w-8 rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-stroke dark:border-strokedark bg-gray-2 dark:bg-meta-4">
-                  <th className="px-5 py-4 text-left font-medium text-gray-600">Kategori</th>
-                  <th className="px-5 py-4 text-left font-medium text-gray-600">Üst Kategori</th>
-                  <th className="px-5 py-4 text-center font-medium text-gray-600">Ürün</th>
-                  <th className="px-5 py-4 text-center font-medium text-gray-600">Alt Kategori</th>
-                  <th className="px-5 py-4 text-center font-medium text-gray-600">Sıra</th>
-                  <th className="px-5 py-4 text-left font-medium text-gray-600">Durum</th>
-                  <th className="px-5 py-4 text-center font-medium text-gray-600">Menüde</th>
-                  <th className="px-5 py-4 text-left font-medium text-gray-600">İşlem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((cat) => (
-                  <tr key={cat.id}
-                    className="border-b border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4/30">
-                    <td className="px-5 py-4">
-                      <div className="font-medium text-black dark:text-white">{cat.name}</div>
-                      <div className="text-xs text-gray-400">/{cat.slug}</div>
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {cat.parent?.name ?? <span className="text-gray-400 italic">Ana Kategori</span>}
-                    </td>
-                    <td className="px-5 py-4 text-center font-medium">{cat._count.products}</td>
-                    <td className="px-5 py-4 text-center">{cat.children.length}</td>
-                    <td className="px-5 py-4 text-center text-gray-600">{cat.sortOrder}</td>
-                    <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cat.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {cat.isActive ? 'Aktif' : 'Pasif'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cat.showInMenu ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {cat.showInMenu ? 'Evet' : 'Hayır'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(cat)}
-                          className="px-3 py-1 rounded bg-blue-50 text-blue-700 text-xs hover:bg-blue-100 transition">
-                          Düzenle
-                        </button>
-                        <button onClick={() => setDeleteConfirm(cat.id)}
-                          className="px-3 py-1 rounded bg-red-50 text-meta-1 text-xs hover:bg-red-100 transition">
-                          Sil
-                        </button>
-                      </div>
-                    </td>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+          {loading ? (
+            <div className="flex justify-center items-center h-48">
+              <div className="animate-spin h-8 w-8 rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-stroke dark:border-strokedark bg-gray-2 dark:bg-meta-4">
+                    <th className="px-5 py-4 text-left font-medium text-gray-600">Kategori</th>
+                    <th className="px-5 py-4 text-left font-medium text-gray-600">Üst Kategori</th>
+                    <th className="px-5 py-4 text-center font-medium text-gray-600">Ürün</th>
+                    <th className="px-5 py-4 text-center font-medium text-gray-600">Alt Kategori</th>
+                    <th className="px-5 py-4 text-center font-medium text-gray-600">Sıra</th>
+                    <th className="px-5 py-4 text-left font-medium text-gray-600">Durum</th>
+                    <th className="px-5 py-4 text-center font-medium text-gray-600">Menüde</th>
+                    <th className="px-5 py-4 text-left font-medium text-gray-600">İşlem</th>
                   </tr>
-                ))}
-                {categories.length === 0 && (
-                  <tr><td colSpan={8} className="py-12 text-center text-gray-400">Kategori bulunamadı.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                    {categories
+                      .filter((c) => !c.parentId)
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .flatMap((parent) => {
+                        const subCategories = categories
+                          .filter((c) => c.parentId === parent.id)
+                          .sort((a, b) => a.sortOrder - b.sortOrder);
+                        const isExpanded = expandedCategories.has(parent.id);
+
+                        return [
+                          <DraggableCategoryRow
+                            key={parent.id}
+                            cat={parent}
+                            isParent={true}
+                            isExpanded={isExpanded}
+                            onToggleExpand={(id) => {
+                              setExpandedCategories((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(id)) next.delete(id);
+                                else next.add(id);
+                                return next;
+                              });
+                            }}
+                            onEdit={openEdit}
+                            onDelete={(id) => setDeleteConfirm(id)}
+                            onToggleActive={handleToggleActive}
+                            onToggleMenu={handleToggleMenu}
+                            togglingActive={togglingActive}
+                            togglingMenu={togglingMenu}
+                          />,
+                          ...(isExpanded
+                            ? subCategories.map((sub) => (
+                                <DraggableCategoryRow
+                                  key={sub.id}
+                                  cat={sub}
+                                  isParent={false}
+                                  onEdit={openEdit}
+                                  onDelete={(id) => setDeleteConfirm(id)}
+                                  onToggleActive={handleToggleActive}
+                                  onToggleMenu={handleToggleMenu}
+                                  togglingActive={togglingActive}
+                                  togglingMenu={togglingMenu}
+                                />
+                              ))
+                            : []),
+                        ];
+                      })}
+                    {categories.length === 0 && (
+                      <tr><td colSpan={8} className="py-12 text-center text-gray-400">Kategori bulunamadı.</td></tr>
+                    )}
+                  </SortableContext>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </DndContext>
     </div>
   );
 }

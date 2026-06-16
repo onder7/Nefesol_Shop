@@ -83,6 +83,15 @@ const navItems = [
     ),
   },
   {
+    to: '/stock-management',
+    label: 'Stok Yönetimi',
+    icon: (
+      <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
     to: '/discounts',
     label: 'İndirimler',
     icon: (

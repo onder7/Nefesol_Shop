@@ -83,7 +83,15 @@ function OrderCard({ order }: { order: Order }) {
           )}
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="font-semibold">{formatPrice(order.total)}</p>
+          <div className="space-y-1">
+            {Number(order.discount) > 0 && (
+              <>
+                <p className="text-sm text-muted-foreground line-through">{formatPrice(order.subtotal + order.shippingFee)}</p>
+                <p className="text-green-600 text-sm font-medium">−{formatPrice(order.discount)}</p>
+              </>
+            )}
+            <p className="font-semibold">{formatPrice(order.total)}</p>
+          </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground mt-2 ml-auto group-hover:text-primary transition-colors" />
         </div>
       </div>
@@ -174,8 +182,15 @@ export function OrderDetail() {
 
   const addr = order.address as { firstName: string; lastName: string; address: string; district: string; city: string } | undefined;
 
+  // Fiyatlar KDV hariç (net). KDV = Toplam − Kargo − (Ara Toplam − İndirim)
+  const netSubtotal = Number(order.subtotal);
+  const orderDiscount = Number(order.discount);
+  const orderShipping = Number(order.shippingFee);
+  const orderTotal = Number(order.total);
+  const orderKdv = Math.max(0, Math.round((orderTotal - orderShipping - (netSubtotal - orderDiscount)) * 100) / 100);
+
   return (
-    <main className="container mx-auto px-4 py-8 max-w-2xl">
+    <main className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-6">
         <Link to="/hesabim/siparisler" className="hover:text-foreground">Siparişlerim</Link>
@@ -183,45 +198,13 @@ export function OrderDetail() {
         <span className="text-foreground font-medium">#{order.id.slice(-8).toUpperCase()}</span>
       </nav>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Sipariş Detayı</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold">Sipariş #{order.id.slice(-8).toUpperCase()}</h1>
         <StatusBadge status={order.status} />
       </div>
 
-      {/* Order Information */}
-      <div className="border rounded-lg p-4 bg-gray-50 mb-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground font-medium mb-1">Sipariş No</p>
-            <p className="font-mono font-semibold">#TR-{order.id.slice(-8).toUpperCase()}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium mb-1">Sipariş Tarihi</p>
-            <p className="text-sm">{formatDate(order.createdAt)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium mb-1">Toplam Tutar</p>
-            <p className="text-sm font-semibold">{formatPrice(Number(order.total))}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium mb-1">Ödeme Yöntemi</p>
-            <p className="text-sm font-mono">{order.paymentMethod || '—'}</p>
-          </div>
-          {order.paymentId && (
-            <div>
-              <p className="text-xs text-muted-foreground font-medium mb-1">Ödendi</p>
-              <p className="text-sm font-mono">{order.paymentId}</p>
-            </div>
-          )}
-          <div>
-            <p className="text-xs text-muted-foreground font-medium mb-1">Sipariş Durumu</p>
-            <p className="text-sm"><StatusBadge status={order.status} /></p>
-          </div>
-        </div>
-      </div>
-
       {/* Items */}
-      <div className="border rounded-lg divide-y mb-4">
+      <div className="border rounded-lg divide-y mb-8">
         {order.items.map((item) => {
           const product = (item.variant as { product: { name: string; slug: string; images?: { url: string }[] } }).product;
           const img = product.images?.[0];
@@ -244,73 +227,131 @@ export function OrderDetail() {
         })}
       </div>
 
-      {/* Totals */}
-      <div className="border rounded-lg p-4 space-y-2 mb-4">
-        <div className="flex justify-between text-sm">
-          <span>Ara Toplam</span>
-          <span>{formatPrice(Number(order.subtotal))}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span>Kargo</span>
-          <span>{Number(order.shippingFee) === 0 ? 'Ücretsiz' : formatPrice(Number(order.shippingFee))}</span>
-        </div>
-        {Number(order.discount) > 0 && (
-          <div className="flex justify-between text-sm text-green-600">
-            <span>İndirim</span>
-            <span>−{formatPrice(Number(order.discount))}</span>
+      {/* 4 Column Card Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Card 1: Sipariş Özeti */}
+        <div className="border rounded-lg p-4 bg-white">
+          <p className="text-sm font-semibold mb-4">Sipariş Özeti</p>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Ara Toplam (KDV Hariç)</span>
+              <span className="font-medium">{formatPrice(netSubtotal)}</span>
+            </div>
+            {orderDiscount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span className="text-muted-foreground">İndirim</span>
+                <span className="font-medium">−{formatPrice(orderDiscount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">KDV</span>
+              <span className="font-medium">{formatPrice(orderKdv)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Kargo</span>
+              <span className="font-medium">{orderShipping === 0 ? 'Ücretsiz' : formatPrice(orderShipping)}</span>
+            </div>
+            <div className="flex justify-between border-t pt-3 font-semibold">
+              <span>Toplam</span>
+              <span>{formatPrice(orderTotal)}</span>
+            </div>
           </div>
-        )}
-        <div className="flex justify-between font-semibold border-t pt-2">
-          <span>Toplam</span>
-          <span>{formatPrice(Number(order.total))}</span>
+        </div>
+
+        {/* Card 2: Teslimat Adresi */}
+        <div className="border rounded-lg p-4 bg-white">
+          <p className="text-sm font-semibold mb-4">Teslimat Adresi</p>
+          {addr ? (
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p className="font-medium text-foreground">{addr.firstName} {addr.lastName}</p>
+              <p>{addr.address}</p>
+              <p>{addr.district} / {addr.city}</p>
+              <div className="pt-2 border-t text-xs mt-3">
+                <p className="text-muted-foreground">Sipariş Tarihi</p>
+                <p className="font-medium text-foreground">{formatDate(order.createdAt)}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Adres bilgisi yok</p>
+          )}
+        </div>
+
+        {/* Card 3: Kargo Bilgileri */}
+        <div className="border rounded-lg p-4 bg-white">
+          <div className="flex items-center gap-2 mb-4">
+            <Truck className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-semibold">Kargo Bilgileri</p>
+          </div>
+          {order.shipping ? (
+            <div className="text-sm text-muted-foreground space-y-2">
+              {order.shipping.carrier && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Kargo Firması</p>
+                  <p className="font-medium text-foreground">{order.shipping.carrier}</p>
+                </div>
+              )}
+              {order.shipping.trackingNumber ? (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Takip No</p>
+                  <p className="font-mono font-medium text-foreground">{order.shipping.trackingNumber}</p>
+                </div>
+              ) : (
+                <p className="text-xs italic">Takip numarası henüz girilmedi.</p>
+              )}
+              {order.shipping.estimatedAt && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Tahmini Teslimat</p>
+                  <p className="font-medium text-foreground">{formatDate(order.shipping.estimatedAt)}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Kargo bilgisi henüz yok</p>
+          )}
+        </div>
+
+        {/* Card 4: Sipariş Geçmişi */}
+        <div className="border rounded-lg p-4 bg-white">
+          <p className="text-sm font-semibold mb-4">Sipariş Geçmişi</p>
+          {(order as unknown as { statusHistory?: Array<{ id: string; status: string; note?: string; createdAt: string }> }).statusHistory && (
+            <div className="text-sm space-y-2">
+              {((order as unknown as { statusHistory: Array<{ id: string; status: string; note?: string; createdAt: string }> }).statusHistory).slice(-3).map((log, i) => (
+                <div key={log.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <StatusBadge status={log.status} />
+                    <span className="text-xs text-muted-foreground">{formatDate(log.createdAt)}</span>
+                  </div>
+                  {log.note && <p className="text-xs text-muted-foreground ml-0">{log.note}</p>}
+                  {i < 2 && <div className="h-px bg-border mt-2" />}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Address */}
-      {addr && (
-        <div className="border rounded-lg p-4 mb-4">
-          <p className="text-sm font-medium mb-1">Teslimat Adresi</p>
-          <p className="text-sm text-muted-foreground">
-            {addr.firstName} {addr.lastName}<br />
-            {addr.address}, {addr.district} / {addr.city}
-          </p>
-        </div>
-      )}
-
-      {/* Shipping info */}
-      {order.shipping && (
-        <div className="border rounded-lg p-4 mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Truck className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-medium">Kargo Bilgisi</p>
-          </div>
-          <div className="text-sm text-muted-foreground space-y-1">
-            {order.shipping.carrier && (
-              <p>Kargo Firması: <span className="text-foreground font-medium">{order.shipping.carrier}</span></p>
-            )}
-            {order.shipping.trackingNumber ? (
-              <p>
-                Takip No:{' '}
-                <span className="text-foreground font-mono font-medium">{order.shipping.trackingNumber}</span>
-              </p>
-            ) : (
-              <p className="text-muted-foreground italic">Takip numarası henüz girilmedi.</p>
-            )}
-            {order.shipping.estimatedAt && (
-              <p>Tahmini Teslimat: <span className="text-foreground">{formatDate(order.shipping.estimatedAt)}</span></p>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Cancellation Status */}
       {cancellation && (
-        <CancellationStatus status={cancellation.status} reason={cancellation.reason} />
+        <div className="mb-8">
+          <CancellationStatus
+            status={cancellation.status}
+            reason={cancellation.reason}
+            orderId={orderId}
+            couponOffered={cancellation.couponCode ? true : false}
+            couponCode={cancellation.couponCode}
+            couponValue={cancellation.couponValue ? Number(cancellation.couponValue) : undefined}
+            adminNotes={cancellation.adminNotes}
+            onRetract={() => {
+              qc.invalidateQueries({ queryKey: ['order-cancellation', orderId] });
+              refetch();
+            }}
+          />
+        </div>
       )}
 
       {/* Cancel Request Button */}
       {!cancellation && ['PENDING', 'PROCESSING'].includes(order.status) && (
-        <div className="border rounded-lg p-4 mb-4 bg-blue-50 border-blue-200 flex items-start justify-between">
+        <div className="border rounded-lg p-4 mb-8 bg-blue-50 border-blue-200 flex items-start justify-between">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div>
@@ -325,25 +366,6 @@ export function OrderDetail() {
           >
             İptal Et
           </Button>
-        </div>
-      )}
-
-      {/* Status history */}
-      {(order as unknown as { statusHistory?: Array<{ id: string; status: string; note?: string; createdAt: string }> }).statusHistory && (
-        <div className="border rounded-lg p-4">
-          <p className="text-sm font-medium mb-3">Sipariş Geçmişi</p>
-          <ol className="relative border-l border-muted ml-2 space-y-4">
-            {((order as unknown as { statusHistory: Array<{ id: string; status: string; note?: string; createdAt: string }> }).statusHistory).map((log) => (
-              <li key={log.id} className="ml-4">
-                <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-primary" />
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={log.status} />
-                  <span className="text-xs text-muted-foreground">{formatDate(log.createdAt)}</span>
-                </div>
-                {log.note && <p className="text-xs text-muted-foreground mt-1">{log.note}</p>}
-              </li>
-            ))}
-          </ol>
         </div>
       )}
 

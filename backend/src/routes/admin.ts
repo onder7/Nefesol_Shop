@@ -6,7 +6,6 @@ import * as chatbotCtrl from '../controllers/chatbotController';
 import * as popupCtrl from '../controllers/popupController';
 import * as campaignCtrl from '../controllers/discountCampaignController';
 import * as attrCtrl from '../controllers/attributeController';
-import * as umamiCtrl from '../controllers/umamiController';
 import { uploadImage } from '../middlewares/upload';
 import { uploadProductImage } from '../controllers/uploadController';
 
@@ -21,9 +20,6 @@ router.get('/stats', ctrl.getStats);
 router.get('/analytics', ctrl.getAnalytics);
 router.get('/user-analytics', ctrl.getUserAnalytics);
 router.get('/analytics/traffic', ctrl.getTrafficAnalytics);
-
-// Umami Live Analytics
-router.get('/analytics/live', umamiCtrl.getLiveAnalytics);
 
 // Upload
 router.post('/upload', uploadImage.single('file'), uploadProductImage);
@@ -54,7 +50,12 @@ router.delete('/newsletter/subscribers/:id', ctrl.deleteSubscriber);
 router.get('/categories', ctrl.listCategories);
 router.post('/categories', ctrl.createCategory);
 router.put('/categories/:id', ctrl.updateCategory);
+router.patch('/categories/:id', ctrl.updateCategory);
 router.delete('/categories/:id', ctrl.deleteCategory);
+
+// Stock Management
+router.get('/stock-management', ctrl.getStockManagement);
+router.patch('/variants/:id/stock', ctrl.updateVariantStock);
 
 // Brands
 router.get('/brands', ctrl.listBrands);

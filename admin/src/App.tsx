@@ -22,6 +22,7 @@ import AttributesPage from './pages/Attributes';
 import CampaignsPage from './pages/Campaigns';
 import DiscountsPage from './pages/Discounts';
 import { Cancellations } from './pages/Cancellations';
+import StockManagement from './pages/StockManagement';
 import DefaultLayout from './layout/DefaultLayout';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 
@@ -104,6 +105,15 @@ function AppRoutes() {
                     <>
                       <PageTitle title="Ürün Düzenle | Yönetim Paneli" />
                       <ProductDetailPage />
+                    </>
+                  }
+                />
+                <Route
+                  path="stock-management"
+                  element={
+                    <>
+                      <PageTitle title="Stok Yönetimi | Yönetim Paneli" />
+                      <StockManagement />
                     </>
                   }
                 />

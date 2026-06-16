@@ -40,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
   REQUESTED: 'Talep Alındı',
   APPROVED: 'Onaylandı',
   REJECTED: 'Reddedildi',
-  REFUNDED: 'İade Edildi',
+  REFUNDED: 'Tamamlandı',
 };
 
 const REASON_LABELS: Record<string, string> = {
@@ -426,6 +426,11 @@ export function Cancellations() {
                   <div className={`inline-block px-2 py-1 rounded text-xs font-medium ${STATUS_COLORS[cancellation.status]}`}>
                     {STATUS_LABELS[cancellation.status]}
                   </div>
+                  {cancellation.couponCode && (
+                    <div className="inline-block px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                      🎟️ {cancellation.couponCode}
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-gray-600">
                   {cancellation.order.user.profile?.firstName} {cancellation.order.user.profile?.lastName || cancellation.order.user.email}

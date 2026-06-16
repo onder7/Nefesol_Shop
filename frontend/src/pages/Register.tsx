@@ -83,10 +83,6 @@ export function Register() {
     }, { scope: 'public_profile,email' });
   };
 
-  const handleInstagramClick = () => {
-    toast.info('Instagram ile kayıt - Facebook üzerinden yapılır');
-  };
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.password !== form.confirmPassword) {
@@ -115,22 +111,22 @@ export function Register() {
   return (
     <main className="grid grid-cols-1 lg:grid-cols-2 min-h-screen bg-background">
       {/* Sol Sütun: Form Alanı */}
-      <div className="flex flex-col justify-center items-center px-6 py-12 lg:px-16 xl:px-24">
-        <div className="w-full max-w-[440px] flex flex-col justify-between min-h-[85vh]">
+      <div className="flex flex-col justify-center items-center px-4 sm:px-6 py-8 sm:py-12 lg:px-16 xl:px-24">
+        <div className="w-full max-w-xs sm:max-w-sm md:max-w-md flex flex-col justify-between min-h-[85vh]">
           {/* Logo */}
-          <div className="mb-12">
-            <Link to="/" className="text-2xl font-bold tracking-tight text-primary">
+          <div className="mb-8 sm:mb-12">
+            <Link to="/" className="text-xl sm:text-2xl font-bold tracking-tight text-primary">
               {storeName}
             </Link>
           </div>
 
           {/* Form İçeriği */}
           <div className="flex-1 flex flex-col justify-center">
-            <h1 className="text-2xl font-bold mb-8">Kayıt Ol</h1>
-            
-            <form onSubmit={handleSubmit} className="space-y-4 w-full">
-              {/* Ad & Soyad - Yan Yana */}
-              <div className="grid grid-cols-2 gap-4">
+            <h1 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8">Kayıt Ol</h1>
+
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 w-full">
+              {/* Ad & Soyad - Mobilde alt alta, desktop'te yan yana */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" className="font-bold text-sm text-foreground">
                     Ad
@@ -265,7 +261,7 @@ export function Register() {
               </div>
 
               {/* Social Login Buttons */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={handleGoogleClick}
@@ -282,20 +278,12 @@ export function Register() {
                 >
                   f
                 </button>
-                <button
-                  type="button"
-                  onClick={handleInstagramClick}
-                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl hover:scale-105 active:scale-95"
-                  title="Instagram ile kayıt ol"
-                >
-                  📷
-                </button>
               </div>
             </form>
           </div>
 
           {/* Footer Linkleri */}
-          <footer className="mt-16 flex flex-wrap gap-4 justify-between text-xs font-bold text-muted-foreground">
+          <footer className="mt-8 sm:mt-16 flex flex-wrap gap-2 sm:gap-4 justify-between text-xs font-bold text-muted-foreground">
             <Link to="#" className="hover:text-foreground transition-colors">
               Kullanım Koşulları
             </Link>

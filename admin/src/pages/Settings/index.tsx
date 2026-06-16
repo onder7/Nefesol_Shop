@@ -3257,111 +3257,17 @@ function PopupTab() {
 type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
 
 function AnalyticsTab() {
-  const [form, setForm] = useState({
-    umami_url: '',
-    umami_website_id: '',
-    umami_username: '',
-    umami_password: '',
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    api.get<{ success: boolean; data: Record<string, string> }>('/admin/settings/analytics')
-      .then((r) => {
-        if (r.data?.data) {
-          setForm((p) => ({ ...p, ...r.data.data }));
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    setError('');
-    setSaved(false);
-    try {
-      const response = await api.put<{ success: boolean; data: Record<string, string> }>('/admin/settings/analytics', form);
-      if (response?.data?.data) {
-        setForm((p) => ({ ...p, ...response.data.data }));
-      }
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kayıt hatası');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <div className="flex justify-center py-10"><div className="animate-spin h-7 w-7 border-2 border-primary border-t-transparent rounded-full" /></div>;
-
   return (
     <div className="space-y-6">
       <SectionCard
-        title="Umami Analytics"
-        subtitle="Self-hosted Umami sunucu bağlantısı — trafik kaynakları ve ziyaretçi istatistikleri buradan beslenir"
+        title="Analytics"
+        subtitle="Analytics entegrasyonunuzu buradan yapılandırın"
       >
-        <div className="space-y-5">
-          <Field label="Umami Sunucu URL" hint="Umami kurulumunuzun kök adresi (örn. https://analytics.nefesol.net)">
-            <input
-              type="url"
-              value={form.umami_url}
-              onChange={(e) => setForm((p) => ({ ...p, umami_url: e.target.value }))}
-              className={inputCls}
-              placeholder="https://analytics.nefesol.net"
-            />
-          </Field>
-
-          <Field label="Website ID" hint="Umami panelinde Websites → ilgili site → Edit ekranındaki UUID">
-            <input
-              type="text"
-              value={form.umami_website_id}
-              onChange={(e) => setForm((p) => ({ ...p, umami_website_id: e.target.value }))}
-              className={inputCls}
-              placeholder="örn. 72424b18-47f7-4116-8816-bd3d69f6fc2b"
-            />
-          </Field>
-
-          <Field label="Kullanıcı Adı" hint="Umami panel girişinde kullandığınız kullanıcı (API erişimi için)">
-            <input
-              type="text"
-              value={form.umami_username}
-              onChange={(e) => setForm((p) => ({ ...p, umami_username: e.target.value }))}
-              className={inputCls}
-              placeholder="admin"
-            />
-          </Field>
-
-          <Field label="Şifre" hint="Umami panel şifresi — yalnızca backend'de saklanır, ziyaretçilere açılmaz">
-            <input
-              type="password"
-              value={form.umami_password}
-              onChange={(e) => setForm((p) => ({ ...p, umami_password: e.target.value }))}
-              className={inputCls}
-              placeholder="••••••••"
-            />
-          </Field>
-
-          <div className="rounded-md border border-stroke bg-gray-50 p-4 text-xs leading-relaxed text-gray-600 dark:border-strokedark dark:bg-meta-4 dark:text-gray-300">
-            <p className="font-semibold mb-1">Nasıl çalışır?</p>
-            <p>URL ve Website ID kaydedildiğinde mağaza sayfalarına Umami izleme script'i otomatik eklenir.
-            Kullanıcı adı + şifre girildiğinde ise <strong>Kullanıcı Analitiği → Trafik Kaynakları</strong> sekmesi
-            demo veri yerine Umami'deki gerçek verileri (kaynak, cihaz, tarayıcı, işletim sistemi) gösterir.
-            Alanlar boş bırakılırsa sistem demo veriyle çalışmaya devam eder.</p>
-          </div>
+        <div className="rounded-md border border-stroke bg-gray-50 p-4 text-sm text-gray-600 dark:border-strokedark dark:bg-meta-4 dark:text-gray-300">
+          <p className="font-semibold mb-2">Analytics Entegrasyonu</p>
+          <p>Google Analytics, Matomo veya başka bir analytics çözümü kullanmak için ilgili script'i
+          frontend'in <code>index.html</code> dosyasına ya da <code>src/lib/analytics.ts</code> dosyasına ekleyin.</p>
         </div>
-
-        <SaveBar
-          saving={saving}
-          saved={saved}
-          error={error}
-          onSave={handleSave}
-          onReset={() => setForm({ umami_url: '', umami_website_id: '', umami_username: '', umami_password: '' })}
-        />
       </SectionCard>
     </div>
   );

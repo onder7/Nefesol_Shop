@@ -310,7 +310,7 @@ export function Home() {
           onMouseUp={handleMouseUp}
           onMouseMove={handleMouseMove}
           className={cn(
-            "flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-4 no-scrollbar select-none cursor-grab active:cursor-grabbing",
+            "flex gap-3 sm:gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 sm:pb-3 md:pb-4 no-scrollbar select-none cursor-grab active:cursor-grabbing",
             isDragging && "scroll-auto"
           )}
         >
@@ -318,7 +318,7 @@ export function Home() {
             ? Array.from({ length: 4 }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="w-[280px] sm:w-[320px] md:w-[350px] shrink-0 snap-start rounded-2xl bg-neutral-200 animate-pulse h-80"
+                  className="w-[260px] sm:w-[280px] md:w-[320px] lg:w-[350px] shrink-0 snap-start rounded-2xl bg-neutral-200 animate-pulse h-80"
                 />
               ))
             : categories.map((cat) => {
@@ -327,7 +327,7 @@ export function Home() {
                 return (
                   <div
                     key={cat.id}
-                    className="w-[280px] sm:w-[320px] md:w-[350px] shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-neutral-900 text-white p-8 h-80 flex flex-col justify-end shadow-xs"
+                    className="w-[260px] sm:w-[280px] md:w-[320px] lg:w-[350px] shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-neutral-900 text-white p-8 h-80 flex flex-col justify-end shadow-xs"
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 pointer-events-none" />
                     <img

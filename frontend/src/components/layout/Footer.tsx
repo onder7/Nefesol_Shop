@@ -109,7 +109,7 @@ export function Footer() {
     Object.values(socialLinks).some((v) => v && v.trim() !== '');
 
   return (
-    <footer className="bg-neutral-950 text-neutral-200 mt-auto border-t border-neutral-800">
+    <footer className="bg-neutral-950 text-neutral-200 mt-auto border-t border-neutral-800 pb-20 lg:pb-0">
       {/* Newsletter Section */}
       <div className="border-b border-neutral-800 py-10">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -192,7 +192,7 @@ export function Footer() {
           <ul className="space-y-3 text-neutral-400">
             {categories.map((cat) => (
               <li key={cat.id}>
-                <Link to={`/kategori/${cat.slug}`} className="hover:text-primary hover:underline transition-all">
+                <Link to={`/kategori/${cat.slug}`} className="hover:text-white hover:underline transition-colors">
                   {cat.name}
                 </Link>
               </li>
@@ -203,23 +203,23 @@ export function Footer() {
         <div>
           <h3 className="font-semibold text-white mb-4 tracking-wider">Hesabım</h3>
           <ul className="space-y-3 text-neutral-400">
-            <li><Link to="/hesabim/siparisler" className="hover:text-primary hover:underline transition-all">Siparişlerim</Link></li>
-            <li><Link to="/hesabim/profil" className="hover:text-primary hover:underline transition-all">Profil Bilgilerim</Link></li>
-            <li><Link to="/sepet" className="hover:text-primary hover:underline transition-all">Sepetim</Link></li>
-            <li><Link to="/hesabim/favoriler" className="hover:text-primary hover:underline transition-all">Favori Ürünlerim</Link></li>
+            <li><Link to="/hesabim/siparisler" className="hover:text-white hover:underline transition-colors">Siparişlerim</Link></li>
+            <li><Link to="/hesabim/profil" className="hover:text-white hover:underline transition-colors">Profil Bilgilerim</Link></li>
+            <li><Link to="/sepet" className="hover:text-white hover:underline transition-colors">Sepetim</Link></li>
+            <li><Link to="/hesabim/favoriler" className="hover:text-white hover:underline transition-colors">Favori Ürünlerim</Link></li>
           </ul>
         </div>
 
         <div>
           <h3 className="font-semibold text-white mb-4 tracking-wider">Müşteri Hizmetleri</h3>
           <ul className="space-y-3 text-neutral-400">
-            <li><Link to="/iletisim" className="hover:text-primary hover:underline transition-all">İletişim & Destek</Link></li>
-            <li><Link to="/iade" className="hover:text-primary hover:underline transition-all">Kolay İade & Değişim</Link></li>
-            <li><Link to="/sss" className="hover:text-primary hover:underline transition-all">Sıkça Sorulan Sorular</Link></li>
-            <li><Link to="/sozlesmeler" className="hover:text-primary hover:underline transition-all">Şartlar & Politikalar</Link></li>
-            <li><Link to="/hakkimizda" className="hover:text-primary hover:underline transition-all">Hakkımızda</Link></li>
-            <li><Link to="/kvkk" className="hover:text-primary hover:underline transition-all">KVKK Sözleşmesi</Link></li>
-            <li><Link to="/uyelik" className="hover:text-primary hover:underline transition-all">Üyelik Sözleşmesi</Link></li>
+            <li><Link to="/iletisim" className="hover:text-white hover:underline transition-colors">İletişim & Destek</Link></li>
+            <li><Link to="/iade" className="hover:text-white hover:underline transition-colors">Kolay İade & Değişim</Link></li>
+            <li><Link to="/sss" className="hover:text-white hover:underline transition-colors">Sıkça Sorulan Sorular</Link></li>
+            <li><Link to="/sozlesmeler" className="hover:text-white hover:underline transition-colors">Şartlar & Politikalar</Link></li>
+            <li><Link to="/hakkimizda" className="hover:text-white hover:underline transition-colors">Hakkımızda</Link></li>
+            <li><Link to="/kvkk" className="hover:text-white hover:underline transition-colors">KVKK Sözleşmesi</Link></li>
+            <li><Link to="/uyelik" className="hover:text-white hover:underline transition-colors">Üyelik Sözleşmesi</Link></li>
           </ul>
         </div>
       </div>
