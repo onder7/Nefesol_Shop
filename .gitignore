@@ -64,6 +64,11 @@ query
 backend/backups/backup-*.sql
 *.tar.gz
 
+# Sunucuda deploy.sh tarafından üretilenler (SSL sertifikaları, compose override)
+certbot/
+docker-compose.override.yml
+nginx/conf.d/default.conf
+
 # İndirilmiş şablon / tasarım dosyaları
 ecommerce-frontend-master/
 *.png
