@@ -47,6 +47,32 @@ router.use('/addresses', addressesRouter);
 router.use('/checkout', checkoutRouter);
 router.use('/wishlist', wishlistRouter);
 router.use('/reviews', reviewsRouter);
+
+// GET /api/questions/my-questions — kullanıcının sorduğu sorular (hesabım sayfası)
+import { authenticate as authMw } from '../middlewares/auth';
+import { AuthRequest as AuthReq } from '../types';
+router.get('/questions/my-questions', authMw, async (req: AuthReq, res, next) => {
+  try {
+    const { prisma: db } = await import('../config/database');
+    const questions = await db.productQuestion.findMany({
+      where: { userId: req.user!.id },
+      include: {
+        product: {
+          select: {
+            id: true, name: true, slug: true,
+            images: { orderBy: { sortOrder: 'asc' as const }, select: { id: true, url: true, altText: true }, take: 1 },
+          },
+        },
+        answers: {
+          orderBy: { createdAt: 'asc' },
+          include: { user: { select: { id: true, role: true, profile: { select: { firstName: true, lastName: true } } } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ success: true, data: questions });
+  } catch (err) { next(err); }
+});
 router.use('/profile', profileRouter);
 router.use('/admin', adminRouter);
 router.use('/newsletter', newsletterRouter);

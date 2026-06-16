@@ -23,6 +23,8 @@ import CampaignsPage from './pages/Campaigns';
 import DiscountsPage from './pages/Discounts';
 import { Cancellations } from './pages/Cancellations';
 import StockManagement from './pages/StockManagement';
+import Reviews from './pages/Reviews';
+import Questions from './pages/Questions';
 import DefaultLayout from './layout/DefaultLayout';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 
@@ -231,6 +233,24 @@ function AppRoutes() {
                     <>
                       <PageTitle title="İptal & İade | Yönetim Paneli" />
                       <Cancellations />
+                    </>
+                  }
+                />
+                <Route
+                  path="reviews"
+                  element={
+                    <>
+                      <PageTitle title="Değerlendirmeler | Yönetim Paneli" />
+                      <Reviews />
+                    </>
+                  }
+                />
+                <Route
+                  path="questions"
+                  element={
+                    <>
+                      <PageTitle title="Soru & Cevap | Yönetim Paneli" />
+                      <Questions />
                     </>
                   }
                 />

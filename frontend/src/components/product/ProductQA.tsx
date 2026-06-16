@@ -141,7 +141,7 @@ function AddQuestionForm({ productId }: { productId: string }) {
       qaApi.addQuestion(productId, { body, guestName: isAuthenticated ? undefined : guestName }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['questions', productId] });
-      toast.success('Sorunuz iletildi!');
+      toast.success('Sorunuz iletildi! Yönetici onayından sonra yayınlanacaktır.');
       setBody('');
       setGuestName('');
       setOpen(false);

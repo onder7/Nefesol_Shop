@@ -185,6 +185,7 @@ export async function callback(req: Request, res: Response, next: NextFunction) 
             quantity: i.quantity,
             unitPrice: Number(i.unitPrice),
           })),
+          user.firstName,
         )
         .catch((e) => logger.error('Email hatası', { error: e.message }));
     }
@@ -227,6 +228,7 @@ export async function devCallback(req: Request, res: Response, next: NextFunctio
             quantity: i.quantity,
             unitPrice: Number(i.unitPrice),
           })),
+          user.firstName,
         )
         .catch(() => {});
     }
@@ -287,6 +289,7 @@ export async function placeOrder(req: AuthRequest, res: Response, next: NextFunc
             quantity: i.quantity,
             unitPrice: Number(i.unitPrice),
           })),
+          user.firstName,
         )
         .catch((e) => logger.error('Email hatası', { error: e.message }));
     }

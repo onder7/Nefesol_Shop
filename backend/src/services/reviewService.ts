@@ -1,5 +1,7 @@
 import { prisma } from '../config/database';
 import { AppError } from '../types';
+import { logger } from '../config/logger';
+import * as emailSvc from './emailService';
 
 export async function getReviews(productId: string) {
   const reviews = await prisma.review.findMany({
@@ -46,14 +48,14 @@ export async function addReview(
     throw new AppError('Bu ürün için zaten bir değerlendirme yapmışsınız', 409);
   }
 
-  return prisma.review.create({
+  const review = await prisma.review.create({
     data: {
       productId,
       userId,
       rating: data.rating,
       title: data.title,
       body: data.body,
-      isApproved: true, // Otomatik onay; moderasyon eklenebilir
+      isApproved: false, // Admin onayı bekler; onaylanana kadar müşteri tarafında görünmez
     },
     include: {
       user: {
@@ -62,8 +64,22 @@ export async function addReview(
           profile: { select: { firstName: true, lastName: true } },
         },
       },
+      product: { select: { name: true } },
     },
   });
+
+  // ─── Yöneticiye yeni değerlendirme bildirimi (hata yutulur) ───
+  void emailSvc
+    .notifyAdminNewReview({
+      productName: review.product?.name ?? 'Ürün',
+      rating: review.rating,
+      author: [review.user?.profile?.firstName, review.user?.profile?.lastName].filter(Boolean).join(' ').trim(),
+      title: review.title ?? undefined,
+      body: review.body ?? undefined,
+    })
+    .catch((e) => logger.error('Yeni değerlendirme e-postası gönderilemedi', { reviewId: review.id, error: e?.message }));
+
+  return review;
 }
 
 export async function deleteReview(reviewId: string, userId: string, isAdmin: boolean) {
@@ -71,4 +87,39 @@ export async function deleteReview(reviewId: string, userId: string, isAdmin: bo
   if (!review) throw new AppError('Değerlendirme bulunamadı', 404);
   if (!isAdmin && review.userId !== userId) throw new AppError('Yetkisiz işlem', 403);
   await prisma.review.delete({ where: { id: reviewId } });
+}
+
+// ─── Admin moderasyonu ────────────────────────────────────────────────────────
+
+// Admin: tüm değerlendirmeleri listele (status filtresi: pending | approved | all)
+export async function listAllReviews(status: 'pending' | 'approved' | 'all' = 'all') {
+  const where =
+    status === 'pending' ? { isApproved: false }
+    : status === 'approved' ? { isApproved: true }
+    : {};
+
+  return prisma.review.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      product: { select: { id: true, name: true, slug: true } },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          profile: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+  });
+}
+
+// Admin: onay durumunu değiştir
+export async function setReviewApproval(reviewId: string, approved: boolean) {
+  const review = await prisma.review.findUnique({ where: { id: reviewId } });
+  if (!review) throw new AppError('Değerlendirme bulunamadı', 404);
+  return prisma.review.update({
+    where: { id: reviewId },
+    data: { isApproved: approved },
+  });
 }

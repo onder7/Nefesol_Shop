@@ -58,6 +58,11 @@ backend/uploads/
 
 # Geçici dosyalar
 tmp/
+query
+
+# Veritabanı yedekleri — müşteri verisi içerir, asla commit etme
+backend/backups/backup-*.sql
+*.tar.gz
 
 # İndirilmiş şablon / tasarım dosyaları
 ecommerce-frontend-master/

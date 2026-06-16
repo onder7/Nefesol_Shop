@@ -1,6 +1,8 @@
 import { prisma } from '../config/database';
 import { AppError } from '../types';
 import { Prisma } from '@prisma/client';
+import { logger } from '../config/logger';
+import * as emailSvc from './emailService';
 
 // ─── Dashboard Stats ─────────────────────────────────────────────────────────
 
@@ -421,15 +423,15 @@ export async function adminUpdateOrderStatus(
 ) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: { include: { variant: true } } },
+    include: { items: { include: { variant: true } }, user: true },
   });
   if (!order) throw new AppError('Sipariş bulunamadı', 404);
 
   const validStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
   if (!validStatuses.includes(status)) throw new AppError('Geçersiz durum', 400);
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.order.update({
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.order.update({
       where: { id: orderId },
       data: { status: status as never },
     });
@@ -469,8 +471,54 @@ export async function adminUpdateOrderStatus(
         create: { orderId, status: 'SHIPPED' },
       });
     }
-    return updated;
+    return u;
   });
+
+  // ─── Müşteriye durum bildirimi e-postası (transaction dışında, hata sipariş güncellemesini etkilemez) ───
+  void sendOrderStatusEmail(order, status).catch((e) =>
+    logger.error('Sipariş durum e-postası gönderilemedi', { orderId, status, error: e?.message }),
+  );
+
+  return updated;
+}
+
+type OrderWithUser = Prisma.OrderGetPayload<{ include: { user: true } }>;
+
+// Sipariş durumuna göre uygun müşteri e-postasını seçip gönderir
+async function sendOrderStatusEmail(order: OrderWithUser, status: string): Promise<void> {
+  const email = order.user?.email;
+  if (!email) return;
+
+  const orderRef = order.id.slice(-8).toUpperCase();
+  const name = order.user.firstName || '';
+  const total = Number(order.total);
+
+  // Panelden düzenlenebilir şablonu olan durumlar
+  const templateMap: Record<string, 'order_shipped' | 'order_delivered'> = {
+    SHIPPED: 'order_shipped',
+    DELIVERED: 'order_delivered',
+  };
+
+  if (templateMap[status]) {
+    await emailSvc.sendOrderTemplateEmail(email, templateMap[status], {
+      ad: name,
+      siparis_no: orderRef,
+      toplam: total.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }),
+    });
+    return;
+  }
+
+  // Diğer durumlar (PROCESSING, CANCELLED, REFUNDED) için genel durum bildirimi
+  const statusLabels: Record<string, string> = {
+    PROCESSING: 'Hazırlanıyor',
+    CANCELLED: 'İptal Edildi',
+    REFUNDED: 'İade Edildi',
+    PENDING: 'Beklemede',
+  };
+  const label = statusLabels[status];
+  if (!label) return; // bilinmeyen/duplicate durum için e-posta gönderme
+
+  await emailSvc.sendOrderStatusUpdate(email, order.id, status, label);
 }
 
 export async function adminUpdateOrderShipping(

@@ -3,7 +3,7 @@ import { AppError } from '../types';
 
 export async function getQuestions(productId: string) {
   return prisma.productQuestion.findMany({
-    where: { productId },
+    where: { productId, isApproved: true },
     orderBy: { createdAt: 'desc' },
     include: {
       user: {
@@ -85,10 +85,92 @@ export async function addAnswer(
     },
   });
 
-  // Mark question as answered
   await prisma.productQuestion.update({
     where: { id: questionId },
     data: { isAnswered: true },
+  });
+
+  return answer;
+}
+
+// ─── Admin fonksiyonları ──────────────────────────────────────────────────────
+
+export async function listAllQuestions(status: 'pending' | 'approved' | 'all' = 'all') {
+  const where =
+    status === 'pending' ? { isApproved: false }
+    : status === 'approved' ? { isApproved: true }
+    : {};
+
+  return prisma.productQuestion.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      product: { select: { id: true, name: true, slug: true } },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          profile: { select: { firstName: true, lastName: true } },
+        },
+      },
+      answers: {
+        orderBy: { createdAt: 'asc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              role: true,
+              profile: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function setQuestionApproval(questionId: string, approved: boolean) {
+  const question = await prisma.productQuestion.findUnique({ where: { id: questionId } });
+  if (!question) throw new AppError('Soru bulunamadı', 404);
+  return prisma.productQuestion.update({
+    where: { id: questionId },
+    data: { isApproved: approved },
+  });
+}
+
+export async function deleteQuestion(questionId: string) {
+  const question = await prisma.productQuestion.findUnique({ where: { id: questionId } });
+  if (!question) throw new AppError('Soru bulunamadı', 404);
+  return prisma.productQuestion.delete({ where: { id: questionId } });
+}
+
+export async function adminAnswerQuestion(
+  questionId: string,
+  userId: string,
+  body: string
+) {
+  if (!body.trim()) throw new AppError('Cevap boş olamaz', 400);
+
+  const question = await prisma.productQuestion.findUnique({ where: { id: questionId } });
+  if (!question) throw new AppError('Soru bulunamadı', 404);
+
+  const answer = await prisma.productAnswer.create({
+    data: { questionId, userId, body: body.trim() },
+    include: {
+      user: {
+        select: {
+          id: true,
+          role: true,
+          profile: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+  });
+
+  // Soruyu hem cevaplandı hem onaylandı olarak işaretle
+  await prisma.productQuestion.update({
+    where: { id: questionId },
+    data: { isAnswered: true, isApproved: true },
   });
 
   return answer;

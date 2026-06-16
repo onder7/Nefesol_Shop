@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
-import { getStoreName } from './settingsService';
+import { getStoreName, getSettingsGroup } from './settingsService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -206,6 +206,225 @@ function formatPrice(n: number) {
   return n.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// {{ad}}, {{siparis_no}} gibi değişkenleri doldurur
+function applyVars(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => vars[key] ?? '');
+}
+
+// Düz metin şablon gövdesini güvenli HTML kabuğuna sarar
+function wrapTemplateHtml(bodyText: string, opts?: { extraHtml?: string }): string {
+  const paragraphs = escapeHtml(bodyText)
+    .split('\n')
+    .map((line) => (line.trim() === '' ? '<div style="height:8px"></div>' : `<p style="margin:0 0 12px;line-height:1.6">${line}</p>`))
+    .join('');
+
+  const ordersUrl = `${env.FRONTEND_URL}/hesabim/siparisler`;
+
+  return `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+      ${paragraphs}
+      ${opts?.extraHtml ?? ''}
+      <p style="margin:24px 0">
+        <a href="${ordersUrl}"
+           style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
+          Siparişlerimi Görüntüle
+        </a>
+      </p>
+    </div>
+  `;
+}
+
+// Sipariş durum şablonları — panel boşsa bu varsayılanlar kullanılır
+type OrderTemplatePrefix = 'order_received' | 'order_shipped' | 'order_delivered';
+
+const ORDER_TEMPLATE_DEFAULTS: Record<OrderTemplatePrefix, { label: string; subject: string; body: string }> = {
+  order_received: {
+    label: 'Alındı',
+    subject: 'Siparişiniz Alındı — #{{siparis_no}}',
+    body: 'Sayın {{ad}},\n\nSiparişiniz (#{{siparis_no}}) başarıyla alındı. Toplam tutar: {{toplam}}.\n\nSiparişinizi hesabınızdan takip edebilirsiniz. Bizi tercih ettiğiniz için teşekkürler!\n\n{{magaza}}',
+  },
+  order_shipped: {
+    label: 'Kargoya Verildi',
+    subject: 'Siparişiniz Kargoya Verildi — #{{siparis_no}}',
+    body: 'Sayın {{ad}},\n\nSiparişiniz (#{{siparis_no}}) kargoya verildi ve yola çıktı. Kargo durumunu hesabınızdan takip edebilirsiniz.\n\n{{magaza}}',
+  },
+  order_delivered: {
+    label: 'Teslim Edildi',
+    subject: 'Siparişiniz Teslim Edildi — #{{siparis_no}}',
+    body: 'Sayın {{ad}},\n\nSiparişiniz (#{{siparis_no}}) teslim edildi. Umarız beğenirsiniz!\n\nGörüşlerinizi ürün sayfasından bizimle paylaşabilirsiniz. Bizi tercih ettiğiniz için teşekkürler.\n\n{{magaza}}',
+  },
+};
+
+interface OrderTemplateVars {
+  ad: string;        // müşteri adı
+  siparis_no: string;
+  toplam?: string;
+}
+
+/**
+ * Paneldeki düzenlenebilir şablonu (notif_<prefix>_subject/body) okuyup,
+ * değişkenleri doldurarak müşteriye e-posta gönderir.
+ */
+export async function sendOrderTemplateEmail(
+  to: string,
+  prefix: OrderTemplatePrefix,
+  vars: OrderTemplateVars,
+  extraHtml?: string,
+): Promise<void> {
+  const def = ORDER_TEMPLATE_DEFAULTS[prefix];
+  const [settings, storeName] = await Promise.all([
+    getSettingsGroup('notif_').catch(() => ({} as Record<string, string>)),
+    getStoreName(),
+  ]);
+
+  const allVars: Record<string, string> = {
+    ad: vars.ad?.trim() || 'Müşterimiz',
+    siparis_no: vars.siparis_no,
+    toplam: vars.toplam ?? '',
+    durum: def.label,
+    magaza: storeName,
+  };
+
+  const subjectTpl = settings[`${prefix}_subject`]?.trim() || def.subject;
+  const bodyTpl = settings[`${prefix}_body`]?.trim() || def.body;
+
+  const subject = applyVars(subjectTpl, allVars);
+  const html = wrapTemplateHtml(applyVars(bodyTpl, allVars), { extraHtml });
+
+  await sendMail({ to, subject, html });
+}
+
+// ─── Admin Uyarıları ──────────────────────────────────────────────────────────
+
+interface AdminAlertSettings {
+  recipients: string[];
+  newOrder: boolean;
+  lowStock: boolean;
+  newReview: boolean;
+}
+
+async function getAdminAlertSettings(): Promise<AdminAlertSettings> {
+  const s = await getSettingsGroup('notif_').catch(() => ({} as Record<string, string>));
+  const recipients = (s['admin_email'] || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+  return {
+    recipients,
+    newOrder: s['new_order_alert'] === 'true',
+    lowStock: s['low_stock_alert'] === 'true',
+    newReview: s['new_review_alert'] === 'true',
+  };
+}
+
+function adminShell(title: string, inner: string): string {
+  return `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+      <h2 style="color:#2563eb">${escapeHtml(title)}</h2>
+      ${inner}
+      <p style="color:#9ca3af;font-size:12px;margin-top:24px">Bu otomatik bir yönetici bildirimidir.</p>
+    </div>
+  `;
+}
+
+export async function notifyAdminNewOrder(info: {
+  orderId: string;
+  customerName: string;
+  total: number;
+  itemCount: number;
+}): Promise<void> {
+  const cfg = await getAdminAlertSettings();
+  if (!cfg.newOrder || cfg.recipients.length === 0) return;
+
+  const orderRef = info.orderId.slice(-8).toUpperCase();
+  const inner = `
+    <p>Yeni bir sipariş alındı.</p>
+    <table style="border-collapse:collapse;margin-top:8px">
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Sipariş No</td><td style="font-weight:bold">#${orderRef}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Müşteri</td><td>${escapeHtml(info.customerName || '—')}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Ürün adedi</td><td>${info.itemCount}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Toplam</td><td style="font-weight:bold">${formatPrice(info.total)}</td></tr>
+    </table>
+  `;
+  await sendMail({
+    to: cfg.recipients.join(', '),
+    subject: `🛒 Yeni Sipariş — #${orderRef}`,
+    html: adminShell('Yeni Sipariş', inner),
+  });
+}
+
+export async function notifyAdminLowStock(
+  items: Array<{ name: string; sku: string; stock: number }>,
+): Promise<void> {
+  const cfg = await getAdminAlertSettings();
+  if (!cfg.lowStock || cfg.recipients.length === 0 || items.length === 0) return;
+
+  const rows = items
+    .map(
+      (i) =>
+        `<tr>
+          <td style="padding:6px 12px;border-bottom:1px solid #eee">${escapeHtml(i.name)}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #eee;color:#6b7280">${escapeHtml(i.sku)}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;color:${i.stock <= 0 ? '#dc2626' : '#d97706'}">${i.stock}</td>
+        </tr>`,
+    )
+    .join('');
+  const inner = `
+    <p>Aşağıdaki ürünlerin stoğu kritik seviyeye indi:</p>
+    <table style="width:100%;border-collapse:collapse;margin-top:8px">
+      <thead>
+        <tr style="background:#f3f4f6">
+          <th style="padding:6px 12px;text-align:left">Ürün</th>
+          <th style="padding:6px 12px;text-align:left">SKU</th>
+          <th style="padding:6px 12px;text-align:right">Kalan</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  await sendMail({
+    to: cfg.recipients.join(', '),
+    subject: `⚠️ Stok Uyarısı — ${items.length} ürün`,
+    html: adminShell('Düşük Stok Uyarısı', inner),
+  });
+}
+
+export async function notifyAdminNewReview(info: {
+  productName: string;
+  rating: number;
+  author: string;
+  title?: string;
+  body?: string;
+}): Promise<void> {
+  const cfg = await getAdminAlertSettings();
+  if (!cfg.newReview || cfg.recipients.length === 0) return;
+
+  const stars = '★'.repeat(info.rating) + '☆'.repeat(5 - info.rating);
+  const inner = `
+    <p>Yeni bir ürün değerlendirmesi yapıldı (onay bekliyor).</p>
+    <table style="border-collapse:collapse;margin-top:8px">
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Ürün</td><td style="font-weight:bold">${escapeHtml(info.productName)}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Müşteri</td><td>${escapeHtml(info.author || '—')}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Puan</td><td style="color:#f59e0b">${stars} (${info.rating}/5)</td></tr>
+    </table>
+    ${info.title ? `<p style="margin-top:12px;font-weight:bold">${escapeHtml(info.title)}</p>` : ''}
+    ${info.body ? `<p style="color:#374151">${escapeHtml(info.body)}</p>` : ''}
+    <p style="color:#6b7280;font-size:13px;margin-top:12px">Onaylamak için admin panelindeki Değerlendirmeler sayfasını ziyaret edin.</p>
+  `;
+  await sendMail({
+    to: cfg.recipients.join(', '),
+    subject: `⭐ Yeni Değerlendirme — ${info.productName}`,
+    html: adminShell('Yeni Değerlendirme', inner),
+  });
+}
+
 // ─── Public Functions ─────────────────────────────────────────────────────────
 
 export async function sendOrderConfirmation(
@@ -213,6 +432,7 @@ export async function sendOrderConfirmation(
   orderId: string,
   total: number,
   items: Array<{ name: string; quantity: number; unitPrice: number }>,
+  customerName = '',
 ): Promise<void> {
   const orderRef = orderId.slice(-8).toUpperCase();
 
@@ -220,38 +440,36 @@ export async function sendOrderConfirmation(
     .map(
       (i) =>
         `<tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee">${i.name}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(i.name)}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center">${i.quantity}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">${formatPrice(i.unitPrice)}</td>
         </tr>`,
     )
     .join('');
 
-  const html = `
-    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
-      <h2 style="color:#2563eb">Siparişiniz Alındı!</h2>
-      <p>Sipariş No: <strong>#${orderRef}</strong></p>
-      <table style="width:100%;border-collapse:collapse;margin-top:16px">
-        <thead>
-          <tr style="background:#f3f4f6">
-            <th style="padding:8px 12px;text-align:left">Ürün</th>
-            <th style="padding:8px 12px;text-align:center">Adet</th>
-            <th style="padding:8px 12px;text-align:right">Fiyat</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <p style="font-size:18px;font-weight:bold;text-align:right;margin-top:16px">
-        Toplam: ${formatPrice(total)}
-      </p>
-      <p style="color:#666;margin-top:24px">
-        Siparişinizi hesabınızdan takip edebilirsiniz.
-        Bizi tercih ettiğiniz için teşekkürler!
-      </p>
-    </div>
+  // Sipariş kalemleri tablosu — şablon gövdesinin altına eklenir
+  const itemsTable = `
+    <table style="width:100%;border-collapse:collapse;margin-top:8px">
+      <thead>
+        <tr style="background:#f3f4f6">
+          <th style="padding:8px 12px;text-align:left">Ürün</th>
+          <th style="padding:8px 12px;text-align:center">Adet</th>
+          <th style="padding:8px 12px;text-align:right">Fiyat</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="font-size:18px;font-weight:bold;text-align:right;margin-top:16px">
+      Toplam: ${formatPrice(total)}
+    </p>
   `;
 
-  await sendMail({ to, subject: `Siparişiniz Onaylandı — #${orderRef}`, html });
+  await sendOrderTemplateEmail(
+    to,
+    'order_received',
+    { ad: customerName, siparis_no: orderRef, toplam: formatPrice(total) },
+    itemsTable,
+  );
 }
 
 export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {

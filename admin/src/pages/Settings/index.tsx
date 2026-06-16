@@ -843,7 +843,7 @@ interface EmailStatus {
   details: Record<string, string | number | boolean>;
 }
 
-function EmailTransportCard() {
+function EmailTransportCard({ refreshKey = 0 }: { refreshKey?: number }) {
   const [status, setStatus] = useState<EmailStatus | null>(null);
   const [testEmail, setTestEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -854,7 +854,7 @@ function EmailTransportCard() {
       .get<{ success: boolean; data: EmailStatus }>('/admin/email-status')
       .then((r) => setStatus(r.data))
       .catch(console.error);
-  }, []);
+  }, [refreshKey]);
 
   const handleSendTest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -962,9 +962,14 @@ function EmailTransportCard() {
         )}
 
         {/* Test Email */}
-        {status && method !== 'none' && (
+        {status && (
           <form onSubmit={handleSendTest} className="border-t border-stroke dark:border-strokedark pt-4 space-y-3">
             <p className="text-sm font-medium text-black dark:text-white">Test E-postası Gönder</p>
+            {method === 'none' && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Önce aşağıdaki SMTP veya Brevo ayarlarını doldurup kaydedin, ardından test edebilirsiniz.
+              </p>
+            )}
             <div className="flex gap-3">
               <input
                 type="email"
@@ -973,11 +978,11 @@ function EmailTransportCard() {
                 value={testEmail}
                 onChange={(e) => setTestEmail(e.target.value)}
                 required
-                disabled={sending}
+                disabled={sending || method === 'none'}
               />
               <button
                 type="submit"
-                disabled={sending}
+                disabled={sending || method === 'none'}
                 className="px-5 py-2 rounded bg-primary text-white text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition whitespace-nowrap shrink-0"
               >
                 {sending ? 'Gönderiliyor…' : 'Gönder'}
@@ -1014,6 +1019,10 @@ function EmailTransportCard() {
 
 function NotificationsTab() {
   const [loading, setLoading] = useState(true);
+  const [emailRefresh, setEmailRefresh] = useState(0);
+  const [smtpTestEmail, setSmtpTestEmail] = useState('');
+  const [smtpTestSending, setSmtpTestSending] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const s = useSave('notif', {});
 
   useEffect(() => {
@@ -1025,6 +1034,28 @@ function NotificationsTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleSave = async () => {
+    await s.save();
+    setEmailRefresh((n) => n + 1);
+  };
+
+  const handleSmtpTest = async () => {
+    if (!smtpTestEmail.trim()) return;
+    setSmtpTestSending(true);
+    setSmtpTestResult(null);
+    try {
+      // Ayarları önce kaydet ki backend yeni SMTP değerlerini okusun
+      await s.save();
+      setEmailRefresh((n) => n + 1);
+      const r = await api.post<{ success: boolean; message: string }>('/admin/email-test', { to: smtpTestEmail.trim() });
+      setSmtpTestResult({ ok: true, message: r.message ?? 'Test e-postası gönderildi.' });
+    } catch (err: any) {
+      setSmtpTestResult({ ok: false, message: err?.message ?? 'Gönderilemedi.' });
+    } finally {
+      setSmtpTestSending(false);
+    }
+  };
+
   if (loading) return <Loader />;
 
   const g = s.form;
@@ -1032,7 +1063,7 @@ function NotificationsTab() {
 
   return (
     <div>
-      <EmailTransportCard />
+      <EmailTransportCard refreshKey={emailRefresh} />
 
       {/* ─── Brevo API ─────────────────────────────────────────────────── */}
       <SectionCard
@@ -1106,6 +1137,44 @@ function NotificationsTab() {
             <input className={inputCls} type="email" value={g.smtp_from_email ?? ''} onChange={(e) => s.set('smtp_from_email', e.target.value)} placeholder="noreply@example.com" />
           </Field>
         </div>
+
+        {/* ─── SMTP Test Mail ──────────────────────────────────────────── */}
+        <div className="border-t border-stroke dark:border-strokedark mt-5 pt-4 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-black dark:text-white">Test E-postası Gönder</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Gönder'e bastığınızda ayarlar otomatik kaydedilir ve girdiğiniz SMTP sunucusu üzerinden bir test e-postası yollanır.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <input
+              type="email"
+              className={inputCls + ' flex-1'}
+              placeholder="test@email.com"
+              value={smtpTestEmail}
+              onChange={(e) => setSmtpTestEmail(e.target.value)}
+              disabled={smtpTestSending}
+            />
+            <button
+              type="button"
+              onClick={handleSmtpTest}
+              disabled={smtpTestSending || !smtpTestEmail.trim()}
+              className="px-5 py-2 rounded bg-primary text-white text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition whitespace-nowrap shrink-0"
+            >
+              {smtpTestSending ? 'Gönderiliyor…' : 'Test Gönder'}
+            </button>
+          </div>
+          {smtpTestResult && (
+            <p className={`text-xs flex items-center gap-1.5 ${smtpTestResult.ok ? 'text-meta-3' : 'text-meta-1'}`}>
+              {smtpTestResult.ok ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+              )}
+              {smtpTestResult.message}
+            </p>
+          )}
+        </div>
       </SectionCard>
 
       <SectionCard title="Admin Uyarıları" subtitle="Panel yöneticilerine gelen otomatik bildirimler">
@@ -1156,7 +1225,7 @@ function NotificationsTab() {
         </div>
       </SectionCard>
 
-      <SaveBar saving={s.saving} saved={s.saved} error={s.error} onSave={s.save} onReset={s.reset} />
+      <SaveBar saving={s.saving} saved={s.saved} error={s.error} onSave={handleSave} onReset={s.reset} />
     </div>
   );
 }

@@ -110,6 +110,25 @@ const navItems = [
     ),
   },
   {
+    to: '/reviews',
+    label: 'Değerlendirmeler',
+    icon: (
+      <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
+    to: '/questions',
+    label: 'Soru & Cevap',
+    icon: (
+      <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" fill="currentColor"/>
+        <path d="M11 5h2v6h-2zm0 8h2v2h-2z" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
     to: '/analytics',
     label: 'Raporlar',
     icon: (

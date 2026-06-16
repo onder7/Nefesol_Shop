@@ -37,6 +37,19 @@ router.get('/orders/:id', ctrl.getOrderDetail);
 router.put('/orders/:id/status', ctrl.updateOrderStatus);
 router.put('/orders/:id/shipping', ctrl.updateOrderShipping);
 
+// Reviews (moderasyon — onaylanmadan müşteri tarafında görünmez)
+router.get('/reviews', ctrl.listReviews);
+router.put('/reviews/:id/approve', ctrl.approveReview);
+router.put('/reviews/:id/unapprove', ctrl.unapproveReview);
+router.delete('/reviews/:id', ctrl.deleteReviewAdmin);
+
+// Soru & Cevap (moderasyon — onaylanmadan müşteri tarafında görünmez)
+router.get('/questions', ctrl.listQuestions);
+router.put('/questions/:id/approve', ctrl.approveQuestion);
+router.put('/questions/:id/unapprove', ctrl.unapproveQuestion);
+router.delete('/questions/:id', ctrl.deleteQuestionAdmin);
+router.post('/questions/:id/answer', ctrl.answerQuestionAdmin);
+
 // Customers
 router.get('/customers', ctrl.listCustomers);
 router.put('/customers/:id/toggle-status', ctrl.toggleCustomerStatus);

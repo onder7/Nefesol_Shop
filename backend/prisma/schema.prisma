@@ -529,6 +529,7 @@ model ProductQuestion {
   guestName  String?  @map("guest_name")
   body       String
   isAnswered Boolean  @default(false) @map("is_answered")
+  isApproved Boolean  @default(false) @map("is_approved")
   createdAt  DateTime @default(now()) @map("created_at")
 
   product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)

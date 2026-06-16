@@ -15,6 +15,7 @@ import {
   Phone,
   ArrowLeft,
   MapPin,
+  MessageCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -154,6 +155,24 @@ export function AccountDashboard() {
     refetchOnWindowFocus: true,
   });
 
+  // Fetch questions
+  const { data: questionsData = [], isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
+    queryKey: ['my-questions'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/questions/my-questions', { credentials: 'include' });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.data || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
   // Fetch addresses
   const { data: addressesData = [], isLoading: addressesLoading, refetch: refetchAddresses } = useQuery({
     queryKey: ['addresses'],
@@ -207,10 +226,12 @@ export function AccountDashboard() {
       refetchCart();
     } else if (activeSection === 'profile') {
       refetchAddresses();
+    } else if (activeSection === 'questions') {
+      refetchQuestions();
     } else if (activeSection === 'coupons') {
       fetchAppliedCoupons();
     }
-  }, [activeSection, refetchOrders, refetchFavorites, refetchReviews, refetchCart, refetchAddresses]);
+  }, [activeSection, refetchOrders, refetchFavorites, refetchReviews, refetchQuestions, refetchCart, refetchAddresses]);
 
   // Kullanıcının kazandığı kuponları tek endpoint'ten çek
   async function fetchAppliedCoupons() {
@@ -253,6 +274,12 @@ export function AccountDashboard() {
       icon: Star,
       label: 'Değerlendirmelerim',
       badge: reviewsData.length > 0 ? String(reviewsData.length) : null,
+    },
+    {
+      id: 'questions',
+      icon: MessageCircle,
+      label: 'Soru & Cevaplarım',
+      badge: questionsData.length > 0 ? String(questionsData.length) : null,
     },
     {
       id: 'coupons',
@@ -1143,6 +1170,101 @@ export function AccountDashboard() {
                             <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 line-clamp-2">
                               {review.body}
                             </p>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Questions */}
+          {activeSection === 'questions' && (
+            <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Soru & Cevaplarım</h2>
+              </div>
+
+              {questionsLoading ? (
+                <div className="p-6 text-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+                </div>
+              ) : questionsData.length === 0 ? (
+                <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                  <MessageCircle size={48} className="mx-auto text-gray-300 mb-4" />
+                  <p>Henüz soru sormadınız.</p>
+                  <p className="text-sm mt-2">Ürün sayfalarından sorularınızı iletebilirsiniz.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {questionsData.map((q: any) => (
+                    <Link
+                      key={q.id}
+                      to={`/urun/${q.product?.slug}`}
+                      className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors block group"
+                    >
+                      <div className="flex gap-4">
+                        {q.product?.images?.[0] && (
+                          <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
+                            <img
+                              src={q.product.images[0].url}
+                              alt={q.product.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+                                {q.product?.name || 'Ürün'}
+                              </p>
+                              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+                                {q.body}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-4">
+                              <p className="text-xs text-gray-500 whitespace-nowrap">
+                                {new Date(q.createdAt).toLocaleDateString('tr-TR')}
+                              </p>
+                              {!q.isApproved && (
+                                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                  ⏳ Onay Beklemede
+                                </p>
+                              )}
+                              {q.isApproved && (
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                  ✓ Onaylandı
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {q.answers && q.answers.length > 0 && (
+                            <div className="mt-3 space-y-2 border-l-2 border-primary/30 pl-3">
+                              {q.answers.map((ans: any) => {
+                                const aName = ans.user?.profile?.firstName
+                                  ? `${ans.user.profile.firstName} ${ans.user.profile.lastName || ''}`.trim()
+                                  : 'Ekip';
+                                return (
+                                  <div key={ans.id}>
+                                    <p className="text-xs font-semibold text-primary">
+                                      {ans.user?.role === 'ADMIN' ? '✓ Satıcı' : aName}
+                                    </p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{ans.body}</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                      {new Date(ans.createdAt).toLocaleDateString('tr-TR')}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {q.answers?.length === 0 && q.isApproved && (
+                            <p className="text-xs text-gray-400 mt-2 italic">Henüz cevaplanmadı</p>
                           )}
                         </div>
                       </div>

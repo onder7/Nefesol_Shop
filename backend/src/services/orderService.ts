@@ -1,7 +1,12 @@
 import { prisma } from '../config/database';
 import { getShippingConfig, computeShipping, getTaxConfig } from './settingsService';
+import { logger } from '../config/logger';
+import * as emailSvc from './emailService';
 
 export { computeShipping };
+
+// Bu eşik veya altına düşen stoklarda yöneticiye uyarı gönderilir
+const LOW_STOCK_THRESHOLD = 5;
 
 const CART_INCLUDE = {
   items: {
@@ -91,7 +96,7 @@ export async function createOrder(userId: string, addressId: string) {
   });
 
   // Return full order with items for email
-  return prisma.order.findUniqueOrThrow({
+  const fullOrder = await prisma.order.findUniqueOrThrow({
     where: { id: order.id },
     include: {
       items: {
@@ -102,8 +107,44 @@ export async function createOrder(userId: string, addressId: string) {
         },
       },
       address: true,
+      user: { select: { firstName: true } },
     },
   });
+
+  // ─── Yönetici uyarıları (sipariş akışını bloklamaz / hata yutulur) ───
+  void (async () => {
+    try {
+      // Yeni sipariş bildirimi
+      await emailSvc.notifyAdminNewOrder({
+        orderId: fullOrder.id,
+        customerName: fullOrder.user?.firstName || fullOrder.address.firstName || '',
+        total: Number(fullOrder.total),
+        itemCount: cart.items.reduce((sum, i) => sum + i.quantity, 0),
+      });
+
+      // Düşük stok bildirimi — siparişle eşiğe düşen / tükenen ürünler
+      const lowItems = cart.items
+        .map((item) => {
+          const oldStock = item.variant.stockQty;
+          const newStock = oldStock - item.quantity;
+          return { item, oldStock, newStock };
+        })
+        .filter(({ oldStock, newStock }) =>
+          (oldStock > LOW_STOCK_THRESHOLD && newStock <= LOW_STOCK_THRESHOLD) || (oldStock > 0 && newStock <= 0),
+        )
+        .map(({ item, newStock }) => ({
+          name: item.variant.product.name,
+          sku: item.variant.sku ?? '',
+          stock: Math.max(0, newStock),
+        }));
+
+      await emailSvc.notifyAdminLowStock(lowItems);
+    } catch (e) {
+      logger.error('Yönetici uyarı e-postası gönderilemedi', { orderId: fullOrder.id, error: (e as Error)?.message });
+    }
+  })();
+
+  return fullOrder;
 }
 
 export async function listOrders(userId: string) {

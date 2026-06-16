@@ -7,6 +7,8 @@ import { getEmailStatus as emailStatus, sendOrderConfirmation } from '../service
 import * as backupSvc from '../services/backupService';
 import { importProductsFromBuffer } from '../services/importService';
 import { getSystemStats } from '../services/systemService';
+import * as reviewService from '../services/reviewService';
+import * as qaService from '../services/qaService';
 import { prisma } from '../config/database';
 
 export async function getStats(req: AuthRequest, res: Response, next: NextFunction) {
@@ -524,6 +526,76 @@ export async function deleteSubscriber(req: AuthRequest, res: Response, next: Ne
   try {
     await adminService.adminDeleteSubscriber(String(req.params.id));
     res.json({ success: true, message: 'Abone silindi' });
+  } catch (err) { next(err); }
+}
+
+// ─── Değerlendirme Moderasyonu ───────────────────────────────────────────────
+
+export async function listReviews(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const status = (req.query.status as 'pending' | 'approved' | 'all') || 'all';
+    const data = await reviewService.listAllReviews(status);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function approveReview(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await reviewService.setReviewApproval(String(req.params.id), true);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function unapproveReview(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await reviewService.setReviewApproval(String(req.params.id), false);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function deleteReviewAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await reviewService.deleteReview(String(req.params.id), req.user!.id, true);
+    res.json({ success: true, message: 'Değerlendirme silindi' });
+  } catch (err) { next(err); }
+}
+
+// ─── Soru & Cevap (moderasyon) ────────────────────────────────────────────────
+
+export async function listQuestions(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const status = (req.query.status as string) || 'all';
+    const data = await qaService.listAllQuestions(status as any);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function approveQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await qaService.setQuestionApproval(String(req.params.id), true);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function unapproveQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await qaService.setQuestionApproval(String(req.params.id), false);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function deleteQuestionAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await qaService.deleteQuestion(String(req.params.id));
+    res.json({ success: true, message: 'Soru silindi' });
+  } catch (err) { next(err); }
+}
+
+export async function answerQuestionAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { body } = req.body as { body: string };
+    const data = await qaService.adminAnswerQuestion(String(req.params.id), req.user!.id, body);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 

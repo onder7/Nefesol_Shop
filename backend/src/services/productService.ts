@@ -38,7 +38,7 @@ const productInclude = {
     select: { id: true, url: true, altText: true, isPrimary: true },
   },
   tags: { select: { tag: true } },
-  _count: { select: { reviews: true } },
+  _count: { select: { reviews: { where: { isApproved: true } } } },
 } satisfies Prisma.ProductInclude;
 
 export async function listProducts(filters: ProductFilters = {}) {

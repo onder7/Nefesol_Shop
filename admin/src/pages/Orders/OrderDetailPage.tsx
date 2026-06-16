@@ -246,7 +246,7 @@ export default function OrderDetailPage() {
 
     // Redirect to Cancellations if CANCELLED or REFUNDED selected
     if (['CANCELLED', 'REFUNDED'].includes(newStatus)) {
-      navigate('/admin/cancellations');
+      navigate('/cancellations');
       return;
     }
 

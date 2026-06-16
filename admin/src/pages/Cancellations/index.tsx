@@ -150,16 +150,6 @@ function CancellationDetail({ cancellation, onClose, onSuccess }: { cancellation
             <BsXLg className="h-5 w-5" />
           </button>
         </div>
-        {/* Header */}
-        <div className="sticky top-0 flex items-center justify-between p-6 border-b bg-white">
-          <div>
-            <h2 className="text-lg font-bold">İptal Talebi: #{cancellation.orderId.slice(-8).toUpperCase()}</h2>
-            <p className="text-sm text-gray-600 mt-1">{cancellation.order.user.email}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <BsXLg className="h-5 w-5" />
-          </button>
-        </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -357,14 +347,10 @@ export function Cancellations() {
   const fetchCancellations = async () => {
     setLoading(true);
     try {
-      const res = await api.get(
+      const res = await api.get<{ success: boolean; data: Cancellation[] }>(
         `/checkout/admin/cancellations${filter !== 'all' ? `?status=${filter}` : ''}`
       );
-      console.log('Full response:', res);
-      console.log('res.data:', res.data);
-      const responseData = res.data as any;
-      const cancellationList = responseData.data || responseData || [];
-      console.log('Setting cancellations to:', cancellationList, 'Length:', Array.isArray(cancellationList) ? cancellationList.length : 'NOT ARRAY');
+      const cancellationList = (res as any).data || [];
       setCancellations(Array.isArray(cancellationList) ? cancellationList : []);
     } catch (err: any) {
       console.error('Error fetching cancellations:', err);
