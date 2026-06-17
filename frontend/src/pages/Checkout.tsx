@@ -341,7 +341,7 @@ export function Checkout() {
     },
     staleTime: 1000 * 60 * 10,
   });
-  const taxRate = taxConfig?.taxRate ?? 18;
+  const taxRate = taxConfig?.taxRate ?? 20;
   const tax = initData?.tax ?? Math.round(subtotal * taxRate) / 100;
   const total = initData?.total ?? (subtotal + tax + shippingFee + codFee);
 

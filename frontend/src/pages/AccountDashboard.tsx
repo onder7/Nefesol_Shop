@@ -563,7 +563,7 @@ export function AccountDashboard() {
                       );
                       const shippingFee = shippingConfig?.shippingFee ?? 49.9;
                       const freeThreshold = shippingConfig?.freeShippingThreshold ?? 500;
-                      const taxRate = taxConfig?.taxRate ?? 18;
+                      const taxRate = taxConfig?.taxRate ?? 20;
                       const shipping = subtotal >= freeThreshold ? 0 : shippingFee;
                       const taxBase = subtotal + shipping;
                       const tax = (taxBase * taxRate) / 100;

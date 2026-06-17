@@ -31,7 +31,7 @@ const DEFAULTS: ShippingConfig = {
 };
 
 const TAX_DEFAULTS: TaxConfig = {
-  taxRate: 18,
+  taxRate: 20,
 };
 
 export async function getShippingConfig(): Promise<ShippingConfig> {

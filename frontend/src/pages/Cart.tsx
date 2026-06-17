@@ -48,7 +48,7 @@ export function Cart() {
 
   const SHIPPING_FEE = shippingConfig?.shippingFee ?? 49.9;
   const FREE_THRESHOLD = shippingConfig?.freeShippingThreshold ?? 500;
-  const TAX_RATE = taxConfig?.taxRate ?? 18;
+  const TAX_RATE = taxConfig?.taxRate ?? 20;
 
   useEffect(() => {
     if (cart !== undefined) setCart(cart);

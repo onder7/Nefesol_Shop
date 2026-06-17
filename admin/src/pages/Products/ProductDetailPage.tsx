@@ -27,7 +27,8 @@ interface ImageInput {
   isPrimary: boolean;
 }
 
-const VAT_RATES = [0, 1, 8, 10, 18, 20];
+// Türkiye'deki güncel KDV oranları: %1, %10, %20
+const VAT_RATES = [1, 10, 20];
 
 interface FormState {
   name: string;
