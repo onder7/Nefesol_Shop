@@ -37,13 +37,19 @@ const SignIn: React.FC = () => {
         setMfaToken(response.tempToken);
         setMfaRequired(true);
       } else if (response?.data?.accessToken) {
+        // Yalnızca ADMIN rolü panele girebilir
+        if (response.data.user?.role !== 'ADMIN') {
+          setError('Bu panele erişim için yönetici (admin) yetkisi gereklidir.');
+          return;
+        }
         localStorage.setItem('admin_token', response.data.accessToken);
+        localStorage.setItem('admin_user', JSON.stringify(response.data.user));
         if (response.data.refreshToken) {
           localStorage.setItem('admin_refresh_token', response.data.refreshToken);
         }
         navigate('/');
       } else {
-        setError('Giriş başarısız');
+        setError(response?.error || 'Giriş başarısız');
       }
     } catch (err: any) {
       setError(err?.message || 'Giriş başarısız');
@@ -74,7 +80,13 @@ const SignIn: React.FC = () => {
       const response = await res.json();
 
       if (response?.data?.accessToken) {
+        if (response.data.user?.role !== 'ADMIN') {
+          setError('Bu panele erişim için yönetici (admin) yetkisi gereklidir.');
+          handleBackToPassword();
+          return;
+        }
         localStorage.setItem('admin_token', response.data.accessToken);
+        localStorage.setItem('admin_user', JSON.stringify(response.data.user));
         if (response.data.refreshToken) {
           localStorage.setItem('admin_refresh_token', response.data.refreshToken);
         }

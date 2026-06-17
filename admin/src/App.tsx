@@ -30,7 +30,22 @@ import { AdminAuthProvider } from './context/AdminAuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('admin_token');
-  if (!token) return <Navigate to="/auth/signin" replace />;
+
+  // Token yanında ADMIN rolü de zorunlu (yalnızca token varlığı yetmez)
+  let role = '';
+  try {
+    role = JSON.parse(localStorage.getItem('admin_user') || '{}')?.role ?? '';
+  } catch {
+    role = '';
+  }
+
+  if (!token || role !== 'ADMIN') {
+    // Eksik/yetkisiz oturum kalıntılarını temizle
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_refresh_token');
+    localStorage.removeItem('admin_user');
+    return <Navigate to="/auth/signin" replace />;
+  }
   return <AdminAuthProvider>{children}</AdminAuthProvider>;
 }
 
