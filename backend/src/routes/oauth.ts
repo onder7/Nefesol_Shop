@@ -4,6 +4,7 @@ import { sign } from 'jsonwebtoken';
 import * as jwt from 'jsonwebtoken';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
+import { getGoogleClientId } from '../services/settingsService';
 
 const router = Router();
 
@@ -120,8 +121,9 @@ router.post('/auth/oauth/google', async (req: Request, res: Response, next: Next
       picture?: string;
     };
 
-    // Token bu uygulama için mi? (GOOGLE_CLIENT_ID tanımlıysa zorunlu)
-    if (env.GOOGLE_CLIENT_ID && payload.aud !== env.GOOGLE_CLIENT_ID) {
+    // Token bu uygulama için mi? (Client ID env veya admin panelinde tanımlıysa zorunlu)
+    const expectedClientId = await getGoogleClientId();
+    if (expectedClientId && payload.aud !== expectedClientId) {
       return res.status(401).json({ success: false, error: 'Token bu uygulama için geçerli değil' });
     }
 

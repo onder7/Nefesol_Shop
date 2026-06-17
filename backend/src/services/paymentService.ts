@@ -1,5 +1,40 @@
 import crypto from 'crypto';
 import { env } from '../config/env';
+import { prisma } from '../config/database';
+
+// ─── Iyzico Config (env > DB hybrid) ──────────────────────────────────────────
+interface IyzicoConfig {
+  apiKey: string;
+  secretKey: string;
+  baseUrl: string;
+}
+
+/**
+ * Iyzico ayarlarını çözer: önce .env, yoksa admin panelinde kayıtlı (payment_*) değerler.
+ */
+async function resolveIyzicoConfig(): Promise<IyzicoConfig> {
+  // 1) .env öncelikli
+  if (env.IYZICO_API_KEY && env.IYZICO_SECRET_KEY) {
+    return { apiKey: env.IYZICO_API_KEY, secretKey: env.IYZICO_SECRET_KEY, baseUrl: env.IYZICO_BASE_URL };
+  }
+  // 2) Admin panel (DB) ayarları
+  try {
+    const rows = await prisma.siteSettings.findMany({
+      where: { key: { in: ['payment_iyzico_api_key', 'payment_iyzico_secret', 'payment_iyzico_env'] } },
+    });
+    const m = Object.fromEntries(rows.map((r) => [r.key.slice('payment_'.length), r.value]));
+    if (m.iyzico_api_key && m.iyzico_secret) {
+      return {
+        apiKey: m.iyzico_api_key,
+        secretKey: m.iyzico_secret,
+        baseUrl: m.iyzico_env === 'live' ? 'https://api.iyzipay.com' : 'https://sandbox-api.iyzipay.com',
+      };
+    }
+  } catch {
+    // DB okunamazsa aşağıdaki env fallback'e düş
+  }
+  return { apiKey: env.IYZICO_API_KEY ?? '', secretKey: env.IYZICO_SECRET_KEY ?? '', baseUrl: env.IYZICO_BASE_URL };
+}
 
 // ─── Iyzico Types ─────────────────────────────────────────────────────────────
 
@@ -81,9 +116,9 @@ function toPkiString(obj: Record<string, unknown>): string {
   return str;
 }
 
-function authHeaders(body: Record<string, unknown>) {
-  const apiKey = env.IYZICO_API_KEY!;
-  const secretKey = env.IYZICO_SECRET_KEY!;
+function authHeaders(body: Record<string, unknown>, cfg: IyzicoConfig) {
+  const apiKey = cfg.apiKey;
+  const secretKey = cfg.secretKey;
   const randomKey = Date.now().toString();
   const pkiStr = toPkiString(body);
   const hash = crypto
@@ -97,10 +132,10 @@ function authHeaders(body: Record<string, unknown>) {
   };
 }
 
-async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(`${env.IYZICO_BASE_URL}${path}`, {
+async function post<T>(path: string, body: Record<string, unknown>, cfg: IyzicoConfig): Promise<T> {
+  const res = await fetch(`${cfg.baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeaders(body) },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeaders(body, cfg) },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Iyzico HTTP ${res.status}`);
@@ -130,15 +165,17 @@ function devCheckoutForm(conversationId: string, apiBase: string): CheckoutFormR
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function isConfigured() {
-  return !!(env.IYZICO_API_KEY && env.IYZICO_SECRET_KEY);
+export async function isConfigured(): Promise<boolean> {
+  const cfg = await resolveIyzicoConfig();
+  return !!(cfg.apiKey && cfg.secretKey);
 }
 
 export async function initializeCheckoutForm(
   req: CheckoutFormRequest,
   apiBase: string,
 ): Promise<CheckoutFormResponse> {
-  if (!isConfigured()) return devCheckoutForm(req.conversationId, apiBase);
+  const cfg = await resolveIyzicoConfig();
+  if (!cfg.apiKey || !cfg.secretKey) return devCheckoutForm(req.conversationId, apiBase);
 
   return post<CheckoutFormResponse>(
     '/payment/iyzipos/checkoutform/initialize/auth/ecom',
@@ -157,14 +194,17 @@ export async function initializeCheckoutForm(
       billingAddress: req.billingAddress,
       basketItems: req.basketItems,
     },
+    cfg,
   );
 }
 
 export async function retrieveCheckoutForm(token: string): Promise<PaymentDetailResponse> {
-  if (!isConfigured()) return { status: 'success', paymentStatus: 'SUCCESS' };
+  const cfg = await resolveIyzicoConfig();
+  if (!cfg.apiKey || !cfg.secretKey) return { status: 'success', paymentStatus: 'SUCCESS' };
 
   return post<PaymentDetailResponse>(
     '/payment/iyzipos/checkoutform/auth/ecom/detail',
     { locale: 'tr', token },
+    cfg,
   );
 }

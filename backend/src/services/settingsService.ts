@@ -1,5 +1,20 @@
 import { prisma } from '../config/database';
 import { AppError } from '../types';
+import { env } from '../config/env';
+
+/**
+ * Google Sign-In Client ID — önce .env (GOOGLE_CLIENT_ID), yoksa admin panel (oauth_googleClientId).
+ * Public bir değerdir; hem token doğrulamada hem de public config endpoint'inde kullanılır.
+ */
+export async function getGoogleClientId(): Promise<string> {
+  if (env.GOOGLE_CLIENT_ID) return env.GOOGLE_CLIENT_ID;
+  try {
+    const row = await prisma.siteSettings.findUnique({ where: { key: 'oauth_googleClientId' } });
+    return row?.value?.trim() || '';
+  } catch {
+    return '';
+  }
+}
 
 export interface ShippingConfig {
   shippingFee: number;

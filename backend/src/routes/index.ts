@@ -21,7 +21,7 @@ import { getActiveRules } from '../controllers/chatbotController';
 import { getSetupStatus, postSetup } from '../controllers/setupController';
 import { getActivePopup } from '../controllers/popupController';
 import { getActiveCampaign } from '../controllers/discountCampaignController';
-import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig, getStoreIdentity } from '../services/settingsService';
+import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig, getStoreIdentity, getGoogleClientId } from '../services/settingsService';
 import { optionalAuthenticate } from '../middlewares/auth';
 import { AuthRequest } from '../types';
 
@@ -36,6 +36,14 @@ router.post('/setup', postSetup);
 router.get('/chatbot/rules', getActiveRules);
 router.get('/popup', getActivePopup);
 router.get('/campaign', getActiveCampaign);
+
+// Public runtime config — frontend'in build sonrası ihtiyaç duyduğu açık değerler
+router.get('/config/public', async (_req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-cache');
+    res.json({ success: true, data: { googleClientId: await getGoogleClientId() } });
+  } catch (err) { next(err); }
+});
 router.use('/auth', authRouter);
 router.use('/mfa', mfaRouter);
 router.use('/', oauthRouter);
