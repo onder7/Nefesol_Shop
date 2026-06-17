@@ -288,12 +288,14 @@ export async function withdrawCancellation(orderId: string, userId: string) {
   const tax = Math.round(taxableBase * taxRate) / 100;
   const newTotal = taxableBase + tax + Number(order.shippingFee);
 
-  // Update order with coupon discount applied
+  // Kuponu kabul etmek = siparişi iptal etmekten vazgeçmek.
+  // İndirim YALNIZCA bu siparişe uygulanır ve sipariş yeniden aktifleştirilir (CANCELLED → PROCESSING).
   await prisma.order.update({
     where: { id: orderId },
     data: {
       discount: newDiscount,
       total: newTotal,
+      status: 'PROCESSING',
     },
   });
 
