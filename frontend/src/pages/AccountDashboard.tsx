@@ -221,6 +221,22 @@ export function AccountDashboard() {
     refetchOnWindowFocus: true,
   });
 
+  // Kargo & KDV ayarları (sepet özeti için)
+  const { data: shippingConfig } = useQuery({
+    queryKey: ['shipping-config'],
+    queryFn: async () => {
+      const res = await fetch('/api/shipping-config');
+      return res.ok ? (await res.json()).data : null;
+    },
+  });
+  const { data: taxConfig } = useQuery({
+    queryKey: ['tax-config'],
+    queryFn: async () => {
+      const res = await fetch('/api/tax-config');
+      return res.ok ? (await res.json()).data : null;
+    },
+  });
+
   // Refetch data when section changes
   useEffect(() => {
     if (activeSection === 'overview') {
@@ -540,32 +556,46 @@ export function AccountDashboard() {
 
                   {/* Cart Summary */}
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                    <div className="space-y-2 text-sm mb-6">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Ara Toplam</span>
-                        <span className="text-gray-900 dark:text-white">
-                          {formatPrice(
-                            cartData.items.reduce(
-                              (sum: number, item: any) =>
-                                sum + (item.priceAtAdd || 0) * item.quantity,
-                              0
-                            )
+                    {(() => {
+                      const subtotal = cartData.items.reduce(
+                        (sum: number, item: any) => sum + (item.priceAtAdd || 0) * item.quantity,
+                        0,
+                      );
+                      const shippingFee = shippingConfig?.shippingFee ?? 49.9;
+                      const freeThreshold = shippingConfig?.freeShippingThreshold ?? 500;
+                      const taxRate = taxConfig?.taxRate ?? 18;
+                      const shipping = subtotal >= freeThreshold ? 0 : shippingFee;
+                      const taxBase = subtotal + shipping;
+                      const tax = (taxBase * taxRate) / 100;
+                      const total = taxBase + tax;
+                      return (
+                        <div className="space-y-2 text-sm mb-6">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Ara Toplam (KDV Hariç)</span>
+                            <span className="text-gray-900 dark:text-white">{formatPrice(subtotal)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Kargo</span>
+                            <span className={shipping === 0 ? 'text-green-600 font-medium' : 'text-gray-900 dark:text-white'}>
+                              {shipping === 0 ? 'Ücretsiz' : formatPrice(shipping)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">KDV (%{taxRate})</span>
+                            <span className="text-gray-900 dark:text-white">{formatPrice(tax)}</span>
+                          </div>
+                          {shipping > 0 && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatPrice(freeThreshold - subtotal)} daha ekleyin, kargo ücretsiz olsun.
+                            </p>
                           )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2 font-semibold">
-                        <span>Toplam</span>
-                        <span className="text-primary text-lg">
-                          {formatPrice(
-                            cartData.items.reduce(
-                              (sum: number, item: any) =>
-                                sum + (item.priceAtAdd || 0) * item.quantity,
-                              0
-                            )
-                          )}
-                        </span>
-                      </div>
-                    </div>
+                          <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2 font-semibold">
+                            <span>Toplam</span>
+                            <span className="text-primary text-lg">{formatPrice(total)}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <Link
                       to="/sepet"
