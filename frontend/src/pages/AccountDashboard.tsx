@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { CancellationModal } from '@/components/order/CancellationModal';
+import { CancellationStatus } from '@/components/order/CancellationStatus';
 import { useQuery } from '@tanstack/react-query';
 import { checkoutApi } from '@/services/checkoutApi';
 import {
@@ -48,6 +50,8 @@ export function AccountDashboard() {
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<any>(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
   const [appliedCoupons, setAppliedCoupons] = useState<any[]>([]);
+  const [orderCancellation, setOrderCancellation] = useState<any>(null);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
   function handleLogout() {
     logout();
@@ -62,6 +66,14 @@ export function AccountDashboard() {
       if (!res.ok) throw new Error('Sipariş detayı yüklenemedi');
       const data = await res.json();
       setSelectedOrderDetail(data.data);
+
+      // Varsa iptal talebi durumunu da yükle
+      try {
+        const cRes = await fetch(`/api/checkout/orders/${orderId}/cancellation`, { credentials: 'include' });
+        setOrderCancellation(cRes.ok ? (await cRes.json()).data || null : null);
+      } catch {
+        setOrderCancellation(null);
+      }
     } catch (err: any) {
       alert(err.message || 'Sipariş detayı yüklenemedi');
     } finally {
@@ -578,6 +590,7 @@ export function AccountDashboard() {
                       onClick={() => {
                         setSelectedOrderId(null);
                         setSelectedOrderDetail(null);
+                        setOrderCancellation(null);
                       }}
                       className="text-primary hover:text-primary/80 transition-colors"
                     >
@@ -774,9 +787,54 @@ export function AccountDashboard() {
                             </ol>
                           </div>
                         )}
+
+                        {/* İptal talebi durumu / iptal butonu */}
+                        {orderCancellation ? (
+                          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <CancellationStatus
+                              status={orderCancellation.status}
+                              reason={orderCancellation.reason}
+                              orderId={order.id}
+                              couponOffered={orderCancellation.couponCode ? true : false}
+                              couponCode={orderCancellation.couponCode}
+                              couponValue={orderCancellation.couponValue ? Number(orderCancellation.couponValue) : undefined}
+                              adminNotes={orderCancellation.adminNotes}
+                              onRetract={() => handleSelectOrder(order.id)}
+                            />
+                          </div>
+                        ) : ['PENDING', 'PROCESSING'].includes(order.status) ? (
+                          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <div className="border rounded-lg p-4 bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800 flex items-start justify-between gap-4">
+                              <div>
+                                <p className="font-medium text-blue-900 dark:text-blue-200">Siparişi İptal Edebilirsiniz</p>
+                                <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">Kargo gitmeden önce iptal talebi oluşturabilirsiniz. Onaylanırsa ödemeniz iade edilir.</p>
+                              </div>
+                              <button
+                                onClick={() => setCancelModalOpen(true)}
+                                className="flex-shrink-0 px-4 py-2 rounded-md border border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 text-sm font-medium transition-colors"
+                              >
+                                İptal Et
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     );
                     })()
+                  )}
+
+                  {/* İptal talebi modalı */}
+                  {selectedOrderId && (
+                    <CancellationModal
+                      orderId={selectedOrderId}
+                      isOpen={cancelModalOpen}
+                      onClose={() => setCancelModalOpen(false)}
+                      onSuccess={() => {
+                        setCancelModalOpen(false);
+                        handleSelectOrder(selectedOrderId);
+                        refetchOrders();
+                      }}
+                    />
                   )}
                 </>
               ) : (
