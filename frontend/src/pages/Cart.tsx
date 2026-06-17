@@ -88,15 +88,14 @@ export function Cart() {
         credentials: 'include',
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || 'Kupon geçersiz');
+      const data = await res.json();
+
+      if (!res.ok || data.success === false) {
+        toast.error(data.error || 'Kupon geçersiz');
         setAppliedDiscount(null);
         return;
       }
 
-      const data = await res.json();
-      console.log('Discount applied:', data.data);
       setAppliedDiscount(data.data);
       setCouponCode('');
       toast.success('Kupon başarıyla uygulandı!');

@@ -17,19 +17,21 @@ router.post('/validate', authenticate, async (req: Request, res: Response) => {
     });
 
     if (!discount) {
-      return res.status(404).json({ error: 'Kupon kodu geçersiz' });
+      // Doğrulama hatası "kaynak bulunamadı" değildir → 200 + success:false
+      // (Tarayıcı konsolu 404/400 kırmızı hatayla dolmaz; frontend mesajı gösterir)
+      return res.json({ success: false, error: 'Kupon kodu geçersiz' });
     }
 
     if (!discount.isActive) {
-      return res.status(400).json({ error: 'Bu kupon aktif değil' });
+      return res.json({ success: false, error: 'Bu kupon aktif değil' });
     }
 
     if (discount.expiresAt && new Date(discount.expiresAt) < new Date()) {
-      return res.status(400).json({ error: 'Bu kupon süresi dolmuş' });
+      return res.json({ success: false, error: 'Bu kupon süresi dolmuş' });
     }
 
     if (discount.maxUses && discount.usedCount >= discount.maxUses) {
-      return res.status(400).json({ error: 'Bu kupon kullanım limitine ulaştı' });
+      return res.json({ success: false, error: 'Bu kupon kullanım limitine ulaştı' });
     }
 
     res.json({ success: true, data: discount });
