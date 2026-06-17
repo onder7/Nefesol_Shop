@@ -126,20 +126,8 @@ export function Home() {
     }
   });
 
-  const slides = slidesData ?? [
-    {
-      img: "/banner-yaz.png",
-      link: "/ara?search=yaz",
-    },
-    {
-      img: "/banner-yilbasi.png",
-      link: "/ara?search=yılbaşı",
-    },
-    {
-      img: "/banner-sonbahar.png",
-      link: "/ara?search=turuncu",
-    }
-  ];
+  // Slider yalnızca admin panelinden (Slider sekmesi) eklenen görsellerden gelir.
+  const slides = slidesData ?? [];
 
   // Auto slide
   useEffect(() => {
@@ -184,7 +172,8 @@ export function Home() {
         description={`Hızlı kargo, kolay iade ve uygun fiyat garantisiyle ${storeName} ürünlerini keşfedin.`}
         schema={[organizationSchema(storeName), websiteSchema(storeName)]}
       />
-      {/* Hero Carousel */}
+      {/* Hero Carousel — yalnızca tanımlı slide varsa */}
+      {slides.length > 0 && (
       <section className="relative overflow-hidden bg-white border-b border-neutral-100">
         <div className="relative w-full aspect-[2/1] overflow-hidden bg-neutral-100">
           {slides.map((slide, index) => (
@@ -231,6 +220,7 @@ export function Home() {
           ))}
         </div>
       </section>
+      )}
 
       {/* Avantajlar / Hizmet Kutuları */}
       <section className="container mx-auto px-4 py-8 mt-12 bg-white rounded-2xl shadow-xs border border-neutral-100">

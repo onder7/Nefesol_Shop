@@ -286,12 +286,10 @@ router.get('/slides', async (_req, res, next) => {
       where: { key: 'homepage_slides' }
     });
     
-    const defaults = [
-      { img: '/banner-yaz.png', link: '/ara?search=yaz' },
-      { img: '/banner-yilbasi.png', link: '/ara?search=yılbaşı' },
-      { img: '/banner-sonbahar.png', link: '/ara?search=turuncu' }
-    ];
-    
+    // Varsayılan: boş — slider, admin panelinden (Slider sekmesi) eklenene kadar gösterilmez.
+    // (Önceden var olmayan /banner-*.png dosyalarına işaret edip konsolda 404 üretiyordu.)
+    const defaults: { img: string; link: string }[] = [];
+
     let slides = defaults;
     if (row && row.value) {
       try {
