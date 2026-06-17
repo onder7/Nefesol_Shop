@@ -74,7 +74,7 @@ export async function initialize(req: AuthRequest, res: Response, next: NextFunc
         conversationId,
         price: subtotal.toFixed(2),
         paidPrice: total.toFixed(2),
-        callbackUrl: `${base}/api/checkout/callback`,
+        callbackUrl: `${base}/api/checkout/callback?cid=${conversationId}`,
         buyer: {
           id: userId,
           name: user.profile?.firstName ?? 'Müşteri',
@@ -155,7 +155,8 @@ export async function callback(req: Request, res: Response, next: NextFunction) 
       return res.redirect(`${env.FRONTEND_URL}/sepet?error=payment_failed`);
     }
 
-    const cId = conversationId ?? detail.conversationId;
+    // conversationId önceliği: callbackUrl query (cid) > body > Iyzico detail yanıtı
+    const cId = (req.query.cid as string | undefined) ?? conversationId ?? detail.conversationId;
     if (!cId) return res.redirect(`${env.FRONTEND_URL}/sepet?error=session_lost`);
 
     const pending = await getPending(cId);
