@@ -25,6 +25,7 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [viewPassword, setViewPassword] = useState(false);
   const [viewConfirmPassword, setViewConfirmPassword] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(true);
 
   function set(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -92,7 +93,7 @@ export function Register() {
     setLoading(true);
     try {
       const { confirmPassword: _, ...payload } = form;
-      const res = await authApi.register(payload);
+      const res = await authApi.register({ ...payload, marketingConsent });
       const { accessToken } = res.data.data;
       const meRes = await authApi.me();
       setUser(meRes.data.data as User, accessToken);
@@ -236,6 +237,21 @@ export function Register() {
                   </button>
                 </div>
               </div>
+
+              {/* Ticari elektronik ileti onayı (kampanya/SMS/e-posta) */}
+              <label className="flex items-start gap-3 pt-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={marketingConsent}
+                  onChange={(e) => setMarketingConsent(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-primary cursor-pointer"
+                />
+                <span className="text-xs leading-relaxed text-muted-foreground">
+                  <span className="font-semibold text-foreground">{storeName}</span> ve iştiraklerinin önemli
+                  kampanyalarından haberdar olmak için anlık/kısa mesaj, e-posta ve telefon aracılığıyla{' '}
+                  <span className="font-semibold text-foreground">elektronik ileti</span> almak istiyorum.
+                </span>
+              </label>
 
               <div className="flex justify-between items-center pt-4">
                 <Link to="/giris" className="font-bold text-primary hover:underline text-sm">

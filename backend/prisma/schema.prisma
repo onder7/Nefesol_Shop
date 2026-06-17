@@ -25,6 +25,9 @@ model User {
   isActive     Boolean  @default(true) @map("is_active")
   refreshTokens String[] @default([]) @map("refresh_tokens")
 
+  // Ticari elektronik ileti (kampanya/SMS/e-posta) onayı — ETK/KVKK
+  marketingConsent Boolean @default(false) @map("marketing_consent")
+
   // MFA Fields
   mfaEnabled   Boolean  @default(false) @map("mfa_enabled")
   mfaSecret    String?  @map("mfa_secret")

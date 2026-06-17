@@ -16,6 +16,7 @@ interface RegisterInput {
   firstName: string;
   lastName: string;
   phone?: string;
+  marketingConsent?: boolean;
 }
 
 interface LoginInput {
@@ -55,6 +56,7 @@ export async function register(input: RegisterInput): Promise<TokenPair> {
       email: input.email,
       passwordHash: hashed,
       role: 'CUSTOMER',
+      marketingConsent: input.marketingConsent ?? false,
       profile: {
         create: {
           firstName: input.firstName,
