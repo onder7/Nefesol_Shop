@@ -6,6 +6,11 @@ COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 
 COPY . .
+
+# Vite build-time env: Google Sign-In Client ID (boş olabilir → buton gizlenir)
+ARG VITE_GOOGLE_CLIENT_ID=""
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 RUN npm run build
 
 # ─── Stage 2: Serve ───────────────────────────────────────────────

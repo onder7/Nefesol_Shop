@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 export function Login() {
   const { name: storeName } = useStoreInfo();
@@ -24,27 +25,31 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [viewPassword, setViewPassword] = useState(false);
 
-  const handleGoogleClick = async () => {
-    if (!(window as any).google) {
-      toast.error('Google Sign-In yüklenemiyor');
-      return;
+  const handleGoogleCredential = async (idToken: string) => {
+    try {
+      const res = await fetch('/api/auth/oauth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUser(data.data.user as User, data.data.accessToken);
+        try {
+          const mergeRes = await cartApi.merge(sessionId);
+          setCart(mergeRes.data.data);
+          clearSession();
+        } catch {
+          // merge başarısız olsa da girişe devam et
+        }
+        toast.success('Google ile giriş başarılı!');
+        navigate(from, { replace: true });
+      } else {
+        toast.error(data.error || 'Giriş başarısız');
+      }
+    } catch {
+      toast.error('Google ile giriş başarısız');
     }
-
-    (window as any).google.accounts.id.renderButton(
-      document.createElement('div'),
-      {
-        type: 'standard',
-        size: 'large',
-        text: 'signin_with',
-        locale: 'tr',
-      }
-    );
-
-    (window as any).google.accounts.id.prompt(async (notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        toast.info('Google Sign-In dialog açılıyor...');
-      }
-    });
   };
 
   const handleFacebookClick = () => {
@@ -197,22 +202,15 @@ export function Login() {
               </div>
 
               {/* Social Login Buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={handleGoogleClick}
-                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
-                  title="Google ile giriş yap"
-                >
-                  G
-                </button>
+              <div className="space-y-3">
+                <GoogleSignInButton text="signin_with" onCredential={handleGoogleCredential} />
                 <button
                   type="button"
                   onClick={handleFacebookClick}
-                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
+                  className="h-12 w-full flex items-center justify-center gap-2 rounded-md border border-input hover:bg-accent transition-colors text-sm font-semibold"
                   title="Facebook ile giriş yap"
                 >
-                  f
+                  <span className="text-[#1877F2] text-lg font-bold">f</span> Facebook ile devam et
                 </button>
               </div>
             </form>

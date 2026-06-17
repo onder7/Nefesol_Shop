@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 export function Register() {
   const { name: storeName } = useStoreInfo();
@@ -32,27 +33,24 @@ export function Register() {
       setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
-  const handleGoogleClick = async () => {
-    if (!(window as any).google) {
-      toast.error('Google Sign-In yüklenemiyor');
-      return;
+  const handleGoogleCredential = async (idToken: string) => {
+    try {
+      const res = await fetch('/api/auth/oauth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUser(data.data.user as User, data.data.accessToken);
+        toast.success('Google ile kayıt başarılı!');
+        navigate('/', { replace: true });
+      } else {
+        toast.error(data.error || 'Kayıt başarısız');
+      }
+    } catch {
+      toast.error('Google ile kayıt başarısız');
     }
-
-    (window as any).google.accounts.id.renderButton(
-      document.createElement('div'),
-      {
-        type: 'standard',
-        size: 'large',
-        text: 'signup_with',
-        locale: 'tr',
-      }
-    );
-
-    (window as any).google.accounts.id.prompt(async (notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        toast.info('Google Sign-In dialog açılıyor...');
-      }
-    });
   };
 
   const handleFacebookClick = () => {
@@ -277,22 +275,15 @@ export function Register() {
               </div>
 
               {/* Social Login Buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={handleGoogleClick}
-                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
-                  title="Google ile kayıt ol"
-                >
-                  G
-                </button>
+              <div className="space-y-3">
+                <GoogleSignInButton text="signup_with" onCredential={handleGoogleCredential} />
                 <button
                   type="button"
                   onClick={handleFacebookClick}
-                  className="h-12 flex items-center justify-center rounded-md border border-input hover:bg-accent transition-colors text-xl font-bold hover:scale-105 active:scale-95"
+                  className="h-12 w-full flex items-center justify-center gap-2 rounded-md border border-input hover:bg-accent transition-colors text-sm font-semibold"
                   title="Facebook ile kayıt ol"
                 >
-                  f
+                  <span className="text-[#1877F2] text-lg font-bold">f</span> Facebook ile devam et
                 </button>
               </div>
 

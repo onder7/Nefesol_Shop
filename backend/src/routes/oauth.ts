@@ -55,7 +55,7 @@ async function findOrCreateUser(profile: OAuthProfile) {
         firstName,
         lastName,
         role: 'CUSTOMER',
-        userProfile: {
+        profile: {
           create: {
             phone: '',
             bio: '',
@@ -68,6 +68,24 @@ async function findOrCreateUser(profile: OAuthProfile) {
   }
 
   return user;
+}
+
+/**
+ * OAuth kullanıcısı için access + refresh token üretir.
+ * Önemli: access token claim'i { id, email, role } olmalı — auth middleware payload.id okur.
+ */
+function issueTokens(user: { id: string; email: string; role: string }) {
+  const accessToken = sign(
+    { id: user.id, email: user.email, role: user.role },
+    env.JWT_SECRET,
+    { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] },
+  );
+  const refreshToken = sign(
+    { id: user.id },
+    env.JWT_REFRESH_SECRET,
+    { expiresIn: env.JWT_REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'] },
+  );
+  return { accessToken, refreshToken };
 }
 
 /**
@@ -85,35 +103,43 @@ router.post('/auth/oauth/google', async (req: Request, res: Response, next: Next
       });
     }
 
-    // Google ID Token'ı doğrula
-    // Not: Production'da Google API'sini kullan
-    // Bu örnekte, frontend'den gelen JWT'yi doğruluyoruz
-    let decoded: any;
-    try {
-      decoded = jwt.decode(idToken) as any;
-    } catch {
-      return res.status(401).json({ success: false, error: 'Geçersiz token' });
+    // Google ID Token'ı Google'ın tokeninfo ucu ile doğrula (imza + son kullanma kontrolü Google tarafında yapılır)
+    const verifyRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+    );
+    if (!verifyRes.ok) {
+      return res.status(401).json({ success: false, error: 'Geçersiz veya süresi dolmuş Google token' });
+    }
+    const payload = (await verifyRes.json()) as {
+      aud?: string;
+      sub?: string;
+      email?: string;
+      email_verified?: string | boolean;
+      given_name?: string;
+      family_name?: string;
+      picture?: string;
+    };
+
+    // Token bu uygulama için mi? (GOOGLE_CLIENT_ID tanımlıysa zorunlu)
+    if (env.GOOGLE_CLIENT_ID && payload.aud !== env.GOOGLE_CLIENT_ID) {
+      return res.status(401).json({ success: false, error: 'Token bu uygulama için geçerli değil' });
     }
 
-    if (!decoded || !decoded.email) {
-      return res.status(401).json({
-        success: false,
-        error: 'Geçersiz token'
-      });
+    const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
+    if (!payload.email || !emailVerified) {
+      return res.status(401).json({ success: false, error: 'E-posta doğrulanmamış veya alınamadı' });
     }
 
     const user = await findOrCreateUser({
-      id: decoded.sub || decoded.email,
-      email: decoded.email,
-      firstName: decoded.given_name,
-      lastName: decoded.family_name,
-      picture: decoded.picture,
+      id: payload.sub || payload.email,
+      email: payload.email,
+      firstName: payload.given_name,
+      lastName: payload.family_name,
+      picture: payload.picture,
       provider: 'google'
     });
 
-    // JWT token'lar oluştur
-    const accessToken = sign({ userId: user.id }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
-    const refreshToken = sign({ userId: user.id }, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
+    const { accessToken, refreshToken } = issueTokens(user);
 
     // Refresh token'ı kaydet
     await prisma.user.update({
@@ -178,8 +204,7 @@ router.post('/auth/oauth/facebook', async (req: Request, res: Response, next: Ne
       provider: 'facebook'
     });
 
-    const jwtAccessToken = sign({ userId: user.id }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
-    const refreshToken = sign({ userId: user.id }, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
+    const { accessToken: jwtAccessToken, refreshToken } = issueTokens(user);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -246,8 +271,7 @@ router.post('/auth/oauth/instagram', async (req: Request, res: Response, next: N
       provider: 'instagram'
     });
 
-    const jwtAccessToken = sign({ userId: user.id }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
-    const refreshToken = sign({ userId: user.id }, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
+    const { accessToken: jwtAccessToken, refreshToken } = issueTokens(user);
 
     await prisma.user.update({
       where: { id: user.id },

@@ -34,6 +34,9 @@ const envSchema = z.object({
   IYZICO_API_KEY: z.string().optional(),
   IYZICO_SECRET_KEY: z.string().optional(),
   IYZICO_BASE_URL: z.string().default('https://sandbox-api.iyzipay.com'),
+
+  // Google Sign-In — OAuth Client ID (token audience doğrulaması için)
+  GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
