@@ -18,7 +18,7 @@ function Field({
   hint,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   hint?: string;
   children: React.ReactNode;
 }) {
@@ -381,7 +381,20 @@ function PaymentTab() {
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm font-medium text-black dark:text-white">iyzico Aktif</p>
+            <p className="text-sm font-medium text-black dark:text-white flex items-center gap-2">
+              iyzico Aktif
+              {bool('iyzico_enabled') && (
+                (g.iyzico_env ?? 'sandbox') === 'production' ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Canlı (Production)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Test (Sandbox)
+                  </span>
+                )
+              )}
+            </p>
             <p className="text-xs text-gray-400">Ödeme sayfasında iyzico checkout gösterilir</p>
           </div>
           <Toggle checked={bool('iyzico_enabled')} onChange={(v) => s.set('iyzico_enabled', String(v))} />
@@ -389,17 +402,25 @@ function PaymentTab() {
         {bool('iyzico_enabled') && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="API Key">
-              <input className={inputCls} value={g.iyzico_api_key ?? ''} onChange={(e) => s.set('iyzico_api_key', e.target.value)} placeholder="sandbox-xxx" />
+              <input className={inputCls} value={g.iyzico_api_key ?? ''} onChange={(e) => s.set('iyzico_api_key', e.target.value)} placeholder="Canlı için: xxx (sandbox- öneki olmadan)" autoComplete="off" spellCheck={false} />
             </Field>
             <Field label="Secret Key">
-              <input className={inputCls} type="password" value={g.iyzico_secret ?? ''} onChange={(e) => s.set('iyzico_secret', e.target.value)} placeholder="••••••••" />
+              <input className={inputCls} type="password" value={g.iyzico_secret ?? ''} onChange={(e) => s.set('iyzico_secret', e.target.value)} placeholder="••••••••" autoComplete="new-password" />
             </Field>
-            <Field label="Ortam">
+            <Field label="Ortam" hint="Canlı ödeme almak için Production seçin ve iyzico panelinizden aldığınız CANLI API anahtarlarını girin.">
               <select className={inputCls} value={g.iyzico_env ?? 'sandbox'} onChange={(e) => s.set('iyzico_env', e.target.value)}>
                 <option value="sandbox">Sandbox (Test)</option>
                 <option value="production">Production (Canlı)</option>
               </select>
             </Field>
+          </div>
+        )}
+        {bool('iyzico_enabled') && (g.iyzico_env ?? 'sandbox') === 'production' && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 px-4 py-3">
+            <svg className="flex-shrink-0 mt-0.5 text-amber-500" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+              <strong>Canlı mod aktif.</strong> Gerçek kartlardan gerçek tahsilat yapılır. API Key/Secret değerlerinin iyzico panelinizdeki <strong>canlı (production)</strong> anahtarlar olduğundan emin olun; sandbox anahtarları canlı modda çalışmaz.
+            </p>
           </div>
         )}
       </SectionCard>
@@ -3352,6 +3373,14 @@ function OAuthTab() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  // Google Sign-In gerçek çalışma durumu (env > DB çözümlenmiş değer)
+  const [googleActive, setGoogleActive] = useState<boolean | null>(null);
+
+  const loadGoogleStatus = () => {
+    api.get<{ success: boolean; data: { googleClientId?: string } }>('/config/public')
+      .then((r) => setGoogleActive(!!r.data?.googleClientId))
+      .catch(() => setGoogleActive(false));
+  };
 
   useEffect(() => {
     api.get<{ success: boolean; data: Record<string, string> }>('/admin/settings/oauth')
@@ -3362,6 +3391,7 @@ function OAuthTab() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    loadGoogleStatus();
   }, []);
 
   const handleSave = async () => {
@@ -3371,6 +3401,7 @@ function OAuthTab() {
     try {
       await api.put('/admin/settings/oauth', form);
       setSaved(true);
+      loadGoogleStatus();
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kayıt hatası');
@@ -3385,13 +3416,33 @@ function OAuthTab() {
     <div className="space-y-6">
       <SectionCard title="OAuth Sağlayıcı Ayarları" subtitle="Google, Facebook ve Instagram giriş ayarları">
         <div className="space-y-5">
-          <Field label="Google Client ID" hint="https://console.cloud.google.com adresinden alın">
+          <Field
+            label={
+              <span className="inline-flex items-center gap-2">
+                Google Client ID
+                {googleActive !== null && (
+                  googleActive ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Şu an aktif
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500 dark:bg-meta-4 dark:text-gray-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-gray-400" /> Pasif
+                    </span>
+                  )
+                )}
+              </span>
+            }
+            hint="Herkese açık bir değerdir. https://console.cloud.google.com adresinden alın. .env'de GOOGLE_CLIENT_ID varsa o önceliklidir."
+          >
             <input
-              type="password"
+              type="text"
               value={form.googleClientId}
               onChange={(e) => setForm((p) => ({ ...p, googleClientId: e.target.value }))}
               className={inputCls}
               placeholder="1234567890-abcd.apps.googleusercontent.com"
+              autoComplete="off"
+              spellCheck={false}
             />
           </Field>
 

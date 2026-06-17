@@ -24,10 +24,11 @@ async function resolveIyzicoConfig(): Promise<IyzicoConfig> {
     });
     const m = Object.fromEntries(rows.map((r) => [r.key.slice('payment_'.length), r.value]));
     if (m.iyzico_api_key && m.iyzico_secret) {
+      const isLive = m.iyzico_env === 'production' || m.iyzico_env === 'live';
       return {
         apiKey: m.iyzico_api_key,
         secretKey: m.iyzico_secret,
-        baseUrl: m.iyzico_env === 'live' ? 'https://api.iyzipay.com' : 'https://sandbox-api.iyzipay.com',
+        baseUrl: isLive ? 'https://api.iyzipay.com' : 'https://sandbox-api.iyzipay.com',
       };
     }
   } catch {
