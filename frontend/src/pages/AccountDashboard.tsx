@@ -523,10 +523,10 @@ export function AccountDashboard() {
                             >
                               {item.variant?.product?.name || 'Ürün'}
                             </Link>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
-                              {new Date(item.createdAt).toLocaleDateString('tr-TR')} {new Date(item.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
                           </div>
+                          {item.variant?.sku && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">SKU: {item.variant.sku}</p>
+                          )}
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             Adet: {item.quantity}
                           </p>
