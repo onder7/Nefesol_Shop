@@ -336,6 +336,7 @@ export async function updateTeamMember(req: AuthRequest, res: Response, next: Ne
     await settingsService.updateTeamMember(
       String(req.params.userId),
       req.body as { subRole?: string; isActive?: boolean },
+      req.user!.id,
     );
     res.json({ success: true });
   } catch (err) { next(err); }

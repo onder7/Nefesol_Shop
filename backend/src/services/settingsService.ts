@@ -197,9 +197,24 @@ export async function listAdminUsers() {
 export async function updateTeamMember(
   userId: string,
   data: { subRole?: string; isActive?: boolean },
+  requesterId?: string,
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError('Kullanıcı bulunamadı', 404);
+  if (user.role !== 'ADMIN') throw new AppError('Bu kullanıcı bir ekip üyesi (yönetici) değil', 400);
+
+  // Kilitlenmeyi (lockout) önle: kendini ve son aktif yöneticiyi pasifleştirme
+  if (data.isActive === false) {
+    if (requesterId && userId === requesterId) {
+      throw new AppError('Kendi hesabınızı pasifleştiremezsiniz', 400);
+    }
+    if (user.isActive) {
+      const activeAdmins = await prisma.user.count({ where: { role: 'ADMIN', isActive: true } });
+      if (activeAdmins <= 1) {
+        throw new AppError('Son aktif yöneticiyi pasifleştiremezsiniz', 400);
+      }
+    }
+  }
 
   await Promise.all([
     data.isActive !== undefined
