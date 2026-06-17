@@ -279,18 +279,35 @@ export function Register() {
                   f
                 </button>
               </div>
+
+              {/* KVKK / Yasal onay metni */}
+              <p className="text-[11px] leading-relaxed text-muted-foreground text-center pt-2">
+                Kişisel verileriniz,{' '}
+                <Link to="/kvkk" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                  Aydınlatma Metni
+                </Link>{' '}
+                kapsamında işlenmektedir. “Kayıt Ol” veya “Sosyal Hesap” butonlarından birine basarak{' '}
+                <Link to="/uyelik" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                  Üyelik Sözleşmesi
+                </Link>
+                ’ni ve{' '}
+                <Link to="/kvkk" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                  Gizlilik Politikası
+                </Link>
+                ’nı okuduğunuzu ve kabul ettiğinizi onaylıyorsunuz.
+              </p>
             </form>
           </div>
 
           {/* Footer Linkleri */}
           <footer className="mt-8 sm:mt-16 flex flex-wrap gap-2 sm:gap-4 justify-between text-xs font-bold text-muted-foreground">
-            <Link to="#" className="hover:text-foreground transition-colors">
+            <Link to="/sozlesmeler" className="hover:text-foreground transition-colors">
               Kullanım Koşulları
             </Link>
-            <Link to="#" className="hover:text-foreground transition-colors">
+            <Link to="/kvkk" className="hover:text-foreground transition-colors">
               Gizlilik Politikası
             </Link>
-            <Link to="#" className="hover:text-foreground transition-colors">
+            <Link to="/iletisim" className="hover:text-foreground transition-colors">
               Yardım
             </Link>
           </footer>
