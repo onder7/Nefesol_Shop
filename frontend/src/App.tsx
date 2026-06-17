@@ -14,6 +14,8 @@ import { CookieConsent } from '@/components/common/CookieConsent';
 import { Home } from '@/pages/Home';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
+import { ForgotPassword } from '@/pages/ForgotPassword';
+import { ResetPassword } from '@/pages/ResetPassword';
 import { CategoryPage } from '@/pages/CategoryPage';
 import { ProductDetail } from '@/pages/ProductDetail';
 import CampaignDetail from '@/pages/CampaignDetail';
@@ -39,7 +41,7 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const location = useLocation();
-  const isAuthPage = ['/giris', '/kayit'].includes(location.pathname);
+  const isAuthPage = ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla'].includes(location.pathname);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -52,6 +54,8 @@ function AppContent() {
         {/* Aşama 3 — Auth */}
         <Route path="/giris" element={<Login />} />
         <Route path="/kayit" element={<Register />} />
+        <Route path="/sifremi-unuttum" element={<ForgotPassword />} />
+        <Route path="/sifre-sifirla" element={<ResetPassword />} />
 
         {/* Aşama 4 — Katalog */}
         <Route path="/kategori/:slug" element={<CategoryPage />} />

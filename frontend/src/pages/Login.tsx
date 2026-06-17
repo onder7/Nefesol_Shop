@@ -173,7 +173,7 @@ export function Login() {
                   <Link to="/kayit" className="font-bold text-primary hover:underline">
                     Yeni hesap oluştur
                   </Link>
-                  <Link to="#" className="font-bold text-primary hover:underline">
+                  <Link to="/sifremi-unuttum" className="font-bold text-primary hover:underline">
                     Şifremi Unuttum
                   </Link>
                 </div>
@@ -220,10 +220,10 @@ export function Login() {
 
           {/* Footer Linkleri */}
           <footer className="mt-4 sm:mt-6 flex gap-2 sm:gap-4 justify-center sm:justify-between text-[10px] sm:text-xs font-bold text-muted-foreground flex-wrap">
-            <Link to="#" className="hover:text-foreground transition-colors">
+            <Link to="/sozlesmeler" className="hover:text-foreground transition-colors">
               Kullanım Koşulları
             </Link>
-            <Link to="#" className="hover:text-foreground transition-colors">
+            <Link to="/kvkk" className="hover:text-foreground transition-colors">
               Gizlilik Politikası
             </Link>
           </footer>
