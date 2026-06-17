@@ -23,11 +23,13 @@ async function resolveIyzicoConfig(): Promise<IyzicoConfig> {
       where: { key: { in: ['payment_iyzico_api_key', 'payment_iyzico_secret', 'payment_iyzico_env'] } },
     });
     const m = Object.fromEntries(rows.map((r) => [r.key.slice('payment_'.length), r.value]));
-    if (m.iyzico_api_key && m.iyzico_secret) {
+    const apiKey = m.iyzico_api_key?.trim();
+    const secretKey = m.iyzico_secret?.trim();
+    if (apiKey && secretKey) {
       const isLive = m.iyzico_env === 'production' || m.iyzico_env === 'live';
       return {
-        apiKey: m.iyzico_api_key,
-        secretKey: m.iyzico_secret,
+        apiKey,
+        secretKey,
         baseUrl: isLive ? 'https://api.iyzipay.com' : 'https://sandbox-api.iyzipay.com',
       };
     }
@@ -93,51 +95,28 @@ export interface PaymentDetailResponse {
   errorMessage?: string;
 }
 
-// ─── PKI string (Iyzico canonical format) ────────────────────────────────────
-
-function toPkiString(obj: Record<string, unknown>): string {
-  let str = '[';
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === null || value === undefined) continue;
-    if (Array.isArray(value)) {
-      str += `${key}=`;
-      if (value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
-        for (const item of value) str += toPkiString(item as Record<string, unknown>);
-      } else {
-        str += `[${(value as unknown[]).join(', ')}]`;
-      }
-      str += ', ';
-    } else if (typeof value === 'object' && value !== null) {
-      str += `${key}=${toPkiString(value as Record<string, unknown>)}, `;
-    } else {
-      str += `${key}=${String(value)}, `;
-    }
-  }
-  str += ']';
-  return str;
-}
-
-function authHeaders(body: Record<string, unknown>, cfg: IyzicoConfig) {
-  const apiKey = cfg.apiKey;
-  const secretKey = cfg.secretKey;
-  const randomKey = Date.now().toString();
-  const pkiStr = toPkiString(body);
-  const hash = crypto
-    .createHash('sha1')
-    .update(apiKey + randomKey + secretKey + pkiStr, 'utf8')
-    .digest('base64');
+// ─── IYZWSv2 auth (HMAC-SHA256) ──────────────────────────────────────────────
+// Modern İyzico imzalama: randomKey + uriPath + requestBody üzerinden HMAC-SHA256.
+// PKI string gerektirmez; imzalanan gövde, HTTP'de gönderilen gövdeyle birebir aynıdır.
+function authHeadersV2(uriPath: string, bodyStr: string, cfg: IyzicoConfig) {
+  const randomKey = Date.now().toString() + Math.random().toString(36).slice(2, 10);
+  const payload = randomKey + uriPath + bodyStr;
+  const signature = crypto.createHmac('sha256', cfg.secretKey).update(payload, 'utf8').digest('hex');
+  const authParams = `apiKey:${cfg.apiKey}&randomKey:${randomKey}&signature:${signature}`;
   return {
-    Authorization: `IYZWS ${apiKey}:${hash}`,
+    Authorization: 'IYZWSv2 ' + Buffer.from(authParams, 'utf8').toString('base64'),
     'x-iyzi-rnd': randomKey,
     'x-iyzi-client-version': 'iyzipay-node-2.0.50',
   };
 }
 
 async function post<T>(path: string, body: Record<string, unknown>, cfg: IyzicoConfig): Promise<T> {
+  // Gövde TEK kez stringify edilir; aynı string hem imzada hem istekte kullanılır
+  const bodyStr = JSON.stringify(body);
   const res = await fetch(`${cfg.baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeaders(body, cfg) },
-    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeadersV2(path, bodyStr, cfg) },
+    body: bodyStr,
   });
   if (!res.ok) throw new Error(`Iyzico HTTP ${res.status}`);
   return res.json() as Promise<T>;
