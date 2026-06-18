@@ -270,7 +270,7 @@ export async function withdrawCancellation(orderId: string, userId: string) {
   // Find and verify cancellation belongs to user
   const cancellation = await prisma.orderCancellation.findUnique({
     where: { orderId },
-    include: { order: { include: { payment: true } } },
+    include: { order: { include: { payment: true, items: { include: { variant: true } } } } },
   });
 
   if (!cancellation) throw new Error('İptal talebi bulunamadı');
@@ -316,6 +316,26 @@ export async function withdrawCancellation(orderId: string, userId: string) {
       note: `İndirim teklifi kabul edildi (−${couponAmount} TRY). ${isPaid ? 'Sipariş hazırlığa alındı.' : 'Sipariş ödeme bekliyor.'}`,
     },
   });
+
+  // İptal ONAYINDA stok geri yüklenmişti (approveCancellation). Sipariş yeniden aktifleştiği
+  // için stoğu TEKRAR düş — aksi halde sipariş kargolanır ama stok azalmaz.
+  for (const item of order.items) {
+    const variant = await prisma.productVariant.update({
+      where: { id: item.variantId },
+      data: { stockQty: { decrement: item.quantity } },
+      select: { stockQty: true },
+    });
+    await prisma.stockMovement.create({
+      data: {
+        variantId: item.variantId,
+        oldQty: variant.stockQty + item.quantity,
+        newQty: variant.stockQty,
+        difference: -item.quantity,
+        reason: 'cancellation_withdrawn',
+        note: 'İptalden vazgeçildi (indirim kabul) — stok yeniden düşüldü',
+      },
+    });
+  }
 
   return { reinstateStatus, isPaid, newTotal };
 }
