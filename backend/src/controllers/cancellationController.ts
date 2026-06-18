@@ -151,9 +151,15 @@ export async function withdrawCancellation(req: AuthRequest, res: Response, next
     if (!userId) return res.status(401).json({ success: false, message: 'Oturum açmanız gerekli' });
     if (!orderId) return res.status(400).json({ success: false, message: 'Sipariş ID gerekli' });
 
-    await cancellationService.withdrawCancellation(orderId, userId);
+    const result = await cancellationService.withdrawCancellation(orderId, userId);
 
-    res.json({ success: true, message: 'İptal talebiniz geri alındı. Kupon başarıyla teklif edildi!' });
+    res.json({
+      success: true,
+      data: result,
+      message: result.isPaid
+        ? 'İndirim siparişinize uygulandı. Siparişiniz hazırlanmaya devam ediyor.'
+        : 'İndirim siparişinize uygulandı. Siparişiniz ödeme bekliyor; ödemenizi tamamlayabilirsiniz.',
+    });
   } catch (err) {
     next(err);
   }

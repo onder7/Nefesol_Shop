@@ -66,8 +66,8 @@ export function CancellationStatus({
 
     setRetracting(true);
     try {
-      await api.delete(`/checkout/orders/${orderId}/cancel-request`);
-      toast.success('İndirim bu siparişe uygulandı, siparişiniz devam ediyor!');
+      const res = await api.delete<{ success: boolean; message?: string }>(`/checkout/orders/${orderId}/cancel-request`);
+      toast.success(res?.data?.message || 'İndirim bu siparişe uygulandı, siparişiniz devam ediyor!');
       onRetract?.();
     } catch (error: any) {
       toast.error(error.message || 'İşlem başarısız oldu');
@@ -103,6 +103,15 @@ export function CancellationStatus({
           <p className="text-xs text-gray-500 mt-2 border-t border-green-100 pt-2">
             Bu indirim yalnızca bu siparişe özeldir; başka siparişlerde kullanılamaz.
           </p>
+        </div>
+
+        {/* Sıradaki Adım */}
+        <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Siparişiniz nasıl tamamlanır?</p>
+          <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1 ml-4 list-disc">
+            <li><strong>Ödemesi tamamlanmış</strong> siparişler otomatik olarak <strong>Hazırlanıyor</strong> durumuna geçer; kargolanınca bilgilendirilirsiniz. Ek işlem gerekmez.</li>
+            <li><strong>Ödeme bekleyen</strong> (havale/kapıda) siparişlerde, sipariş detayındaki <strong>ödeme talimatlarını</strong> izleyerek ödemenizi tamamlayın.</li>
+          </ul>
         </div>
 
         {/* CTA */}

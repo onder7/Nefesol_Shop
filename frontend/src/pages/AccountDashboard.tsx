@@ -312,7 +312,7 @@ export function AccountDashboard() {
     {
       id: 'coupons',
       icon: Gift,
-      label: 'Kuponlarım',
+      label: 'İndirimlerim',
       badge: null,
     },
     {
@@ -1363,53 +1363,52 @@ export function AccountDashboard() {
             </div>
           )}
 
-          {/* Coupons */}
+          {/* Coupons — bilgi amaçlı görüntüleme */}
           {activeSection === 'coupons' && (
             <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Kuponlarım</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">İndirimlerim</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                İptal talebinizden vazgeçtiğinizde ilgili siparişe uygulanan indirimlerin kaydı. Bilgi amaçlıdır; bu indirimler yeniden kullanılamaz.
+              </p>
               {appliedCoupons.length === 0 ? (
                 <div className="text-center py-12">
                   <Gift size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400">Henüz kullanılan kupon bulunmamaktadır.</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Sipariş iptali sırasında kupon kabul ederek kupon kazanabilirsiniz.</p>
+                  <p className="text-gray-600 dark:text-gray-400">Henüz uygulanmış bir indirim bulunmamaktadır.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Bir siparişin iptalinden vazgeçip indirim teklifini kabul ettiğinizde burada listelenir.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {appliedCoupons.map((coupon, idx) => (
                     <div
                       key={idx}
-                      className="border-2 border-green-200 rounded-lg p-4 bg-gradient-to-br from-green-50 to-emerald-50 hover:shadow-md transition-shadow"
+                      className="border border-green-200 dark:border-green-800 rounded-lg p-4 bg-green-50/60 dark:bg-green-900/10"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <p className="text-xs text-green-700 font-semibold uppercase tracking-wide mb-1">Kupon Kodu</p>
-                          <p className="font-mono font-bold text-xl text-green-800">{coupon.code}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide mb-1">Uygulanan İndirim</p>
+                          <p className="text-2xl font-bold text-green-700 dark:text-green-400">−{formatPrice(coupon.value)}</p>
                         </div>
-                        <Gift size={24} className="text-green-600" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:text-green-300">
+                          Bilgi
+                        </span>
                       </div>
-                      <div className="border-t border-green-200 pt-3">
-                        <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Kupon Değeri</p>
-                        <p className="text-lg font-bold text-green-700">{formatPrice(coupon.value)}</p>
-                      </div>
-                      <div className="border-t border-green-200 mt-3 pt-3">
-                        <p className="text-xs text-gray-600 font-semibold uppercase mb-1">Kullanım Tarihi</p>
-                        <p className="text-sm text-gray-700">
-                          {new Date(coupon.appliedAt).toLocaleDateString('tr-TR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
+                      {coupon.orderId && (
+                        <div className="border-t border-green-200 dark:border-green-800 pt-3">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Uygulandığı Sipariş</p>
+                          <button
+                            onClick={() => { setActiveSection('orders'); handleSelectOrder(coupon.orderId); }}
+                            className="font-mono text-sm text-primary hover:underline"
+                          >
+                            #TR-{String(coupon.orderId).slice(-8).toUpperCase()}
+                          </button>
+                        </div>
+                      )}
+                      <div className="border-t border-green-200 dark:border-green-800 mt-3 pt-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Tarih</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          {new Date(coupon.appliedAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                       </div>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(coupon.code);
-                          alert('Kupon kodu kopyalandı!');
-                        }}
-                        className="w-full mt-3 py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors"
-                      >
-                        📋 Kodu Kopyala
-                      </button>
                     </div>
                   ))}
                 </div>

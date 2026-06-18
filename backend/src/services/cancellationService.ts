@@ -270,7 +270,7 @@ export async function withdrawCancellation(orderId: string, userId: string) {
   // Find and verify cancellation belongs to user
   const cancellation = await prisma.orderCancellation.findUnique({
     where: { orderId },
-    include: { order: true },
+    include: { order: { include: { payment: true } } },
   });
 
   if (!cancellation) throw new Error('İptal talebi bulunamadı');
@@ -289,13 +289,16 @@ export async function withdrawCancellation(orderId: string, userId: string) {
   const newTotal = taxableBase + tax + Number(order.shippingFee);
 
   // Kuponu kabul etmek = siparişi iptal etmekten vazgeçmek.
-  // İndirim YALNIZCA bu siparişe uygulanır ve sipariş yeniden aktifleştirilir (CANCELLED → PROCESSING).
+  // Sipariş ÖDENMİŞSE doğrudan hazırlığa (PROCESSING), ÖDENMEMİŞSE (havale/kapıda) ödeme bekler (PENDING).
+  const isPaid = order.payment?.status === 'SUCCESS';
+  const reinstateStatus = isPaid ? 'PROCESSING' : 'PENDING';
+
   await prisma.order.update({
     where: { id: orderId },
     data: {
       discount: newDiscount,
       total: newTotal,
-      status: 'PROCESSING',
+      status: reinstateStatus,
     },
   });
 
@@ -309,8 +312,10 @@ export async function withdrawCancellation(orderId: string, userId: string) {
   await prisma.orderStatusLog.create({
     data: {
       orderId,
-      status: 'PROCESSING',
-      note: `Kupon Teklifi Kabul Edildi: ${cancellation.couponCode} (${couponAmount} TRY)`,
+      status: reinstateStatus,
+      note: `İndirim teklifi kabul edildi (−${couponAmount} TRY). ${isPaid ? 'Sipariş hazırlığa alındı.' : 'Sipariş ödeme bekliyor.'}`,
     },
   });
+
+  return { reinstateStatus, isPaid, newTotal };
 }
