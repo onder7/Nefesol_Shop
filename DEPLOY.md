@@ -1,75 +1,61 @@
 # 🚀 Canlı Sunucuya Deploy (GitHub Actions)
 
-`master`'a her push'ta `.github/workflows/deploy.yml` çalışır: sunucuya SSH ile bağlanır,
-en güncel kodu çeker, `.env`'i GitHub secret'larından yazar, `docker compose up -d --build` yapar.
+Üretim sunucusu **Nginx Proxy Manager (NPM)** + **Portainer** ile çalışır:
+`shop.nefesol.net` → NPM (SSL) → `onder_online_shop-nginx-1:80` (`web_proxy` ağı üzerinden).
 
-> SMTP / Brevo / İyzico / Google Client ID gibi ayarlar **admin panelinden (DB)** yönetilir;
-> bunlar `.env`'de tutulmaz. `.env` yalnızca altyapı sırlarını içerir.
+Proje sunucuda şu dizinde, **git checkout** olarak durur:
+`/home/onder/management/stacks/nefesol-shop` (origin: bu repo).
+Buradaki `docker-compose.yml` **özelleştirilmiştir** (nginx portu yayınlamaz, `web_proxy`
+harici ağına bağlıdır) ve `.env` (DB şifresi dahil) sunucuya aittir.
 
----
+## Deploy nasıl çalışır
 
-## 1) Gerekli GitHub Secrets
+`.github/workflows/deploy.yml`, `master`'a her push'ta:
+1. Sunucuya SSH ile bağlanır,
+2. `git checkout origin/master -- frontend backend admin docker` ile **yalnızca uygulama
+   kaynağını** günceller — `docker-compose.yml`, `.env` ve `nginx/` config'ine **dokunmaz**,
+3. `docker compose up -d --build` ile yeniden build edip başlatır.
 
-`Settings → Secrets and variables → Actions → New repository secret`
+Böylece NPM, SSL, `web_proxy` ağı ve veritabanı **hiç etkilenmez**; sadece yeni kod devreye girer.
 
-| Secret | Açıklama | Örnek |
-|--------|----------|-------|
-| `SERVER_HOST` | Sunucu IP | `31.7.33.14` |
-| `SERVER_USER` | SSH kullanıcısı | `onder` |
-| `SERVER_PASSWORD` | SSH şifresi *(SSH key önerilir — aşağıya bkz.)* | `••••••` |
-| `POSTGRES_USER` | DB kullanıcı | `ecom` |
-| `POSTGRES_PASSWORD` | DB şifre (güçlü) | `openssl rand -hex 16` |
-| `POSTGRES_DB` | DB adı | `ecommerce` |
-| `JWT_SECRET` | En az 32 karakter | `openssl rand -hex 32` |
-| `JWT_REFRESH_SECRET` | En az 32 karakter | `openssl rand -hex 32` |
-| `FRONTEND_URL` | Sitenin adresi | `http://31.7.33.14` veya `https://alanadiniz.com` |
+## Gerekli GitHub Secrets
 
-> ✅ Zaten ekli: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
-> ➕ Eklenecek: `SERVER_HOST`, `SERVER_USER`, `SERVER_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `FRONTEND_URL`
+`Settings → Secrets and variables → Actions`
 
----
+| Secret | Değer |
+|--------|-------|
+| `SERVER_HOST` | `31.7.33.14` |
+| `SERVER_USER` | `onder` |
+| `SERVER_PASSWORD` | SSH şifresi *(SSH key önerilir)* |
 
-## 2) Sunucu hazırlığı (tek seferlik, manuel SSH)
+> Not: `POSTGRES_*`, `JWT_*`, `FRONTEND_URL` secret'ları bu akışta **kullanılmaz** —
+> bu değerler sunucudaki `.env`'de zaten mevcut ve korunuyor. Eklemiş olmanız zarar vermez.
 
-`onder` kullanıcısıyla sunucuya girip:
+## Tek seferlik kontrol (sunucuda)
+
+Sunucudaki `.env`'de site adresinin doğru olduğundan emin olun:
 
 ```bash
-# Docker + Compose + git
-curl -fsSL https://get.docker.com | sudo sh
-sudo apt-get install -y docker-compose-plugin git
-
-# 'onder' kullanıcısını docker grubuna ekle (sudo'suz docker için)
-sudo usermod -aG docker onder
-# Çıkış yapıp tekrar girin (grup üyeliği aktif olsun)
+cd /home/onder/management/stacks/nefesol-shop
+grep -E 'FRONTEND_URL|ADMIN_URL' .env
+# Beklenen:
+#   FRONTEND_URL=https://shop.nefesol.net
+#   ADMIN_URL=https://shop.nefesol.net
+# Değilse düzenleyip: docker compose up -d backend
 ```
 
----
+## Kullanım
 
-## 3) İlk deploy
+- Kod push'ladığınızda otomatik deploy olur, **veya**
+- GitHub → **Actions → Deploy to Production → Run workflow** ile elle tetikleyin.
 
-1. Yukarıdaki tüm secret'ları ekleyin.
-2. GitHub → **Actions → Deploy to Production → Run workflow** (veya master'a bir push).
-3. Workflow biter: kod çekilir, `.env` yazılır, container'lar build edilip başlar.
+## ⚠️ Notlar
 
-### İlk admin kullanıcısı
-```bash
-cd ~/nefesol-shop
-docker compose exec backend node create-admin.js
-# admin@ecommerce.com / Admin123!  → giriş yapıp şifreyi değiştirin
-```
-
-Adres: `http://SUNUCU_IP` · Admin: `http://SUNUCU_IP/admin`
-
----
-
-## ⚠️ Önemli notlar
-
-- **DB şifresi ilk kurulumda sabitlenir.** PostgreSQL `POSTGRES_PASSWORD`'ü **yalnızca veritabanı
-  ilk oluşturulurken** kullanır. Daha sonra secret'taki şifreyi değiştirirseniz `DATABASE_URL`
-  eşleşmez ve bağlantı kopar. Şifreyi değiştirmeniz gerekirse DB volume'ünü sıfırlamanız gerekir
-  (veri kaybı). Bu yüzden ilk deploy'dan önce güçlü bir `POSTGRES_PASSWORD` belirleyin.
-- **SSH key (önerilir):** Şifre yerine anahtar kullanmak daha güvenli. Sunucuda
-  `~/.ssh/authorized_keys`'e public key ekleyin, private key'i `SERVER_SSH_KEY` secret'ı yapın,
-  `deploy.yml`'de `password:` satırını `key: ${{ secrets.SERVER_SSH_KEY }}` ile değiştirin.
-- **HTTPS:** IP ile HTTP çalışır. Alan adı + SSL için `bash deploy.sh` scriptini
-  `ENABLE_SSL=true` ile bir kez çalıştırın (Let's Encrypt).
+- **compose / .env değişiklikleri otomatik gelmez.** Workflow yalnızca uygulama kaynağını
+  günceller. `docker-compose.yml`, `.env` veya `nginx/` config'inde değişiklik gerekiyorsa
+  sunucuda elle güncelleyin (bu dosyalar NPM/altyapıya özeldir).
+- **SSH key (önerilir):** Sunucuda `~/.ssh/authorized_keys`'e public key ekleyin, private
+  key'i `SERVER_SSH_KEY` secret'ı yapın, `deploy.yml`'de `password:` yerine
+  `key: ${{ secrets.SERVER_SSH_KEY }}` kullanın.
+- **Güvenlik:** SSH ve DB şifreleri geçmişte ifşa olduysa değiştirin (DB şifresi değişimi
+  volume sıfırlama gerektirir — dikkatli olun).

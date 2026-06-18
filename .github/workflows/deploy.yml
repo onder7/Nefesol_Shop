@@ -1,12 +1,11 @@
 name: Deploy to Production
 
-# master'a her push'ta veya elle (Actions sekmesinden "Run workflow") çalışır.
+# master'a her push'ta veya elle (Actions → Run workflow) çalışır.
 on:
   push:
     branches: [master]
   workflow_dispatch:
 
-# Aynı anda tek deploy çalışsın (üst üste binmesin)
 concurrency:
   group: production-deploy
   cancel-in-progress: false
@@ -15,52 +14,26 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Sunucuya SSH ile deploy
+      - name: Sunucuya SSH ile deploy (kaynak güncelle + rebuild)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          # Güvenlik için SSH KEY önerilir. Anahtar kullanırsanız "password" satirini silip
-          # "key: ${{ secrets.SERVER_SSH_KEY }}" ekleyin.
+          # SSH key önerilir: password yerine "key: ${{ secrets.SERVER_SSH_KEY }}"
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             set -e
-            APP_DIR="$HOME/nefesol-shop"
-            REPO=https://github.com/onder7/Nefesol_Shop.git
-
-            # 1) Repoyu klonla / en güncel master'a getir
-            if [ ! -d "$APP_DIR/.git" ]; then
-              git clone "$REPO" "$APP_DIR"
-            fi
+            APP_DIR=/home/onder/management/stacks/nefesol-shop
             cd "$APP_DIR"
+
+            # En güncel kodu çek — AMA yalnızca uygulama kaynağını güncelle.
+            # docker-compose.yml (web_proxy ağı, port yok), .env (DB şifresi) ve
+            # nginx/ config'i SUNUCUYA AİT kalır; bu yüzden dokunulmaz.
             git fetch origin master
-            git reset --hard origin/master
+            git checkout origin/master -- frontend backend admin docker
 
-            # 2) .env'i GitHub secret'larindan yaz.
-            #    NOT: SMTP / Brevo / İyzico / Google Client ID admin panelinden (DB) yonetilir,
-            #    bu yuzden .env'de bos birakilir. Burasi yalnizca altyapi sirlari icindir.
-            cat > .env <<EOF
-            NODE_ENV=production
-            PORT=5000
-
-            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-            DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.POSTGRES_DB }}
-
-            REDIS_URL=redis://redis:6379
-
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            JWT_EXPIRES_IN=15m
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-            JWT_REFRESH_EXPIRES_IN=7d
-
-            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
-            ADMIN_URL=${{ secrets.FRONTEND_URL }}
-            EOF
-
-            # 3) Build + baslat, eski imajlari temizle
+            # Mevcut (özelleştirilmiş) compose + .env ile yeniden build et ve başlat
             docker compose up -d --build
             docker image prune -f
 
-            echo "✓ Deploy tamamlandi."
+            echo "✓ Deploy tamamlandı (compose/.env/nginx korundu)."
