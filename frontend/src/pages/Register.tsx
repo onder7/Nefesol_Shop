@@ -53,35 +53,6 @@ export function Register() {
     }
   };
 
-  const handleFacebookClick = () => {
-    if (!(window as any).FB) {
-      toast.error('Facebook SDK yüklenemiyor');
-      return;
-    }
-
-    (window as any).FB.login(async (response: any) => {
-      if (response.authResponse) {
-        try {
-          const res = await fetch('/api/auth/oauth/facebook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: response.authResponse.accessToken })
-          });
-          const data = await res.json();
-          if (data.success) {
-            setUser(data.data.user as User, data.data.accessToken);
-            toast.success('Facebook ile kayıt başarılı!');
-            navigate('/', { replace: true });
-          } else {
-            toast.error(data.error || 'Kayıt başarısız');
-          }
-        } catch (err) {
-          toast.error('Kayıt işlemi başarısız');
-        }
-      }
-    }, { scope: 'public_profile,email' });
-  };
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.password !== form.confirmPassword) {
@@ -277,14 +248,6 @@ export function Register() {
               {/* Social Login Buttons */}
               <div className="space-y-3">
                 <GoogleSignInButton text="signup_with" onCredential={handleGoogleCredential} />
-                <button
-                  type="button"
-                  onClick={handleFacebookClick}
-                  className="h-12 w-full flex items-center justify-center gap-2 rounded-md border border-input hover:bg-accent transition-colors text-sm font-semibold"
-                  title="Facebook ile kayıt ol"
-                >
-                  <span className="text-[#1877F2] text-lg font-bold">f</span> Facebook ile devam et
-                </button>
               </div>
 
               {/* KVKK / Yasal onay metni */}

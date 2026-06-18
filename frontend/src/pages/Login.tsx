@@ -52,35 +52,6 @@ export function Login() {
     }
   };
 
-  const handleFacebookClick = () => {
-    if (!(window as any).FB) {
-      toast.error('Facebook SDK yüklenemiyor');
-      return;
-    }
-
-    (window as any).FB.login(async (response: any) => {
-      if (response.authResponse) {
-        try {
-          const res = await fetch('/api/auth/oauth/facebook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: response.authResponse.accessToken })
-          });
-          const data = await res.json();
-          if (data.success) {
-            setUser(data.data.user as User, data.data.accessToken);
-            toast.success('Facebook ile giriş başarılı!');
-            navigate(from, { replace: true });
-          } else {
-            toast.error(data.error || 'Giriş başarısız');
-          }
-        } catch (err) {
-          toast.error('Giriş işlemi başarısız');
-        }
-      }
-    }, { scope: 'public_profile,email' });
-  };
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -204,14 +175,6 @@ export function Login() {
               {/* Social Login Buttons */}
               <div className="space-y-3">
                 <GoogleSignInButton text="signin_with" onCredential={handleGoogleCredential} />
-                <button
-                  type="button"
-                  onClick={handleFacebookClick}
-                  className="h-12 w-full flex items-center justify-center gap-2 rounded-md border border-input hover:bg-accent transition-colors text-sm font-semibold"
-                  title="Facebook ile giriş yap"
-                >
-                  <span className="text-[#1877F2] text-lg font-bold">f</span> Facebook ile devam et
-                </button>
               </div>
             </form>
           </div>
