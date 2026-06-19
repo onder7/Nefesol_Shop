@@ -49,8 +49,6 @@ export default function Products() {
   const [brands, setBrands] = useState<FilterOption[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState<string | null>(null);
-  const [editingVariant, setEditingVariant] = useState<string | null>(null);
-  const [editingStock, setEditingStock] = useState<string>('');
 
   useEffect(() => {
     Promise.all([
@@ -104,26 +102,6 @@ export default function Products() {
       load();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Hata');
-    }
-  }
-
-  async function updateVariantStock(variantId: string, newStock: number) {
-    if (newStock < 0) return alert('Stok negatif olamaz');
-    setEditingVariant(null);
-    try {
-      const product = data?.products.find((p) => p.variants.find((v) => v.id === variantId));
-      if (!product) return;
-      const variant = product.variants.find((v) => v.id === variantId);
-      if (!variant) return;
-      const oldStock = variant.stockQty;
-      const updatedVariants = product.variants.map((v) =>
-        v.id === variantId ? { ...v, stockQty: newStock } : v
-      );
-      await api.put(`/admin/products/${product.id}`, { variants: updatedVariants });
-      console.log(`Stok güncellendi: ${variant.sku} ${oldStock} → ${newStock}`);
-      load();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Stok güncellemesi hatası');
     }
   }
 
@@ -254,37 +232,19 @@ export default function Products() {
                     <td className="px-4 py-3 font-medium">{fmt(minPrice(p))}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
-                        <span className={`font-medium cursor-pointer hover:underline ${
+                        <span className={`font-medium ${
                           totalStock(p) === 0 ? 'text-meta-1' : totalStock(p) < 5 ? 'text-yellow-600' : 'text-meta-3'
-                        }`} title="Varyant stoklarını görmek için tıklayın">
+                        }`}>
                           Toplam: {totalStock(p)}
                         </span>
                         <div className="text-xs space-y-0.5">
                           {p.variants.map((v) => (
                             <div key={v.id} className="flex items-center gap-2">
                               <span className="text-gray-500 w-14 truncate" title={v.sku}>{v.sku}:</span>
-                              {editingVariant === v.id ? (
-                                <input
-                                  autoFocus
-                                  type="number"
-                                  min="0"
-                                  value={editingStock}
-                                  onChange={(e) => setEditingStock(e.target.value)}
-                                  onBlur={() => updateVariantStock(v.id, Number(editingStock))}
-                                  onKeyDown={(e) => e.key === 'Enter' && updateVariantStock(v.id, Number(editingStock))}
-                                  className="w-12 rounded border border-primary bg-transparent px-1 py-0.5 text-xs"
-                                />
-                              ) : (
-                                <span
-                                  onClick={() => {
-                                    setEditingVariant(v.id);
-                                    setEditingStock(String(v.stockQty));
-                                  }}
-                                  className="px-1.5 py-0.5 bg-gray-100 dark:bg-meta-4 rounded text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-meta-4/80"
-                                >
-                                  {v.stockQty}
-                                </span>
-                              )}
+                              {/* Stok salt-okunur — düzenleme yalnızca Stok Yönetimi'nden */}
+                              <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-meta-4 rounded text-gray-700 dark:text-gray-300">
+                                {v.stockQty}
+                              </span>
                             </div>
                           ))}
                         </div>
