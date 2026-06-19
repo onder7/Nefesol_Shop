@@ -7,6 +7,10 @@ interface Row {
   unitsSold: number;
   revenue: number;
   avgSellingPrice: number;
+  firstSalePrice: number | null;
+  lastSalePrice: number | null;
+  minSalePrice: number | null;
+  maxSalePrice: number | null;
   currentMinPrice: number | null;
   currentMaxPrice: number | null;
   priceChangeCount: number;
@@ -31,6 +35,22 @@ function priceRange(r: Row) {
     return `${fmt(r.currentMinPrice)} – ${fmt(r.currentMaxPrice)}`;
   }
   return fmt(r.currentMinPrice);
+}
+
+function saleRange(r: Row) {
+  if (r.minSalePrice == null) return '—';
+  if (r.maxSalePrice != null && r.maxSalePrice !== r.minSalePrice) {
+    return `${fmt(r.minSalePrice)} – ${fmt(r.maxSalePrice)}`;
+  }
+  return fmt(r.minSalePrice);
+}
+
+// İlk → son satış fiyatı yönü
+function trend(r: Row) {
+  if (r.firstSalePrice == null || r.lastSalePrice == null) return null;
+  if (r.lastSalePrice > r.firstSalePrice) return { sym: '▲', cls: 'text-green-600' };
+  if (r.lastSalePrice < r.firstSalePrice) return { sym: '▼', cls: 'text-red-600' };
+  return { sym: '＝', cls: 'text-gray-400' };
 }
 
 export default function PricingReport() {
@@ -107,9 +127,12 @@ export default function PricingReport() {
                 <th className="px-4 py-3">Ürün</th>
                 <th className="px-4 py-3 text-right">Satılan</th>
                 <th className="px-4 py-3 text-right">Ciro</th>
-                <th className="px-4 py-3 text-right">Ort. Satış Fiyatı</th>
-                <th className="px-4 py-3 text-right">Güncel Fiyat</th>
-                <th className="px-4 py-3 text-center">Fiyat Değişimi</th>
+                <th className="px-4 py-3 text-right">Ort. Satış</th>
+                <th className="px-4 py-3 text-right">İlk Satış</th>
+                <th className="px-4 py-3 text-right">Son Satış</th>
+                <th className="px-4 py-3 text-right">Satış Aralığı</th>
+                <th className="px-4 py-3 text-right">Güncel</th>
+                <th className="px-4 py-3 text-center">Değişim</th>
               </tr>
             </thead>
             <tbody>
@@ -124,6 +147,18 @@ export default function PricingReport() {
                     <td className="px-4 py-3 text-right">{r.unitsSold.toLocaleString('tr-TR')}</td>
                     <td className="px-4 py-3 text-right font-semibold text-black dark:text-white">{fmt(r.revenue)}</td>
                     <td className="px-4 py-3 text-right">{r.unitsSold > 0 ? fmt(r.avgSellingPrice) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">
+                      {r.firstSalePrice != null ? fmt(r.firstSalePrice) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {r.lastSalePrice != null ? (
+                        <>
+                          {fmt(r.lastSalePrice)}
+                          {trend(r) && <span className={`ml-1 ${trend(r)!.cls}`}>{trend(r)!.sym}</span>}
+                        </>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{saleRange(r)}</td>
                     <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{priceRange(r)}</td>
                     <td className="px-4 py-3 text-center">
                       {r.priceChangeCount > 0 ? (
@@ -137,7 +172,29 @@ export default function PricingReport() {
                   </tr>
                   {expanded === r.productId && (
                     <tr className="bg-gray-50 dark:bg-meta-4">
-                      <td colSpan={6} className="px-6 py-4">
+                      <td colSpan={9} className="px-6 py-4">
+                        {/* Fiyat yolculuğu özeti */}
+                        <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Fiyat Yolculuğu:</span>
+                          <span className="rounded bg-white dark:bg-boxdark px-2 py-1 border border-stroke dark:border-strokedark">
+                            İlk satış <strong>{r.firstSalePrice != null ? fmt(r.firstSalePrice) : '—'}</strong>
+                          </span>
+                          <span className="text-gray-400">→</span>
+                          <span className="rounded bg-white dark:bg-boxdark px-2 py-1 border border-stroke dark:border-strokedark">
+                            Son satış <strong>{r.lastSalePrice != null ? fmt(r.lastSalePrice) : '—'}</strong>
+                            {trend(r) && <span className={`ml-1 ${trend(r)!.cls}`}>{trend(r)!.sym}</span>}
+                          </span>
+                          <span className="rounded bg-white dark:bg-boxdark px-2 py-1 border border-stroke dark:border-strokedark text-gray-500">
+                            En düşük–yüksek satış: <strong>{saleRange(r)}</strong>
+                          </span>
+                          <span className="rounded bg-white dark:bg-boxdark px-2 py-1 border border-stroke dark:border-strokedark text-gray-500">
+                            Güncel fiyat: <strong>{priceRange(r)}</strong>
+                          </span>
+                          <span className="rounded bg-white dark:bg-boxdark px-2 py-1 border border-stroke dark:border-strokedark text-gray-500">
+                            Ort. satış: <strong>{r.unitsSold > 0 ? fmt(r.avgSellingPrice) : '—'}</strong>
+                          </span>
+                        </div>
+
                         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
                           Fiyat Değişim Geçmişi
                         </p>
