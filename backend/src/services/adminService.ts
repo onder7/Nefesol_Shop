@@ -240,8 +240,6 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
       // Mevcut varyantları güncelle
       for (const v of data.variants.filter((v) => v.id)) {
         const oldVariant = await tx.productVariant.findUnique({ where: { id: v.id! } });
-        const oldStockQty = oldVariant?.stockQty ?? 0;
-        const newStockQty = v.stockQty;
 
         await tx.productVariant.update({
           where: { id: v.id! },
@@ -249,21 +247,20 @@ export async function adminUpdateProduct(id: string, data: Partial<AdminProductI
             sku: v.sku,
             price: v.price,
             compareAt: v.compareAt ?? null,
-            stockQty: v.stockQty,
+            // NOT: stockQty ARTIK BURADA YAZILMIYOR. Stok yalnızca Stok Yönetimi'nden
+            // ve sipariş akışından değişir; ürün düzenleme stoğu (bayat değerle) ezmez.
             desi: v.desi ?? null,
             isActive: true,
           },
         });
 
-        // Stok değişmişse log oluştur
-        if (oldStockQty !== newStockQty) {
-          await tx.stockMovement.create({
+        // Fiyat değiştiyse geçmişe kaydet (raporlama: ortalama fiyat / ciro analizi)
+        if (oldVariant && Number(oldVariant.price) !== Number(v.price)) {
+          await tx.priceHistory.create({
             data: {
               variantId: v.id!,
-              oldQty: oldStockQty,
-              newQty: newStockQty,
-              difference: newStockQty - oldStockQty,
-              reason: 'admin_update',
+              oldPrice: oldVariant.price,
+              newPrice: v.price,
             },
           });
         }
@@ -752,6 +749,78 @@ export async function updateVariantStock(variantId: string, newQty: number, admi
 
     return updated;
   });
+}
+
+// ─── Fiyat & Ciro Raporu ──────────────────────────────────────────────────────
+// Ürün bazında: satılan adet, ciro (gerçek satış fiyatlarından), ortalama satış
+// fiyatı ve fiyat değişim sayısı. Ciro order_items.unit_price'tan gelir; fiyat
+// değiştiyse bile geçmiş siparişler kendi fiyatıyla doğru hesaplanır.
+export async function getProductPricingReport() {
+  const [products, sales, prices, changes] = await Promise.all([
+    prisma.product.findMany({ select: { id: true, name: true } }),
+    prisma.$queryRaw<Array<{ product_id: string; units: number; revenue: number }>>`
+      SELECT pv.product_id,
+             SUM(oi.quantity)::int AS units,
+             SUM(oi.unit_price * oi.quantity)::float AS revenue
+      FROM order_items oi
+      JOIN product_variants pv ON pv.id = oi.variant_id
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.status NOT IN ('CANCELLED', 'REFUNDED')
+      GROUP BY pv.product_id`,
+    prisma.$queryRaw<Array<{ product_id: string; min_price: number; max_price: number }>>`
+      SELECT product_id, MIN(price)::float AS min_price, MAX(price)::float AS max_price
+      FROM product_variants WHERE is_active = true
+      GROUP BY product_id`,
+    prisma.$queryRaw<Array<{ product_id: string; change_count: number; last_change: Date | null }>>`
+      SELECT pv.product_id,
+             COUNT(ph.id)::int AS change_count,
+             MAX(ph.created_at) AS last_change
+      FROM price_history ph
+      JOIN product_variants pv ON pv.id = ph.variant_id
+      GROUP BY pv.product_id`,
+  ]);
+
+  const salesMap = Object.fromEntries(sales.map((s) => [s.product_id, s]));
+  const priceMap = Object.fromEntries(prices.map((p) => [p.product_id, p]));
+  const changeMap = Object.fromEntries(changes.map((c) => [c.product_id, c]));
+
+  return products
+    .map((p) => {
+      const s = salesMap[p.id];
+      const units = Number(s?.units ?? 0);
+      const revenue = Number(s?.revenue ?? 0);
+      const ch = changeMap[p.id];
+      return {
+        productId: p.id,
+        name: p.name,
+        unitsSold: units,
+        revenue,
+        avgSellingPrice: units > 0 ? revenue / units : 0,
+        currentMinPrice: priceMap[p.id]?.min_price ?? null,
+        currentMaxPrice: priceMap[p.id]?.max_price ?? null,
+        priceChangeCount: Number(ch?.change_count ?? 0),
+        lastPriceChange: ch?.last_change ?? null,
+      };
+    })
+    .filter((r) => r.unitsSold > 0 || r.priceChangeCount > 0)
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
+// Tek ürünün fiyat değişim geçmişi (detay görünümü için)
+export async function getProductPriceHistory(productId: string) {
+  const rows = await prisma.priceHistory.findMany({
+    where: { variant: { productId } },
+    include: { variant: { select: { sku: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    sku: r.variant.sku,
+    oldPrice: Number(r.oldPrice),
+    newPrice: Number(r.newPrice),
+    createdAt: r.createdAt,
+  }));
 }
 
 export async function adminListBrands() {

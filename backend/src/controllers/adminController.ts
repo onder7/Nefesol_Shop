@@ -183,6 +183,21 @@ export async function updateVariantStock(req: AuthRequest, res: Response, next: 
   } catch (err) { next(err); }
 }
 
+// Fiyat & Ciro Raporu
+export async function getProductPricingReport(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.getProductPricingReport();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function getProductPriceHistory(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.getProductPriceHistory(String(req.params.productId));
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 // Brands
 export async function listBrands(req: AuthRequest, res: Response, next: NextFunction) {
   try {

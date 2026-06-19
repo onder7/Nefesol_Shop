@@ -16,6 +16,7 @@ import Categories from './pages/Categories';
 import Brands from './pages/Brands';
 import ShippingSettings from './pages/Settings/ShippingSettings';
 import Analytics from './pages/Analytics';
+import PricingReport from './pages/Reports/PricingReport';
 import UserAnalytics from './pages/UserAnalytics';
 import Settings from './pages/Settings';
 import AttributesPage from './pages/Attributes';
@@ -194,6 +195,15 @@ function AppRoutes() {
                     <>
                       <PageTitle title="Raporlar | Yönetim Paneli" />
                       <Analytics />
+                    </>
+                  }
+                />
+                <Route
+                  path="reports/pricing"
+                  element={
+                    <>
+                      <PageTitle title="Fiyat & Ciro Raporu | Yönetim Paneli" />
+                      <PricingReport />
                     </>
                   }
                 />

@@ -1057,12 +1057,28 @@ export default function ProductDetailPage() {
                         </div>
                         <div>
                           <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Stok</label>
-                          <input
-                            required type="number" min={0}
-                            value={v.stockQty}
-                            onChange={(e) => setVariant(vi, { stockQty: e.target.value })}
-                            className={inputSmCls}
-                          />
+                          {v.id ? (
+                            <>
+                              {/* Mevcut varyantta stok salt-okunur — yalnızca Stok Yönetimi ve sipariş akışı değiştirir */}
+                              <input
+                                type="number"
+                                value={v.stockQty}
+                                readOnly
+                                title="Stok yalnızca Stok Yönetimi'nden düzenlenir"
+                                className={inputSmCls + ' bg-gray-100 dark:bg-meta-4 cursor-not-allowed text-gray-500'}
+                              />
+                              <Link to="/stock-management" className="block text-[10px] text-primary hover:underline mt-1">
+                                Stok Yönetimi'nden düzenle →
+                              </Link>
+                            </>
+                          ) : (
+                            <input
+                              required type="number" min={0}
+                              value={v.stockQty}
+                              onChange={(e) => setVariant(vi, { stockQty: e.target.value })}
+                              className={inputSmCls}
+                            />
+                          )}
                         </div>
                         <div>
                           <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Desi</label>

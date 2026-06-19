@@ -187,8 +187,24 @@ model ProductVariant {
   wishlistItems   WishlistItem[]
   attributeValues VariantAttributeValue[]
   stockMovements  StockMovement[]
+  priceHistory    PriceHistory[]
 
   @@map("product_variants")
+}
+
+// Fiyat değişim geçmişi — raporlamada ortalama fiyat/ciro analizi için
+model PriceHistory {
+  id          String   @id @default(cuid())
+  variantId   String   @map("variant_id")
+  oldPrice    Decimal  @map("old_price") @db.Decimal(10, 2)
+  newPrice    Decimal  @map("new_price") @db.Decimal(10, 2)
+  adminUserId String?  @map("admin_user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId])
+  @@map("price_history")
 }
 
 // ─── Ürün Özellik Sistemi (EAV) ───────────────────────────────────────────────

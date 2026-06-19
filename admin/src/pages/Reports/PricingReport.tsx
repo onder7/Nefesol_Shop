@@ -1,0 +1,176 @@
+import { useEffect, useState } from 'react';
+import { api } from '../../lib/api';
+
+interface Row {
+  productId: string;
+  name: string;
+  unitsSold: number;
+  revenue: number;
+  avgSellingPrice: number;
+  currentMinPrice: number | null;
+  currentMaxPrice: number | null;
+  priceChangeCount: number;
+  lastPriceChange: string | null;
+}
+
+interface PriceChange {
+  id: string;
+  sku: string;
+  oldPrice: number;
+  newPrice: number;
+  createdAt: string;
+}
+
+const fmt = (n: number) =>
+  n.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 });
+const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString('tr-TR') : '—');
+
+function priceRange(r: Row) {
+  if (r.currentMinPrice == null) return '—';
+  if (r.currentMaxPrice != null && r.currentMaxPrice !== r.currentMinPrice) {
+    return `${fmt(r.currentMinPrice)} – ${fmt(r.currentMaxPrice)}`;
+  }
+  return fmt(r.currentMinPrice);
+}
+
+export default function PricingReport() {
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [history, setHistory] = useState<Record<string, PriceChange[]>>({});
+
+  useEffect(() => {
+    api
+      .get<{ success: boolean; data: Row[] }>('/admin/reports/product-pricing')
+      .then((r) => setRows(r.data ?? []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function toggle(productId: string) {
+    if (expanded === productId) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(productId);
+    if (!history[productId]) {
+      try {
+        const r = await api.get<{ success: boolean; data: PriceChange[] }>(
+          `/admin/reports/product-pricing/${productId}`,
+        );
+        setHistory((h) => ({ ...h, [productId]: r.data ?? [] }));
+      } catch {
+        setHistory((h) => ({ ...h, [productId]: [] }));
+      }
+    }
+  }
+
+  const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
+  const totalUnits = rows.reduce((s, r) => s + r.unitsSold, 0);
+
+  return (
+    <div className="mx-auto max-w-screen-2xl">
+      <h1 className="text-title-md2 font-bold text-black dark:text-white mb-1">Fiyat & Ciro Raporu</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        Ürün bazında satılan adet, ciro ve ortalama satış fiyatı. Ciro, her siparişin o anki gerçek
+        satış fiyatından hesaplanır (fiyat değişse bile doğrudur). Bir ürünün fiyat değişim geçmişini
+        görmek için satıra tıklayın.
+      </p>
+
+      {/* Özet kartlar */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="rounded-sm border border-stroke bg-white px-5 py-4 dark:border-strokedark dark:bg-boxdark">
+          <p className="text-xs text-gray-400 uppercase tracking-wider">Toplam Ciro</p>
+          <p className="text-2xl font-bold text-black dark:text-white">{fmt(totalRevenue)}</p>
+        </div>
+        <div className="rounded-sm border border-stroke bg-white px-5 py-4 dark:border-strokedark dark:bg-boxdark">
+          <p className="text-xs text-gray-400 uppercase tracking-wider">Satılan Adet</p>
+          <p className="text-2xl font-bold text-black dark:text-white">{totalUnits.toLocaleString('tr-TR')}</p>
+        </div>
+        <div className="rounded-sm border border-stroke bg-white px-5 py-4 dark:border-strokedark dark:bg-boxdark">
+          <p className="text-xs text-gray-400 uppercase tracking-wider">Genel Ort. Satış Fiyatı</p>
+          <p className="text-2xl font-bold text-black dark:text-white">
+            {totalUnits > 0 ? fmt(totalRevenue / totalUnits) : '—'}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-sm border border-stroke bg-white dark:border-strokedark dark:bg-boxdark overflow-x-auto">
+        {loading ? (
+          <div className="p-10 text-center text-gray-400">Yükleniyor…</div>
+        ) : rows.length === 0 ? (
+          <div className="p-10 text-center text-gray-400">Henüz satış veya fiyat değişimi olan ürün yok.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-stroke dark:border-strokedark text-left text-xs uppercase tracking-wider text-gray-400">
+                <th className="px-4 py-3">Ürün</th>
+                <th className="px-4 py-3 text-right">Satılan</th>
+                <th className="px-4 py-3 text-right">Ciro</th>
+                <th className="px-4 py-3 text-right">Ort. Satış Fiyatı</th>
+                <th className="px-4 py-3 text-right">Güncel Fiyat</th>
+                <th className="px-4 py-3 text-center">Fiyat Değişimi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <>
+                  <tr
+                    key={r.productId}
+                    onClick={() => toggle(r.productId)}
+                    className="border-b border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4 cursor-pointer"
+                  >
+                    <td className="px-4 py-3 font-medium text-black dark:text-white">{r.name}</td>
+                    <td className="px-4 py-3 text-right">{r.unitsSold.toLocaleString('tr-TR')}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-black dark:text-white">{fmt(r.revenue)}</td>
+                    <td className="px-4 py-3 text-right">{r.unitsSold > 0 ? fmt(r.avgSellingPrice) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{priceRange(r)}</td>
+                    <td className="px-4 py-3 text-center">
+                      {r.priceChangeCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          {r.priceChangeCount}× · {fmtDate(r.lastPriceChange)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                  {expanded === r.productId && (
+                    <tr className="bg-gray-50 dark:bg-meta-4">
+                      <td colSpan={6} className="px-6 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                          Fiyat Değişim Geçmişi
+                        </p>
+                        {!history[r.productId] ? (
+                          <p className="text-sm text-gray-400">Yükleniyor…</p>
+                        ) : history[r.productId].length === 0 ? (
+                          <p className="text-sm text-gray-400">Bu ürün için kayıtlı fiyat değişimi yok.</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {history[r.productId].map((h) => (
+                              <li key={h.id} className="flex items-center gap-3 text-sm">
+                                <span className="text-gray-400 w-24">{fmtDate(h.createdAt)}</span>
+                                <span className="font-mono text-xs text-gray-400">{h.sku}</span>
+                                <span className="text-gray-500 line-through">{fmt(h.oldPrice)}</span>
+                                <span className="text-gray-400">→</span>
+                                <span
+                                  className={`font-semibold ${h.newPrice >= h.oldPrice ? 'text-green-600' : 'text-red-600'}`}
+                                >
+                                  {fmt(h.newPrice)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}

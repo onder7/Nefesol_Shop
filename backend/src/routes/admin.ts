@@ -70,6 +70,10 @@ router.delete('/categories/:id', ctrl.deleteCategory);
 router.get('/stock-management', ctrl.getStockManagement);
 router.patch('/variants/:id/stock', ctrl.updateVariantStock);
 
+// Fiyat & Ciro Raporu
+router.get('/reports/product-pricing', ctrl.getProductPricingReport);
+router.get('/reports/product-pricing/:productId', ctrl.getProductPriceHistory);
+
 // Brands
 router.get('/brands', ctrl.listBrands);
 router.post('/brands', ctrl.createBrand);
