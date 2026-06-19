@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { ApexOptions } from 'apexcharts';
+import ReactApexChart from '../../lib/react-apexcharts';
 import { api } from '../../lib/api';
 
 interface Row {
@@ -7,6 +9,10 @@ interface Row {
   unitsSold: number;
   revenue: number;
   avgSellingPrice: number;
+  cogs: number | null;
+  profit: number | null;
+  marginPct: number | null;
+  costKnown: boolean;
   firstSalePrice: number | null;
   lastSalePrice: number | null;
   minSalePrice: number | null;
@@ -88,6 +94,23 @@ export default function PricingReport() {
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const totalUnits = rows.reduce((s, r) => s + r.unitsSold, 0);
 
+  // En çok ciro yapan ilk 10 ürün (rows zaten ciroya göre azalan sıralı)
+  const TOP_N = 10;
+  const topProducts = rows.filter((r) => r.revenue > 0).slice(0, TOP_N);
+  const chartOptions: ApexOptions = {
+    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit' },
+    plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
+    colors: ['#3C50E0'],
+    dataLabels: { enabled: false },
+    xaxis: {
+      categories: topProducts.map((r) => (r.name.length > 28 ? r.name.slice(0, 27) + '…' : r.name)),
+      labels: { formatter: (v) => fmt(Number(v)) },
+    },
+    tooltip: { y: { formatter: (v) => fmt(Number(v)) } },
+    grid: { strokeDashArray: 4 },
+  };
+  const chartSeries = [{ name: 'Ciro', data: topProducts.map((r) => Math.round(r.revenue)) }];
+
   return (
     <div className="mx-auto max-w-screen-2xl">
       <h1 className="text-title-md2 font-bold text-black dark:text-white mb-1">Fiyat & Ciro Raporu</h1>
@@ -115,6 +138,21 @@ export default function PricingReport() {
         </div>
       </div>
 
+      {/* En çok ciro yapan ilk 10 ürün */}
+      {topProducts.length > 0 && (
+        <div className="rounded-sm border border-stroke bg-white px-5 py-4 dark:border-strokedark dark:bg-boxdark mb-6">
+          <h2 className="text-sm font-semibold text-black dark:text-white mb-2">
+            En Çok Ciro Yapan İlk {topProducts.length} Ürün
+          </h2>
+          <ReactApexChart
+            options={chartOptions}
+            series={chartSeries}
+            type="bar"
+            height={Math.max(220, topProducts.length * 38)}
+          />
+        </div>
+      )}
+
       <div className="rounded-sm border border-stroke bg-white dark:border-strokedark dark:bg-boxdark overflow-x-auto">
         {loading ? (
           <div className="p-10 text-center text-gray-400">Yükleniyor…</div>
@@ -127,6 +165,7 @@ export default function PricingReport() {
                 <th className="px-4 py-3">Ürün</th>
                 <th className="px-4 py-3 text-right">Satılan</th>
                 <th className="px-4 py-3 text-right">Ciro</th>
+                <th className="px-4 py-3 text-right">Kâr Marjı</th>
                 <th className="px-4 py-3 text-right">Ort. Satış</th>
                 <th className="px-4 py-3 text-right">İlk Satış</th>
                 <th className="px-4 py-3 text-right">Son Satış</th>
@@ -146,6 +185,18 @@ export default function PricingReport() {
                     <td className="px-4 py-3 font-medium text-black dark:text-white">{r.name}</td>
                     <td className="px-4 py-3 text-right">{r.unitsSold.toLocaleString('tr-TR')}</td>
                     <td className="px-4 py-3 text-right font-semibold text-black dark:text-white">{fmt(r.revenue)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {r.marginPct != null ? (
+                        <span
+                          className={r.marginPct >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}
+                          title={r.profit != null ? `Kâr: ${fmt(r.profit)}` : ''}
+                        >
+                          %{r.marginPct.toFixed(1)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600" title="Bu ürüne maliyet (alış fiyatı) girilmemiş">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">{r.unitsSold > 0 ? fmt(r.avgSellingPrice) : '—'}</td>
                     <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">
                       {r.firstSalePrice != null ? fmt(r.firstSalePrice) : '—'}
@@ -172,7 +223,18 @@ export default function PricingReport() {
                   </tr>
                   {expanded === r.productId && (
                     <tr className="bg-gray-50 dark:bg-meta-4">
-                      <td colSpan={9} className="px-6 py-4">
+                      <td colSpan={10} className="px-6 py-4">
+                        {r.costKnown && (
+                          <div className="mb-3 text-sm">
+                            <span className="rounded bg-white dark:bg-boxdark px-2 py-1 border border-stroke dark:border-strokedark text-gray-500">
+                              Maliyet (COGS): <strong>{r.cogs != null ? fmt(r.cogs) : '—'}</strong> ·
+                              Kâr: <strong className={r.profit != null && r.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {r.profit != null ? fmt(r.profit) : '—'}
+                              </strong> ·
+                              Marj: <strong>{r.marginPct != null ? `%${r.marginPct.toFixed(1)}` : '—'}</strong>
+                            </span>
+                          </div>
+                        )}
                         {/* Fiyat yolculuğu özeti */}
                         <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
                           <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Fiyat Yolculuğu:</span>

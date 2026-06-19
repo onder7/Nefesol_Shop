@@ -756,7 +756,7 @@ export async function updateVariantStock(variantId: string, newQty: number, admi
 // fiyatı ve fiyat değişim sayısı. Ciro order_items.unit_price'tan gelir; fiyat
 // değiştiyse bile geçmiş siparişler kendi fiyatıyla doğru hesaplanır.
 export async function getProductPricingReport() {
-  const [products, sales, journey, prices, changes] = await Promise.all([
+  const [products, sales, journey, cogsRows, prices, changes] = await Promise.all([
     prisma.product.findMany({ select: { id: true, name: true } }),
     prisma.$queryRaw<Array<{ product_id: string; units: number; revenue: number }>>`
       SELECT pv.product_id,
@@ -782,6 +782,17 @@ export async function getProductPricingReport() {
         WHERE o.status NOT IN ('CANCELLED', 'REFUNDED')
       ) t
       GROUP BY product_id`,
+    // Satılan malların maliyeti (COGS): varyant maliyet override'ı yoksa ürün maliyeti
+    prisma.$queryRaw<Array<{ product_id: string; cogs: number; cost_known: number }>>`
+      SELECT pv.product_id,
+             SUM(COALESCE(pv.cost_price_override, p.cost_price, 0) * oi.quantity)::float AS cogs,
+             MAX(CASE WHEN COALESCE(pv.cost_price_override, p.cost_price) IS NOT NULL THEN 1 ELSE 0 END)::int AS cost_known
+      FROM order_items oi
+      JOIN product_variants pv ON pv.id = oi.variant_id
+      JOIN products p ON p.id = pv.product_id
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.status NOT IN ('CANCELLED', 'REFUNDED')
+      GROUP BY pv.product_id`,
     prisma.$queryRaw<Array<{ product_id: string; min_price: number; max_price: number }>>`
       SELECT product_id, MIN(price)::float AS min_price, MAX(price)::float AS max_price
       FROM product_variants WHERE is_active = true
@@ -797,6 +808,7 @@ export async function getProductPricingReport() {
 
   const salesMap = Object.fromEntries(sales.map((s) => [s.product_id, s]));
   const journeyMap = Object.fromEntries(journey.map((j) => [j.product_id, j]));
+  const cogsMap = Object.fromEntries(cogsRows.map((c) => [c.product_id, c]));
   const priceMap = Object.fromEntries(prices.map((p) => [p.product_id, p]));
   const changeMap = Object.fromEntries(changes.map((c) => [c.product_id, c]));
 
@@ -807,12 +819,22 @@ export async function getProductPricingReport() {
       const units = Number(s?.units ?? 0);
       const revenue = Number(s?.revenue ?? 0);
       const ch = changeMap[p.id];
+      // Kâr marjı: maliyet girilmişse hesapla
+      const cogsRow = cogsMap[p.id];
+      const costKnown = Number(cogsRow?.cost_known ?? 0) === 1;
+      const cogs = Number(cogsRow?.cogs ?? 0);
+      const profit = costKnown ? revenue - cogs : null;
+      const marginPct = costKnown && revenue > 0 ? ((revenue - cogs) / revenue) * 100 : null;
       return {
         productId: p.id,
         name: p.name,
         unitsSold: units,
         revenue,
         avgSellingPrice: units > 0 ? revenue / units : 0,
+        cogs: costKnown ? cogs : null,
+        profit,
+        marginPct,
+        costKnown,
         firstSalePrice: j?.first_sale ?? null,
         lastSalePrice: j?.last_sale ?? null,
         minSalePrice: j?.min_sale ?? null,
