@@ -51,8 +51,16 @@ const profileUpdateSchema = z.object({
   phone: z.string().max(15).optional(),
 });
 
+const guestLoginSchema = z.object({
+  email: z.email('Geçerli bir e-posta giriniz'),
+  firstName: z.string().min(2, 'Ad en az 2 karakter olmalı').max(50),
+  lastName: z.string().min(2, 'Soyad en az 2 karakter olmalı').max(50),
+  phone: z.string().optional(),
+});
+
 router.post('/register', validate(registerSchema), ctrl.register);
 router.post('/login', validate(loginSchema), ctrl.login);
+router.post('/guest-login', validate(guestLoginSchema), ctrl.guestLogin);
 router.post('/logout', authenticate, ctrl.logout);
 router.post('/refresh-token', ctrl.refreshToken);
 router.get('/me', authenticate, ctrl.getMe);

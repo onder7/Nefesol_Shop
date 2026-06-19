@@ -59,6 +59,7 @@ router.put('/customers/:id/toggle-status', ctrl.toggleCustomerStatus);
 router.post('/newsletter/subscribers', ctrl.createSubscriber);
 router.put('/newsletter/subscribers/:id/toggle-status', ctrl.toggleSubscriberStatus);
 router.delete('/newsletter/subscribers/:id', ctrl.deleteSubscriber);
+router.post('/newsletter/send', ctrl.sendNewsletterEmail);
 
 // Categories
 router.get('/categories', ctrl.listCategories);

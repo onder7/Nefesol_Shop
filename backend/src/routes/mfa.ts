@@ -9,6 +9,24 @@ import * as jwt from 'jsonwebtoken';
 
 const router = Router();
 
+// MFA durumu kontrolü
+router.get('/status', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId || (req as any).user?.id;
+    if (!userId) throw new AppError('Kullanıcı bulunamadı', 401);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    res.json({
+      success: true,
+      data: {
+        mfaEnabled: user?.mfaEnabled ?? false,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // MFA setup başla - QR code ve yedek kodlar oluştur
 router.post('/setup', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -76,14 +94,6 @@ router.post('/disable', authenticate, async (req: AuthRequest, res: Response, ne
   try {
     const userId = req.user?.id;
     if (!userId) throw new AppError('Kullanıcı bulunamadı', 401);
-
-    const { password } = req.body as { password: string };
-
-    if (!password) {
-      throw new AppError('Şifre gereklidir', 400);
-    }
-
-    // Şifre doğrulaması yapılabilir (başında)
 
     await mfaService.disableMFA(userId);
 

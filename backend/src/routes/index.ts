@@ -41,7 +41,14 @@ router.get('/campaign', getActiveCampaign);
 router.get('/config/public', async (_req, res, next) => {
   try {
     res.set('Cache-Control', 'no-cache');
-    res.json({ success: true, data: { googleClientId: await getGoogleClientId() } });
+    const analyticsConfig = await getSettingsGroup('analytics_');
+    res.json({ 
+      success: true, 
+      data: { 
+        googleClientId: await getGoogleClientId(),
+        analyticsCode: analyticsConfig.tracking_code || null
+      } 
+    });
   } catch (err) { next(err); }
 });
 router.use('/auth', authRouter);

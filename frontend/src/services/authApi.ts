@@ -15,12 +15,22 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface GuestLoginPayload {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}
+
 export const authApi = {
   register: (data: RegisterPayload) =>
     api.post<{ success: boolean; data: { accessToken: string } }>('/auth/register', data),
 
   login: (data: LoginPayload) =>
     api.post<{ success: boolean; data: { accessToken: string; user: User } }>('/auth/login', data),
+
+  guestLogin: (data: GuestLoginPayload) =>
+    api.post<{ success: boolean; data: { accessToken: string; user: User } }>('/auth/guest-login', data),
 
   logout: () => api.post('/auth/logout'),
 

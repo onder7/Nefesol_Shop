@@ -24,6 +24,13 @@ interface LoginInput {
   password: string;
 }
 
+export interface GuestLoginInput {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}
+
 function signAccess(userId: string, email: string, role: string): string {
   return jwt.sign({ id: userId, email, role }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
@@ -46,32 +53,108 @@ async function revokeRefreshToken(userId: string): Promise<void> {
 }
 
 export async function register(input: RegisterInput): Promise<TokenPair> {
-  const existing = await prisma.user.findUnique({ where: { email: input.email } });
-  if (existing) throw new AppError('Bu e-posta adresi zaten kayıtlı', 409);
-
+  const existing = await prisma.user.findUnique({ where: { email: input.email }, include: { profile: true } });
+  
   const hashed = await bcrypt.hash(input.password, 12);
+  let user;
 
-  const user = await prisma.user.create({
-    data: {
-      email: input.email,
-      passwordHash: hashed,
-      role: 'CUSTOMER',
-      marketingConsent: input.marketingConsent ?? false,
-      profile: {
-        create: {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          phone: input.phone,
+  if (existing) {
+    if (!existing.isGuest) {
+      throw new AppError('Bu e-posta adresi zaten kayıtlı', 409);
+    }
+    // Guest hesabını gerçek hesaba dönüştür
+    user = await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        passwordHash: hashed,
+        isGuest: false,
+        marketingConsent: input.marketingConsent ?? existing.marketingConsent,
+        profile: {
+          update: {
+            firstName: input.firstName || existing.profile?.firstName,
+            lastName: input.lastName || existing.profile?.lastName,
+            phone: input.phone || existing.profile?.phone,
+          }
+        }
+      },
+    });
+  } else {
+    user = await prisma.user.create({
+      data: {
+        email: input.email,
+        passwordHash: hashed,
+        role: 'CUSTOMER',
+        isGuest: false,
+        marketingConsent: input.marketingConsent ?? false,
+        profile: {
+          create: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+          },
         },
       },
-    },
-  });
+    });
+  }
 
   const accessToken = signAccess(user.id, user.email, user.role);
   const refreshToken = signRefresh(user.id);
   await storeRefreshToken(user.id, refreshToken);
 
   return { accessToken, refreshToken };
+}
+
+export async function guestLogin(input: GuestLoginInput): Promise<(TokenPair & { user: object })> {
+  const existing = await prisma.user.findUnique({
+    where: { email: input.email },
+    include: { profile: true },
+  });
+
+  let user;
+
+  if (existing) {
+    // Şifresi olan kullanıcı gerçek üyedir, misafir girişine izin verme
+    if (existing.passwordHash) {
+      throw new AppError('Bu e-posta adresi ile kayıtlı bir hesap var. Lütfen üye girişi yapınız.', 409);
+    }
+    // is_guest = false olarak kaydedilmiş eski misafirleri düzelt
+    if (!existing.isGuest) {
+      await prisma.user.update({ where: { id: existing.id }, data: { isGuest: true } });
+    }
+    user = existing;
+  } else {
+    user = await prisma.user.create({
+      data: {
+        email: input.email,
+        role: 'CUSTOMER',
+        isGuest: true,
+        profile: {
+          create: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+          },
+        },
+      },
+      include: { profile: true },
+    });
+  }
+
+  const accessToken = signAccess(user.id, user.email, user.role);
+  const refreshToken = signRefresh(user.id);
+  await storeRefreshToken(user.id, refreshToken);
+
+  return { 
+    accessToken, 
+    refreshToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      isGuest: true,
+      profile: user.profile,
+    }
+  };
 }
 
 export async function login(input: LoginInput): Promise<(TokenPair & { user: object; mfaRequired?: boolean; tempToken?: string }) | any> {

@@ -12,8 +12,18 @@ export default function MFATab() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // MFA durumu admin'in veritabanında saklanır, başta false (pasif)
-
+  // MFA durumu admin'in veritabanında saklanır
+  useEffect(() => {
+    setLoading(true);
+    api.get<{ success: boolean; data: { mfaEnabled: boolean } }>('/mfa/status')
+      .then(res => {
+        if (res.data) {
+          setMfaEnabled(res.data.mfaEnabled);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
   const handleEnableMFA = async () => {
     setError('');
     setLoading(true);

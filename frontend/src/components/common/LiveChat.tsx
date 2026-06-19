@@ -109,11 +109,16 @@ const DEFAULT_RESPONSE: KnowledgeRule = {
 // ─── Yanıt motoru ─────────────────────────────────────────────────────────────
 
 function buildMatcher(rules: KnowledgeRule[]) {
+  // Boş anahtar kelimeye sahip ilk kuralı varsayılan (fallback) olarak belirle
+  const fallbackRule = rules.find(r => !r.keywords || r.keywords.length === 0) ?? DEFAULT_RESPONSE;
+
   return function getResponse(userText: string): KnowledgeRule {
     const lower = userText.toLowerCase().trim();
     let best: KnowledgeRule | null = null;
     let bestScore = 0;
+    
     for (const rule of rules) {
+      if (!rule.keywords || rule.keywords.length === 0) continue;
       for (const kw of rule.keywords) {
         if (lower.includes(kw)) {
           const score = kw.length;
@@ -121,7 +126,7 @@ function buildMatcher(rules: KnowledgeRule[]) {
         }
       }
     }
-    return best ?? DEFAULT_RESPONSE;
+    return best ?? fallbackRule;
   };
 }
 

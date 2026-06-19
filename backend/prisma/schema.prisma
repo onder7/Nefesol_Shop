@@ -22,6 +22,7 @@ model User {
   lastName     String   @default("") @map("last_name")
   passwordHash String?  @map("password_hash")
   role         Role     @default(CUSTOMER)
+  isGuest      Boolean  @default(false) @map("is_guest")
   isActive     Boolean  @default(true) @map("is_active")
   refreshTokens String[] @default([]) @map("refresh_tokens")
 

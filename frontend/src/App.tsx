@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import { ProtectedRoute, CustomerOnlyRoute } from '@/components/common/ProtectedRoute';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { LiveChat } from '@/components/common/LiveChat';
 import { PopupNotification } from '@/components/common/PopupNotification';
@@ -80,13 +80,18 @@ function AppContent() {
 
         {/* Korumalı route'lar */}
         <Route element={<ProtectedRoute />}>
+          {/* Misafir yalnızca ödeme yapabilir; checkout ProtectedRoute altında kalır */}
           <Route path="/odeme" element={<Checkout />} />
-          <Route path="/hesabim" element={<AccountDashboard />} />
-          <Route path="/hesabim/siparisler" element={<AccountDashboard />} />
-          <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
-          <Route path="/hesabim/profil" element={<Profile />} />
-          <Route path="/hesabim/favoriler" element={<Favorites />} />
-          <Route path="/hesabim/adresler" element={<Addresses />} />
+
+          {/* Hesap sayfaları (sipariş geçmişi dahil) yalnızca üyelere açık — misafir erişemez */}
+          <Route element={<CustomerOnlyRoute />}>
+            <Route path="/hesabim" element={<AccountDashboard />} />
+            <Route path="/hesabim/siparisler" element={<AccountDashboard />} />
+            <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
+            <Route path="/hesabim/profil" element={<Profile />} />
+            <Route path="/hesabim/favoriler" element={<Favorites />} />
+            <Route path="/hesabim/adresler" element={<Addresses />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<NotFound />} />

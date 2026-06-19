@@ -119,6 +119,13 @@ export default function UserAnalytics() {
   const [newStatus, setNewStatus] = useState<'confirmed' | 'pending'>('confirmed');
   const [adding, setAdding] = useState(false);
 
+  // Email sending states
+  const [selectedSubs, setSelectedSubs] = useState<string[]>([]);
+  const [showMailModal, setShowMailModal] = useState(false);
+  const [mailSubject, setMailSubject] = useState('');
+  const [mailBody, setMailBody] = useState('');
+  const [mailLoading, setMailLoading] = useState(false);
+
   // Fetch real analytics data
   const fetchAnalytics = useCallback(() => {
     setLoading(true);
@@ -201,6 +208,46 @@ export default function UserAnalytics() {
     } catch (err) {
       console.error('Failed to delete subscriber:', err);
       alert('Abone silinirken hata oluştu.');
+    }
+  };
+
+  // Checkbox handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedSubs(filteredSubs.map((s) => s.id));
+    } else {
+      setSelectedSubs([]);
+    }
+  };
+
+  const handleSelectSub = (id: string) => {
+    setSelectedSubs((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  // Mail sending action
+  const handleSendMail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mailSubject || !mailBody) return;
+    setMailLoading(true);
+    try {
+      const res = await api.post<any>('/admin/newsletter/send', {
+        subject: mailSubject,
+        htmlContent: mailBody,
+        subscriberIds: selectedSubs.length > 0 ? selectedSubs : undefined,
+      });
+      if (res.success) {
+        alert(res.message || 'E-posta gönderimi başlatıldı.');
+        setShowMailModal(false);
+        setMailSubject('');
+        setMailBody('');
+        setSelectedSubs([]);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Gönderim sırasında hata oluştu.');
+    } finally {
+      setMailLoading(false);
     }
   };
 
@@ -602,7 +649,18 @@ export default function UserAnalytics() {
                     </svg>
                     CSV Excel
                   </button>
+                  <button
+                    onClick={() => setShowMailModal(true)}
+                    className="inline-flex items-center gap-1.5 rounded bg-primary px-3.5 py-2 text-xs font-medium text-white transition hover:bg-opacity-90"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                      <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    Toplu E-posta Gönder {selectedSubs.length > 0 ? `(${selectedSubs.length})` : '(Tümü)'}
+                  </button>
                 </div>
+
               </div>
             </div>
 
@@ -610,9 +668,18 @@ export default function UserAnalytics() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-stroke bg-gray-2 dark:border-strokedark dark:bg-meta-4">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-bodydark2 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedSubs.length === filteredSubs.length && filteredSubs.length > 0}
+                        onChange={handleSelectAll}
+                        className="cursor-pointer"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-bodydark2 w-12">
                       #
                     </th>
+
                     <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-bodydark2">
                       E-posta
                     </th>
@@ -633,7 +700,16 @@ export default function UserAnalytics() {
                       key={sub.id}
                       className="transition-colors hover:bg-gray-2 dark:hover:bg-meta-4/30"
                     >
+                      <td className="px-4 py-3.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedSubs.includes(sub.id)}
+                          onChange={() => handleSelectSub(sub.id)}
+                          className="cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3.5 font-mono text-xs text-bodydark2">{i + 1}</td>
+
                       <td className="px-3 py-3.5 font-medium text-black dark:text-white">{sub.email}</td>
                       <td className="px-3 py-3.5 text-body">{new Date(sub.date).toLocaleDateString('tr-TR')}</td>
                       <td className="px-3 py-3.5 text-center">
@@ -704,6 +780,84 @@ export default function UserAnalytics() {
         </div>
       )}
 
+      {/* Modal: Toplu E-posta Gönderme */}
+      {showMailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-lg bg-white dark:bg-boxdark p-6 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-black dark:text-white">Pazarlama E-postası Gönder</h3>
+              <button
+                onClick={() => setShowMailModal(false)}
+                className="text-gray-500 hover:text-black dark:hover:text-white text-xl"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {selectedSubs.length > 0 
+                ? `Seçili ${selectedSubs.length} aboneye e-posta gönderilecek.` 
+                : 'Belirli aboneler seçilmediği için tüm onaylı abonelere (tüm listeye) e-posta gönderilecektir.'}
+            </p>
+
+            <form onSubmit={handleSendMail} className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                  E-posta Konusu
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Bahar İndirimi Başladı!"
+                  value={mailSubject}
+                  onChange={(e) => setMailSubject(e.target.value)}
+                  className="w-full rounded border-[1.5px] border-stroke bg-transparent px-4 py-2 text-black outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+                  disabled={mailLoading}
+                />
+              </div>
+              
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                  İçerik (HTML)
+                </label>
+                <textarea
+                  required
+                  rows={8}
+                  placeholder="<h1>Merhaba,</h1><p>Bahar indirimlerimiz...</p>"
+                  value={mailBody}
+                  onChange={(e) => setMailBody(e.target.value)}
+                  className="w-full rounded border-[1.5px] border-stroke bg-transparent px-4 py-2 text-black outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+                  disabled={mailLoading}
+                />
+                <p className="text-xs text-gray-400 mt-1">Girdiğiniz HTML içeriği otomatik olarak şablon içine sarılarak gönderilir.</p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowMailModal(false)}
+                  className="rounded border border-stroke px-4 py-2 text-black hover:bg-gray dark:border-strokedark dark:text-white dark:hover:bg-meta-4"
+                  disabled={mailLoading}
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={mailLoading || !mailSubject || !mailBody}
+                  className="flex items-center gap-2 rounded bg-primary px-6 py-2 text-white hover:bg-opacity-90 disabled:opacity-50"
+                >
+                  {mailLoading && (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  )}
+                  {mailLoading ? 'Gönderiliyor...' : 'Gönder'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+

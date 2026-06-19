@@ -64,25 +64,27 @@ export async function verifyMFALogin(
 ): Promise<{ success: boolean; backupCodeUsed?: boolean }> {
   const user = await prisma.user.findUnique({ where: { id: userId } }) as any;
 
-  if (!user || !user.mfa_enabled || !user.mfa_secret) {
+  if (!user || (!user.mfaEnabled && !user.mfa_enabled) || (!user.mfaSecret && !user.mfa_secret)) {
     throw new AppError('MFA etkinleştirilmemiş', 400);
   }
 
+  const secret = user.mfaSecret || user.mfa_secret;
+
   // Normal TOTP token kontrol et
-  const isValidToken = await verifyMFAToken(user.mfa_secret, token);
+  const isValidToken = await verifyMFAToken(secret, token);
   if (isValidToken) {
     return { success: true };
   }
 
   // Yedek kod kontrol et
-  const backupCodes = user.backup_codes || [];
+  const backupCodes = user.backupCodes || user.backup_codes || [];
   const backupCodeIndex = backupCodes.indexOf(token);
   if (backupCodeIndex !== -1) {
     // Kullanılan yedek kodu sil
     const newBackupCodes = backupCodes.filter((_: any, i: number) => i !== backupCodeIndex);
     await prisma.user.update({
       where: { id: userId },
-      data: { backup_codes: newBackupCodes } as any,
+      data: { backupCodes: newBackupCodes },
     });
     return { success: true, backupCodeUsed: true };
   }

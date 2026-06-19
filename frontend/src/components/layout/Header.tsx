@@ -219,31 +219,35 @@ export function Header() {
                 <DropdownMenuSeparator />
 
                 {/* Account Links */}
-                <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
-                  Hesap Özeti
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link to="/hesabim/siparisler" />} className="text-sm">
-                  Siparişlerim
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link to="/iletisim" />} className="text-sm">
-                  Soru ve Taleplerim
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link to="/hesabim/profil" />} className="text-sm">
-                  Kullanıcı Bilgilerim
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
-                  Değerlendirmelerim
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link to="/hesabim/favoriler" />} className="text-sm">
-                  Beğendiklerim
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {!user?.isGuest && (
+                  <>
+                    <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                      Hesap Özeti
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link to="/hesabim/siparisler" />} className="text-sm">
+                      Siparişlerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link to="/iletisim" />} className="text-sm">
+                      Soru ve Taleplerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link to="/hesabim/profil" />} className="text-sm">
+                      Kullanıcı Bilgilerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                      Değerlendirmelerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link to="/hesabim/favoriler" />} className="text-sm">
+                      Beğendiklerim
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
 
-                {/* Additional Links */}
-                <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
-                  Kuponlarım
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                    {/* Additional Links */}
+                    <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                      Kuponlarım
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
 
                 {/* Logout */}
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive text-sm">
@@ -328,27 +332,7 @@ export function Header() {
                   Tüm Ürünler
                 </SheetClose>
                 {isAuthenticated ? (
-                  <>
-                    <SheetClose
-                      render={
-                        <Link
-                          to="/hesabim"
-                          className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                        />
-                      }
-                    >
-                      Hesap Özeti
-                    </SheetClose>
-                    <SheetClose
-                      render={
-                        <Link
-                          to="/hesabim/siparisler"
-                          className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                        />
-                      }
-                    >
-                      Siparişlerim
-                    </SheetClose>
+                  user?.isGuest ? (
                     <SheetClose
                       render={
                         <Button
@@ -361,7 +345,42 @@ export function Header() {
                       <LogOut className="h-4 w-4 mr-2" />
                       Çıkış Yap
                     </SheetClose>
-                  </>
+                  ) : (
+                    <>
+                      <SheetClose
+                        render={
+                          <Link
+                            to="/hesabim"
+                            className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
+                          />
+                        }
+                      >
+                        Hesap Özeti
+                      </SheetClose>
+                      <SheetClose
+                        render={
+                          <Link
+                            to="/hesabim/siparisler"
+                            className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
+                          />
+                        }
+                      >
+                        Siparişlerim
+                      </SheetClose>
+                      <SheetClose
+                        render={
+                          <Button
+                            variant="ghost"
+                            onClick={handleLogout}
+                            className="justify-start px-2 py-1.5 h-auto text-destructive hover:text-destructive hover:bg-destructive/10"
+                          />
+                        }
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Çıkış Yap
+                      </SheetClose>
+                    </>
+                  )
                 ) : (
                   <SheetClose
                     render={

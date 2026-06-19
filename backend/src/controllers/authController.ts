@@ -55,6 +55,20 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
   }
 }
 
+export async function guestLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await authService.guestLogin(req.body) as any;
+    setTokenCookies(res, result.accessToken, result.refreshToken);
+    res.json({
+      success: true,
+      message: 'Misafir girişi başarılı',
+      data: { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function logout(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (req.user?.id) await authService.logout(req.user.id);

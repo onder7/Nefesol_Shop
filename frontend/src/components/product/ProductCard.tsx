@@ -1,7 +1,9 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Product } from '@/types';
 import { Heart } from 'lucide-react';
 import { useWishlistStore } from '@/store/wishlistStore';
+import { useAuthStore } from '@/store/authStore';
+import { toast } from 'sonner';
 import { CampaignBadges } from '@/components/common/CampaignDisplay';
 
 interface Props {
@@ -25,10 +27,17 @@ export function ProductCard({ product }: Props) {
 
   const { isFavorite, toggleFavorite } = useWishlistStore();
   const fav = isFavorite(product.id);
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (user?.isGuest || !user) {
+      toast.info('Favorilere eklemek için üye olmanız gerekiyor.');
+      navigate('/kayit');
+      return;
+    }
     await toggleFavorite(product.id);
   };
 

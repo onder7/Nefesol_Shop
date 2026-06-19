@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, ShoppingCart, Star, Minus, Plus, Heart } from 'lucide-react';
 import { productApi } from '@/services/productApi';
 import { cartApi } from '@/services/cartApi';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -175,6 +176,8 @@ export function ProductDetail() {
   const qc = useQueryClient();
   const { isFavorite, toggleFavorite } = useWishlistStore();
   const addToRecentlyViewed = useRecentlyViewedStore((s) => s.add);
+  const navigate = useNavigate();
+  const authUser = useAuthStore((s) => s.user);
 
   const { data: socialLinks } = useSocialLinks();
   const waNumber = socialLinks?.whatsapp
@@ -323,7 +326,14 @@ export function ProductDetail() {
             <button
               type="button"
               title={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-              onClick={() => toggleFavorite(product.id)}
+              onClick={() => {
+                if (authUser?.isGuest || !authUser) {
+                  toast.info('Favorilere eklemek için üye olmanız gerekiyor.');
+                  navigate('/kayit');
+                  return;
+                }
+                toggleFavorite(product.id);
+              }}
               className={`absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
                 fav
                   ? 'bg-red-500 hover:bg-red-600 text-white scale-110'

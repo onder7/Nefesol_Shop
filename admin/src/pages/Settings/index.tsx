@@ -2114,7 +2114,7 @@ function RuleModal({
             </Field>
           </div>
 
-          <Field label="Tetikleyici Kelimeler" hint="Kullanıcı bu kelimeleri yazınca bu kural devreye girer">
+          <Field label="Tetikleyici Kelimeler" hint="Hiçbir kelime eklemezseniz, bu kural Varsayılan (Anlaşılamayan Sorulara) yanıt olarak çalışır">
             <KeywordInput value={form.keywords} onChange={(v) => set('keywords', v)} />
           </Field>
 
@@ -2262,10 +2262,18 @@ function ChatbotTab() {
                     {!rule.isActive && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-meta-4 text-gray-500">Pasif</span>}
                   </div>
                   <div className="flex flex-wrap gap-1 mb-2">
-                    {rule.keywords.slice(0, 6).map((kw) => (
-                      <span key={kw} className="text-[11px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono">{kw}</span>
-                    ))}
-                    {rule.keywords.length > 6 && <span className="text-[11px] text-gray-400">+{rule.keywords.length - 6}</span>}
+                    {rule.keywords.length === 0 ? (
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium border border-amber-200">
+                        🌟 Varsayılan (Fallback) Yanıt
+                      </span>
+                    ) : (
+                      <>
+                        {rule.keywords.slice(0, 6).map((kw) => (
+                          <span key={kw} className="text-[11px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono">{kw}</span>
+                        ))}
+                        {rule.keywords.length > 6 && <span className="text-[11px] text-gray-400">+{rule.keywords.length - 6}</span>}
+                      </>
+                    )}
                   </div>
                   <p className="text-xs text-gray-400 truncate max-w-md">{rule.response.replace(/\*\*/g, '').slice(0, 100)}…</p>
                 </div>
@@ -3347,18 +3355,46 @@ function PopupTab() {
 type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
 
 function AnalyticsTab() {
+  const [loading, setLoading] = useState(true);
+  const s = useSave('analytics', {});
+
+  useEffect(() => {
+    api
+      .get<{ success: boolean; data: Record<string, string> }>('/admin/settings/analytics')
+      .then((r) => s.load(r.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading) return <Loader />;
+  
+  const g = s.form;
+
   return (
     <div className="space-y-6">
       <SectionCard
-        title="Analytics"
-        subtitle="Analytics entegrasyonunuzu buradan yapılandırın"
+        title="Analytics Entegrasyonu"
+        subtitle="Google Analytics, Facebook Pixel, Matomo gibi takip kodlarınızı buraya ekleyebilirsiniz."
       >
-        <div className="rounded-md border border-stroke bg-gray-50 p-4 text-sm text-gray-600 dark:border-strokedark dark:bg-meta-4 dark:text-gray-300">
-          <p className="font-semibold mb-2">Analytics Entegrasyonu</p>
-          <p>Google Analytics, Matomo veya başka bir analytics çözümü kullanmak için ilgili script'i
-          frontend'in <code>index.html</code> dosyasına ya da <code>src/lib/analytics.ts</code> dosyasına ekleyin.</p>
+        <div className="rounded-md border border-stroke bg-blue-50 p-4 text-sm text-blue-800 dark:border-strokedark dark:bg-blue-900/20 dark:text-blue-300 mb-5">
+          <p>
+            Verdiğiniz kod bloğu (örn. <code>&lt;script&gt;...&lt;/script&gt;</code>) mağazanın tüm sayfalarında 
+            otomatik olarak çalıştırılacaktır. Sadece güvenilir izleme kodlarını yapıştırın.
+          </p>
         </div>
+
+        <Field label="Takip / İzleme Kodu (HTML/Script)">
+          <textarea
+            className={inputCls + ' min-h-[250px] resize-y font-mono text-xs whitespace-pre'}
+            value={g.tracking_code ?? ''}
+            onChange={(e) => s.set('tracking_code', e.target.value)}
+            placeholder="<!-- Global site tag (gtag.js) - Google Analytics -->&#10;<script async src=&#34;https://www.googletagmanager.com/gtag/js?id=G-XXXXX&#34;></script>&#10;..."
+          />
+        </Field>
       </SectionCard>
+      
+      <SaveBar saving={s.saving} saved={s.saved} error={s.error} onSave={s.save} onReset={s.reset} />
     </div>
   );
 }

@@ -15,6 +15,7 @@ export interface User {
   id: string;
   email: string;
   role: 'CUSTOMER' | 'ADMIN';
+  isGuest?: boolean;
   profile?: { firstName?: string; lastName?: string; phone?: string; avatarUrl?: string };
 }
 

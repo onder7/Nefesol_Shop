@@ -1440,4 +1440,31 @@ export async function adminCreateSubscriber(email: string, status?: string) {
   });
 }
 
+export async function adminSendNewsletterEmail(subject: string, htmlContent: string, subscriberIds?: string[]) {
+  const { sendMarketingEmail } = await import('./emailService');
+  let emails: string[] = [];
+  
+  if (subscriberIds && subscriberIds.length > 0) {
+    const subs = await prisma.newsletterSubscriber.findMany({
+      where: { id: { in: subscriberIds }, status: 'confirmed' }
+    });
+    emails = subs.map(s => s.email);
+  } else {
+    // If no specific IDs provided, send to all confirmed subscribers
+    const subs = await prisma.newsletterSubscriber.findMany({
+      where: { status: 'confirmed' }
+    });
+    emails = subs.map(s => s.email);
+  }
 
+  if (emails.length === 0) {
+    throw new AppError('E-posta gönderilecek onaylı abone bulunamadı', 400);
+  }
+
+  // Run in background without blocking
+  sendMarketingEmail(emails, subject, htmlContent).catch(err => {
+    logger.error('Toplu e-posta gönderimi başarısız:', err);
+  });
+
+  return { success: true, count: emails.length };
+}

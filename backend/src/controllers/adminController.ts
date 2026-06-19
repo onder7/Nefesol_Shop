@@ -558,6 +558,18 @@ export async function deleteSubscriber(req: AuthRequest, res: Response, next: Ne
   } catch (err) { next(err); }
 }
 
+export async function sendNewsletterEmail(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { subject, htmlContent, subscriberIds } = req.body;
+    if (!subject || !htmlContent) {
+      return res.status(400).json({ success: false, message: 'Konu ve içerik zorunludur.' });
+    }
+    const result = await adminService.adminSendNewsletterEmail(subject, htmlContent, subscriberIds);
+    res.json({ success: true, message: `${result.count} kişiye e-posta gönderimi başlatıldı.` });
+  } catch (err) { next(err); }
+}
+
+
 // ─── Değerlendirme Moderasyonu ───────────────────────────────────────────────
 
 export async function listReviews(req: AuthRequest, res: Response, next: NextFunction) {

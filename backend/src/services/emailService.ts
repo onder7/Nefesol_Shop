@@ -531,3 +531,66 @@ export async function sendOrderStatusUpdate(
 
   await sendMail({ to, subject: `Sipariş Durumu: ${statusLabel} — #${orderRef}`, html });
 }
+
+export async function sendMarketingEmail(
+  emails: string[],
+  subject: string,
+  htmlContent: string,
+): Promise<void> {
+  const cfg = await resolveEmailConfig();
+  if (cfg.method === 'none') {
+    logger.warn('Toplu e-posta gönderilemedi: Geçerli bir SMTP/Brevo yapılandırması bulunamadı.');
+    return;
+  }
+
+  // Güvenli HTML kabuğuna sarmala (aynı tasarım dilini kullanmak için)
+  const wrappedHtml = wrapTemplateHtml(htmlContent);
+
+  if (cfg.method === 'brevo') {
+    // Brevo API allows sending to multiple recipients at once using bcc
+    // But sending to up to 50 recipients at a time is safer
+    const chunkSize = 50;
+    for (let i = 0; i < emails.length; i += chunkSize) {
+      const chunk = emails.slice(i, i + chunkSize);
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': cfg.apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: cfg.senderName, email: cfg.senderEmail },
+          bcc: chunk.map((email) => ({ email })),
+          subject,
+          htmlContent: wrappedHtml,
+        }),
+      });
+    }
+    logger.info(`Toplu e-posta gönderildi (Brevo API) - ${emails.length} alıcı`);
+    return;
+  }
+
+  // SMTP yöntemi
+  if (cfg.method === 'smtp') {
+    const transport = nodemailer.createTransport({
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.port === 465,
+      auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+    });
+
+    const chunkSize = 50;
+    for (let i = 0; i < emails.length; i += chunkSize) {
+      const chunk = emails.slice(i, i + chunkSize);
+      await transport.sendMail({
+        from: `"${cfg.fromName}" <${cfg.from}>`,
+        bcc: chunk, // Hide emails from each other
+        subject,
+        html: wrappedHtml,
+      });
+    }
+    logger.info(`Toplu e-posta gönderildi (SMTP) - ${emails.length} alıcı`);
+    return;
+  }
+}
