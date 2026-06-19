@@ -139,6 +139,15 @@ export async function toggleCustomerStatus(req: AuthRequest, res: Response, next
   }
 }
 
+export async function getCustomerDetail(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.getCustomerDetail(String(req.params.id));
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Categories
 export async function listCategories(req: AuthRequest, res: Response, next: NextFunction) {
   try {
@@ -184,9 +193,13 @@ export async function updateVariantStock(req: AuthRequest, res: Response, next: 
 }
 
 // Fiyat & Ciro Raporu
-export async function getProductPricingReport(_req: AuthRequest, res: Response, next: NextFunction) {
+export async function getProductPricingReport(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const data = await adminService.getProductPricingReport();
+    const fromStr = req.query.from ? String(req.query.from) : undefined;
+    const toStr = req.query.to ? String(req.query.to) : undefined;
+    const from = fromStr ? new Date(fromStr) : undefined;
+    const to = toStr ? new Date(toStr) : undefined;
+    const data = await adminService.getProductPricingReport(from, to);
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }

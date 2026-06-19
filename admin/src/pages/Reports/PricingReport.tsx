@@ -64,14 +64,36 @@ export default function PricingReport() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [history, setHistory] = useState<Record<string, PriceChange[]>>({});
+  
+  const [dateRange, setDateRange] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('revenue');
 
-  useEffect(() => {
+  const loadData = () => {
+    setLoading(true);
+    let url = '/admin/reports/product-pricing';
+    if (dateRange !== 'all') {
+      const to = new Date();
+      const from = new Date();
+      if (dateRange === '30d') {
+        from.setDate(to.getDate() - 30);
+      } else if (dateRange === '7d') {
+        from.setDate(to.getDate() - 7);
+      } else if (dateRange === 'this_month') {
+        from.setDate(1);
+      }
+      url += `?from=${from.toISOString()}&to=${to.toISOString()}`;
+    }
+    
     api
-      .get<{ success: boolean; data: Row[] }>('/admin/reports/product-pricing')
+      .get<{ success: boolean; data: Row[] }>(url)
       .then((r) => setRows(r.data ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [dateRange]);
 
   async function toggle(productId: string) {
     if (expanded === productId) {
@@ -91,12 +113,63 @@ export default function PricingReport() {
     }
   }
 
+  function exportToExcel() {
+    const csvRows = [];
+    csvRows.push([
+      'Ürün',
+      'Satılan Adet',
+      'Ciro (TRY)',
+      'Kâr Marjı (%)',
+      'Ort. Satış (TRY)',
+      'İlk Satış (TRY)',
+      'Son Satış (TRY)',
+      'Satış Aralığı',
+      'Güncel Fiyat Aralığı',
+      'Değişim Sayısı',
+      'Son Değişim'
+    ].join(';'));
+
+    sortedRows.forEach(r => {
+      csvRows.push([
+        `"${r.name.replace(/"/g, '""')}"`,
+        r.unitsSold,
+        r.revenue,
+        r.marginPct != null ? r.marginPct.toFixed(2) : '',
+        r.unitsSold > 0 ? r.avgSellingPrice.toFixed(2) : '',
+        r.firstSalePrice != null ? r.firstSalePrice.toFixed(2) : '',
+        r.lastSalePrice != null ? r.lastSalePrice.toFixed(2) : '',
+        `"${saleRange(r)}"`,
+        `"${priceRange(r)}"`,
+        r.priceChangeCount,
+        r.lastPriceChange ? new Date(r.lastPriceChange).toLocaleDateString('tr-TR') : ''
+      ].join(';'));
+    });
+
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Fiyat_Raporu_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Sort rows
+  const sortedRows = [...rows].sort((a, b) => {
+    if (sortBy === 'margin') {
+      return (b.marginPct ?? -999) - (a.marginPct ?? -999);
+    }
+    return b.revenue - a.revenue;
+  });
+
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const totalUnits = rows.reduce((s, r) => s + r.unitsSold, 0);
 
-  // En çok ciro yapan ilk 10 ürün (rows zaten ciroya göre azalan sıralı)
+  // En çok ciro yapan ilk 10 ürün
   const TOP_N = 10;
-  const topProducts = rows.filter((r) => r.revenue > 0).slice(0, TOP_N);
+  const topProducts = sortedRows.filter((r) => r.revenue > 0).slice(0, TOP_N);
   const chartOptions: ApexOptions = {
     chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit' },
     plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
@@ -113,12 +186,41 @@ export default function PricingReport() {
 
   return (
     <div className="mx-auto max-w-screen-2xl">
-      <h1 className="text-title-md2 font-bold text-black dark:text-white mb-1">Fiyat & Ciro Raporu</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-        Ürün bazında satılan adet, ciro ve ortalama satış fiyatı. Ciro, her siparişin o anki gerçek
-        satış fiyatından hesaplanır (fiyat değişse bile doğrudur). Bir ürünün fiyat değişim geçmişini
-        görmek için satıra tıklayın.
-      </p>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6">
+        <div>
+          <h1 className="text-title-md2 font-bold text-black dark:text-white mb-1">Fiyat & Ciro Raporu</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Ürün bazında satılan adet, ciro ve ortalama satış fiyatı. Ciro, her siparişin o anki gerçek
+            satış fiyatından hesaplanır.
+          </p>
+        </div>
+        <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="rounded border border-stroke bg-white px-3 py-2 text-sm dark:border-strokedark dark:bg-boxdark"
+          >
+            <option value="all">Tüm Zamanlar</option>
+            <option value="30d">Son 30 Gün</option>
+            <option value="7d">Son 7 Gün</option>
+            <option value="this_month">Bu Ay</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="rounded border border-stroke bg-white px-3 py-2 text-sm dark:border-strokedark dark:bg-boxdark"
+          >
+            <option value="revenue">Ciroya Göre Sırala</option>
+            <option value="margin">Kâr Marjına Göre Sırala</option>
+          </select>
+          <button
+            onClick={exportToExcel}
+            className="rounded bg-primary px-4 py-2 text-sm text-white hover:bg-opacity-90"
+          >
+            Excel (CSV) İndir
+          </button>
+        </div>
+      </div>
 
       {/* Özet kartlar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -156,7 +258,7 @@ export default function PricingReport() {
       <div className="rounded-sm border border-stroke bg-white dark:border-strokedark dark:bg-boxdark overflow-x-auto">
         {loading ? (
           <div className="p-10 text-center text-gray-400">Yükleniyor…</div>
-        ) : rows.length === 0 ? (
+        ) : sortedRows.length === 0 ? (
           <div className="p-10 text-center text-gray-400">Henüz satış veya fiyat değişimi olan ürün yok.</div>
         ) : (
           <table className="w-full text-sm">
@@ -175,7 +277,7 @@ export default function PricingReport() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {sortedRows.map((r) => (
                 <>
                   <tr
                     key={r.productId}

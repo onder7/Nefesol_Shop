@@ -755,7 +755,11 @@ export async function updateVariantStock(variantId: string, newQty: number, admi
 // Ürün bazında: satılan adet, ciro (gerçek satış fiyatlarından), ortalama satış
 // fiyatı ve fiyat değişim sayısı. Ciro order_items.unit_price'tan gelir; fiyat
 // değiştiyse bile geçmiş siparişler kendi fiyatıyla doğru hesaplanır.
-export async function getProductPricingReport() {
+export async function getProductPricingReport(from?: Date, to?: Date) {
+  // Tarih aralığı filtresi (verilmişse). Satış sorguları o.created_at'e göre filtrelenir.
+  const dateCond = from && to ? Prisma.sql`AND o.created_at BETWEEN ${from} AND ${to}` : Prisma.empty;
+  const phDateCond = from && to ? Prisma.sql`AND ph.created_at BETWEEN ${from} AND ${to}` : Prisma.empty;
+
   const [products, sales, journey, cogsRows, prices, changes] = await Promise.all([
     prisma.product.findMany({ select: { id: true, name: true } }),
     prisma.$queryRaw<Array<{ product_id: string; units: number; revenue: number }>>`
@@ -765,7 +769,7 @@ export async function getProductPricingReport() {
       FROM order_items oi
       JOIN product_variants pv ON pv.id = oi.variant_id
       JOIN orders o ON o.id = oi.order_id
-      WHERE o.status NOT IN ('CANCELLED', 'REFUNDED')
+      WHERE o.status NOT IN ('CANCELLED', 'REFUNDED') ${dateCond}
       GROUP BY pv.product_id`,
     // İlk / son / en düşük / en yüksek SATIŞ fiyatı (siparişin gerçek unit_price'ından)
     prisma.$queryRaw<Array<{ product_id: string; first_sale: number; last_sale: number; min_sale: number; max_sale: number }>>`
@@ -779,7 +783,7 @@ export async function getProductPricingReport() {
         FROM order_items oi
         JOIN product_variants pv ON pv.id = oi.variant_id
         JOIN orders o ON o.id = oi.order_id
-        WHERE o.status NOT IN ('CANCELLED', 'REFUNDED')
+        WHERE o.status NOT IN ('CANCELLED', 'REFUNDED') ${dateCond}
       ) t
       GROUP BY product_id`,
     // Satılan malların maliyeti (COGS): varyant maliyet override'ı yoksa ürün maliyeti
@@ -791,7 +795,7 @@ export async function getProductPricingReport() {
       JOIN product_variants pv ON pv.id = oi.variant_id
       JOIN products p ON p.id = pv.product_id
       JOIN orders o ON o.id = oi.order_id
-      WHERE o.status NOT IN ('CANCELLED', 'REFUNDED')
+      WHERE o.status NOT IN ('CANCELLED', 'REFUNDED') ${dateCond}
       GROUP BY pv.product_id`,
     prisma.$queryRaw<Array<{ product_id: string; min_price: number; max_price: number }>>`
       SELECT product_id, MIN(price)::float AS min_price, MAX(price)::float AS max_price
@@ -803,6 +807,7 @@ export async function getProductPricingReport() {
              MAX(ph.created_at) AS last_change
       FROM price_history ph
       JOIN product_variants pv ON pv.id = ph.variant_id
+      WHERE 1=1 ${phDateCond}
       GROUP BY pv.product_id`,
   ]);
 
@@ -864,6 +869,62 @@ export async function getProductPriceHistory(productId: string) {
     newPrice: Number(r.newPrice),
     createdAt: r.createdAt,
   }));
+}
+
+// ─── Müşteri detayı + alışveriş geçmişi ───────────────────────────────────────
+export async function getCustomerDetail(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true, email: true, firstName: true, lastName: true,
+      isActive: true, createdAt: true, marketingConsent: true,
+      profile: { select: { firstName: true, lastName: true, phone: true } },
+    },
+  });
+  if (!user) throw new AppError('Müşteri bulunamadı', 404);
+
+  const orders = await prisma.order.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      items: { include: { variant: { include: { product: { select: { name: true } } } } } },
+      payment: { select: { provider: true, status: true } },
+    },
+  });
+
+  const countsTowardSpend = (s: string) => !['CANCELLED', 'REFUNDED'].includes(s);
+  const totalSpent = orders.filter((o) => countsTowardSpend(o.status)).reduce((s, o) => s + Number(o.total), 0);
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.profile?.firstName || user.firstName || '',
+      lastName: user.profile?.lastName || user.lastName || '',
+      phone: user.profile?.phone || '',
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      marketingConsent: user.marketingConsent,
+    },
+    summary: {
+      orderCount: orders.length,
+      paidOrderCount: orders.filter((o) => countsTowardSpend(o.status)).length,
+      totalSpent,
+    },
+    orders: orders.map((o) => ({
+      id: o.id,
+      status: o.status,
+      total: Number(o.total),
+      createdAt: o.createdAt,
+      paymentMethod: o.payment?.provider ?? null,
+      paymentStatus: o.payment?.status ?? null,
+      items: o.items.map((i) => ({
+        name: i.variant.product.name,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+      })),
+    })),
+  };
 }
 
 export async function adminListBrands() {

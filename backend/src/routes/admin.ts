@@ -52,6 +52,7 @@ router.post('/questions/:id/answer', ctrl.answerQuestionAdmin);
 
 // Customers
 router.get('/customers', ctrl.listCustomers);
+router.get('/customers/:id', ctrl.getCustomerDetail);
 router.put('/customers/:id/toggle-status', ctrl.toggleCustomerStatus);
 
 // Newsletter Subscribers
