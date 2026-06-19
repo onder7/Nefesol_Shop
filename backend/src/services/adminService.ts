@@ -1379,6 +1379,39 @@ export async function getUserAnalyticsData() {
   };
 }
 
+export async function adminSendCartReminder(cartId: string) {
+  const cart = await prisma.cart.findUnique({
+    where: { id: cartId },
+    include: {
+      user: { include: { profile: { select: { firstName: true, lastName: true } } } },
+      items: { include: { variant: { include: { product: { select: { name: true } } } } } },
+    },
+  });
+
+  if (!cart) throw new AppError('Sepet bulunamadı', 404);
+  if (cart.items.length === 0) throw new AppError('Sepet boş', 400);
+
+  const email = cart.user?.email;
+  if (!email) {
+    throw new AppError('Bu sepetin sahibine ait e-posta adresi bulunamadı', 400);
+  }
+
+  const items = cart.items.map((item) => ({
+    name: item.variant?.product?.name || 'Ürün',
+    quantity: item.quantity,
+    unitPrice: Number(item.priceAtAdd),
+  }));
+  const total = items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+  const name = cart.user?.profile
+    ? `${cart.user.profile.firstName ?? ''} ${cart.user.profile.lastName ?? ''}`.trim()
+    : '';
+
+  const { sendCartReminderEmail } = await import('./emailService');
+  await sendCartReminderEmail(email, name, items, total);
+
+  return { success: true, email };
+}
+
 export async function getTrafficAnalyticsData() {
   return {
     dataSource: 'demo' as const,

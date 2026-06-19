@@ -569,6 +569,13 @@ export async function sendNewsletterEmail(req: AuthRequest, res: Response, next:
   } catch (err) { next(err); }
 }
 
+export async function sendCartReminder(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminSendCartReminder(String(req.params.cartId));
+    res.json({ success: true, message: `Hatırlatma e-postası ${result.email} adresine gönderildi.` });
+  } catch (err) { next(err); }
+}
+
 
 // ─── Değerlendirme Moderasyonu ───────────────────────────────────────────────
 

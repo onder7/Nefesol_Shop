@@ -126,6 +126,9 @@ export default function UserAnalytics() {
   const [mailBody, setMailBody] = useState('');
   const [mailLoading, setMailLoading] = useState(false);
 
+  // Cart reminder sending state (track which cart row is sending)
+  const [remindingCartId, setRemindingCartId] = useState<string | null>(null);
+
   // Fetch real analytics data
   const fetchAnalytics = useCallback(() => {
     setLoading(true);
@@ -248,6 +251,24 @@ export default function UserAnalytics() {
       alert(err.message || 'Gönderim sırasında hata oluştu.');
     } finally {
       setMailLoading(false);
+    }
+  };
+
+  // Sepette bekleyen müşteriye hatırlatma maili gönder
+  const handleCartReminder = async (cartId: string, email: string) => {
+    if (!email || email === 'N/A') {
+      alert('Bu müşterinin e-posta adresi bulunmuyor (misafir sepeti olabilir).');
+      return;
+    }
+    setRemindingCartId(cartId);
+    try {
+      const res = await api.post<any>(`/admin/cart-reminder/${cartId}`, {});
+      alert(res?.message || 'Hatırlatma e-postası gönderildi.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? err?.message ?? 'Hatırlatma gönderilemedi.';
+      alert(msg);
+    } finally {
+      setRemindingCartId(null);
     }
   };
 
@@ -515,12 +536,17 @@ export default function UserAnalytics() {
                         </td>
                         <td className="px-3 py-3 text-center text-xs text-bodydark2">{u.updatedAt}</td>
                         <td className="px-4 py-3 text-right">
-                          <button className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:bg-opacity-90">
+                          <button
+                            onClick={() => handleCartReminder(u.id, u.email)}
+                            disabled={remindingCartId === u.id || u.email === 'N/A'}
+                            title={u.email === 'N/A' ? 'Misafir sepeti — e-posta adresi yok' : 'Hatırlatma e-postası gönder'}
+                            className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:bg-opacity-50"
+                          >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <line x1="22" y1="2" x2="11" y2="13" />
                               <polygon points="22 2 15 22 11 13 2 9 22 2" />
                             </svg>
-                            Hatırlat
+                            {remindingCartId === u.id ? 'Gönderiliyor...' : 'Hatırlat'}
                           </button>
                         </td>
                       </tr>

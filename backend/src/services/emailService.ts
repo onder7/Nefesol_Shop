@@ -532,6 +532,58 @@ export async function sendOrderStatusUpdate(
   await sendMail({ to, subject: `Sipariş Durumu: ${statusLabel} — #${orderRef}`, html });
 }
 
+export async function sendCartReminderEmail(
+  to: string,
+  customerName: string,
+  items: Array<{ name: string; quantity: number; unitPrice: number }>,
+  total: number,
+): Promise<void> {
+  const cartUrl = `${env.FRONTEND_URL}/sepet`;
+  const storeName = await getStoreName();
+  const greetingName = customerName?.trim() || 'Değerli Müşterimiz';
+
+  const rows = items
+    .map(
+      (i) =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(i.name)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center">${i.quantity}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">${formatPrice(i.unitPrice)}</td>
+        </tr>`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+      <h2 style="color:#2563eb">Sepetinizi unutmayın!</h2>
+      <p>Merhaba ${escapeHtml(greetingName)},</p>
+      <p>Sepetinizde tamamlanmayı bekleyen ürünleriniz var. Stoklar tükenmeden siparişinizi tamamlayabilirsiniz.</p>
+      <table style="width:100%;border-collapse:collapse;margin-top:16px">
+        <thead>
+          <tr style="background:#f3f4f6">
+            <th style="padding:8px 12px;text-align:left">Ürün</th>
+            <th style="padding:8px 12px;text-align:center">Adet</th>
+            <th style="padding:8px 12px;text-align:right">Fiyat</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="font-size:18px;font-weight:bold;text-align:right;margin-top:16px">
+        Toplam: ${formatPrice(total)}
+      </p>
+      <p style="margin:24px 0">
+        <a href="${cartUrl}"
+           style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
+          Sepete Git
+        </a>
+      </p>
+      <p style="color:#666;font-size:14px">${storeName}'i tercih ettiğiniz için teşekkürler.</p>
+    </div>
+  `;
+
+  await sendMail({ to, subject: 'Sepetinizde ürünler sizi bekliyor 🛒', html });
+}
+
 export async function sendMarketingEmail(
   emails: string[],
   subject: string,

@@ -61,6 +61,9 @@ router.put('/newsletter/subscribers/:id/toggle-status', ctrl.toggleSubscriberSta
 router.delete('/newsletter/subscribers/:id', ctrl.deleteSubscriber);
 router.post('/newsletter/send', ctrl.sendNewsletterEmail);
 
+// Sepette bekleyenlere hatırlatma maili
+router.post('/cart-reminder/:cartId', ctrl.sendCartReminder);
+
 // Categories
 router.get('/categories', ctrl.listCategories);
 router.post('/categories', ctrl.createCategory);
