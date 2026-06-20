@@ -127,6 +127,22 @@ function issueTokens(user: { id: string; email: string; role: string }) {
 }
 
 /**
+ * Normal login ile aynı çerezleri set eder (authController.setTokenCookies ile birebir).
+ * Frontend bazı korumalı uçları (orders/wishlist/addresses...) Authorization header'ı
+ * olmadan, sadece cookie ile çağırıyor — bu yüzden sosyal girişte de cookie şart.
+ */
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure: env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+};
+
+function setTokenCookies(res: Response, accessToken: string, refreshToken: string): void {
+  res.cookie('access_token', accessToken, { ...COOKIE_OPTS, maxAge: 15 * 60 * 1000 });
+  res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+}
+
+/**
  * Google OAuth callback
  * Beklenen payload: { idToken: string }
  */
@@ -188,6 +204,7 @@ router.post('/auth/oauth/google', async (req: Request, res: Response, next: Next
 
     logger.info('Google OAuth başarılı', { userId: user.id, email: user.email });
 
+    setTokenCookies(res, accessToken, refreshToken);
     res.json({
       success: true,
       data: {
@@ -246,6 +263,7 @@ router.post('/auth/oauth/facebook', async (req: Request, res: Response, next: Ne
 
     logger.info('Facebook OAuth başarılı', { userId: user.id, email: user.email });
 
+    setTokenCookies(res, jwtAccessToken, refreshToken);
     res.json({
       success: true,
       data: {
@@ -307,6 +325,7 @@ router.post('/auth/oauth/instagram', async (req: Request, res: Response, next: N
 
     logger.info('Instagram OAuth başarılı', { userId: user.id });
 
+    setTokenCookies(res, jwtAccessToken, refreshToken);
     res.json({
       success: true,
       data: {
