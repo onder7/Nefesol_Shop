@@ -18,8 +18,10 @@ import {
   ArrowLeft,
   MapPin,
   MessageCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 
 function formatPrice(price: number) {
   return price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
@@ -37,6 +39,7 @@ const ORDER_STATUS_MAP: Record<string, { label: string; color: string }> = {
 export function AccountDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const { hasWarning: profileHasWarning, missingAddress, missingPhone, message: profileWarningMessage } = useProfileCompleteness();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('orders');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -325,6 +328,39 @@ export function AccountDashboard() {
 
   return (
     <main className="container mx-auto px-4 py-8">
+      {/* Eksik profil uyarısı (tanımlı adres / telefon yok) */}
+      {profileHasWarning && (
+        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-amber-800 dark:text-amber-200">{profileWarningMessage}</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                Siparişlerinizin sorunsuz iletilebilmesi için bilgilerinizi tamamlamanızı öneririz.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {missingAddress && (
+                  <Link
+                    to="/hesabim/adresler"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 transition-colors"
+                  >
+                    <MapPin size={14} /> Adres Ekle
+                  </Link>
+                )}
+                {missingPhone && (
+                  <button
+                    onClick={() => { setActiveSection('profile'); setIsEditingProfile(true); }}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-600 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                  >
+                    <Phone size={14} /> Telefon Ekle
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-4 gap-8">
         {/* Sidebar */}
         <div className="lg:col-span-1">

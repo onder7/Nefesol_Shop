@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserCircle, Heart, ShoppingBag, Search, Menu, LogOut, ChevronDown, Loader2 } from 'lucide-react';
+import { UserCircle, Heart, ShoppingBag, Search, Menu, LogOut, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -19,11 +19,13 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '@/services/productApi';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
+import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 import type { Product } from '@/types';
 
 export function Header() {
   const { isAuthenticated, user, logout } = useAuthStore();
   const { name: storeName } = useStoreInfo();
+  const { hasWarning: profileHasWarning, message: profileWarningMessage } = useProfileCompleteness();
   const itemCount = useCartStore((s) => s.itemCount);
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -201,7 +203,15 @@ export function Header() {
               <DropdownMenuTrigger
                 render={
                   <div className="flex flex-col items-center gap-1 text-neutral-700 hover:text-primary transition-colors cursor-pointer outline-none bg-transparent border-none">
-                    <UserCircle className="h-6 w-6 stroke-[1.5]" />
+                    <div className="relative">
+                      <UserCircle className="h-6 w-6 stroke-[1.5]" />
+                      {profileHasWarning && (
+                        <span
+                          title={profileWarningMessage}
+                          className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"
+                        />
+                      )}
+                    </div>
                     <span className="hidden md:block text-[10px] sm:text-[11px] font-medium">Hesabım</span>
                   </div>
                 }
@@ -217,6 +227,20 @@ export function Header() {
                   </p>
                 </div>
                 <DropdownMenuSeparator />
+
+                {/* Eksik profil uyarısı (adres/telefon) */}
+                {!user?.isGuest && profileHasWarning && (
+                  <>
+                    <DropdownMenuItem
+                      render={<Link to="/hesabim/profil" />}
+                      className="text-sm items-start gap-2 bg-red-50 text-red-700 focus:bg-red-100 dark:bg-red-900/20 dark:text-red-300"
+                    >
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span className="leading-snug">{profileWarningMessage} Tamamlamak için tıklayın.</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
 
                 {/* Account Links */}
                 {!user?.isGuest && (
