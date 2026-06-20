@@ -24,6 +24,7 @@ interface OrderDetail {
     phone: string;
     city: string;
     district: string;
+    neighborhood?: string;
     postalCode?: string;
     address: string;
   };
@@ -459,6 +460,7 @@ export default function OrderDetailPage() {
               <p className="text-xs text-gray-500 mt-0.5">{order.address.phone}</p>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
                 {order.address.address}<br />
+                {order.address.neighborhood ? `${order.address.neighborhood}, ` : ''}
                 {order.address.district} / {order.address.city}
                 {order.address.postalCode ? ` ${order.address.postalCode}` : ''}
               </p>
