@@ -2,7 +2,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-RUN apk add --no-cache openssl postgresql-client
+# PostgreSQL client'ı sunucu sürümüyle (PG16) eşitle — pg_dump/psql 16
+# (varsayılan "postgresql-client" alpine 3.23'te PG18 çekiyordu, dump/restore
+#  sürüm uyumsuzluğuna yol açıyordu)
+RUN apk add --no-cache openssl postgresql16-client
 
 COPY package*.json ./
 COPY prisma ./prisma
@@ -17,7 +20,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-RUN apk add --no-cache openssl postgresql-client
+# Runtime'da pg_dump/psql 16 (sunucu PG16 ile birebir uyum)
+RUN apk add --no-cache openssl postgresql16-client
 
 ENV NODE_ENV=production
 

@@ -21,6 +21,7 @@ async function scheduleBackup() {
   if (!cfg.enabled) return;
 
   const expr = buildCronExpr(cfg.hour, cfg.frequency, cfg.weekday);
+  // Admin'in girdiği saat Türkiye saatine göre yorumlansın (container TZ=UTC olabilir)
   backupCronTask = cron.schedule(expr, async () => {
     try {
       logger.info('Zamanlanmış yedek başlıyor...');
@@ -30,8 +31,8 @@ async function scheduleBackup() {
     } catch (err) {
       logger.error('Zamanlanmış yedek hatası', { err: (err as Error).message });
     }
-  });
-  logger.info(`Yedekleme zamanlandı: ${expr}`);
+  }, { timezone: 'Europe/Istanbul' });
+  logger.info(`Yedekleme zamanlandı: ${expr} (Europe/Istanbul)`);
 }
 
 async function bootstrap(): Promise<void> {
