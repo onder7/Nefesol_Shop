@@ -30,20 +30,23 @@ async function findOrCreateUser(profile: OAuthProfile) {
   });
 
   if (user) {
-    // Mevcut kullanıcı - OAuth ID'yi ekle
+    // Mevcut kullanıcı - OAuth ID'yi ekle + eksik profil alanlarını Google verisiyle tamamla
     const userProfile = await prisma.userProfile.findUnique({
       where: { userId: user.id }
     });
 
-    if (userProfile && !userProfile.oauthIds.includes(providerId)) {
-      await prisma.userProfile.update({
-        where: { userId: user.id },
-        data: {
-          oauthIds: {
-            push: providerId
-          }
-        }
-      });
+    if (userProfile) {
+      const updates: Record<string, unknown> = {};
+      if (!userProfile.oauthIds.includes(providerId)) {
+        updates.oauthIds = { push: providerId };
+      }
+      // Sadece boş alanları doldur — kullanıcının elle girdiği bilgiyi ezme
+      if (!userProfile.firstName && profile.firstName) updates.firstName = profile.firstName;
+      if (!userProfile.lastName && profile.lastName) updates.lastName = profile.lastName;
+      if (!userProfile.avatarUrl && profile.picture) updates.avatarUrl = profile.picture;
+      if (Object.keys(updates).length > 0) {
+        await prisma.userProfile.update({ where: { userId: user.id }, data: updates });
+      }
     }
   } else {
     // Yeni kullanıcı oluştur
@@ -58,9 +61,14 @@ async function findOrCreateUser(profile: OAuthProfile) {
         role: 'CUSTOMER',
         profile: {
           create: {
+            // İsim profil tablosuna da yazılmalı — getMe/profil ekranı buradan okur
+            firstName,
+            lastName,
             phone: '',
             bio: '',
+            // Profil ekranı avatarUrl okur; avatar alanını da geriye dönük uyumluluk için dolduruyoruz
             avatar: profile.picture || '',
+            avatarUrl: profile.picture || '',
             oauthIds: [providerId]
           }
         }
