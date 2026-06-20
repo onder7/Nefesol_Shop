@@ -76,7 +76,36 @@ async function findOrCreateUser(profile: OAuthProfile) {
     });
   }
 
-  return user;
+  // Profil bilgisiyle birlikte güncel kullanıcıyı döndür — response şekli login/getMe ile aynı olmalı
+  return prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    include: { profile: true },
+  });
+}
+
+/**
+ * OAuth response için kullanıcı nesnesini login/getMe ile aynı şekle getirir
+ * (frontend her yerde user.profile.firstName/lastName/avatarUrl okur).
+ */
+function toPublicUser(user: {
+  id: string;
+  email: string;
+  role: string;
+  profile?: { firstName: string | null; lastName: string | null; phone: string | null; avatarUrl: string | null } | null;
+}) {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    profile: user.profile
+      ? {
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          phone: user.profile.phone,
+          avatarUrl: user.profile.avatarUrl,
+        }
+      : null,
+  };
 }
 
 /**
@@ -162,13 +191,7 @@ router.post('/auth/oauth/google', async (req: Request, res: Response, next: Next
     res.json({
       success: true,
       data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role
-        },
+        user: toPublicUser(user),
         accessToken,
         refreshToken
       }
@@ -226,13 +249,7 @@ router.post('/auth/oauth/facebook', async (req: Request, res: Response, next: Ne
     res.json({
       success: true,
       data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role
-        },
+        user: toPublicUser(user),
         accessToken: jwtAccessToken,
         refreshToken
       }
@@ -293,13 +310,7 @@ router.post('/auth/oauth/instagram', async (req: Request, res: Response, next: N
     res.json({
       success: true,
       data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role
-        },
+        user: toPublicUser(user),
         accessToken: jwtAccessToken,
         refreshToken
       }
