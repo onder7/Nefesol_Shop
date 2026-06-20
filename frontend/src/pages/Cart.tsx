@@ -275,7 +275,7 @@ export function Cart() {
                   onKeyPress={(e) => e.key === 'Enter' && validateCoupon()}
                   disabled={appliedDiscount || validatingCoupon}
                   placeholder="Kupon kodunu girin"
-                  className="flex-1 px-3 py-2 border rounded-md text-sm outline-none focus:border-primary disabled:bg-gray-50"
+                  className="flex-1 min-w-0 px-3 py-2 border rounded-md text-sm outline-none focus:border-primary disabled:bg-gray-50"
                 />
                 {appliedDiscount ? (
                   <button
@@ -283,7 +283,7 @@ export function Cart() {
                       setAppliedDiscount(null);
                       setCouponCode('');
                     }}
-                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    className="shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                     title="Kuponu kaldır"
                   >
                     <X className="h-4 w-4" />
@@ -292,7 +292,7 @@ export function Cart() {
                   <button
                     onClick={validateCoupon}
                     disabled={validatingCoupon}
-                    className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-all"
+                    className="shrink-0 whitespace-nowrap px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-all"
                   >
                     {validatingCoupon ? 'Kontrol ediliyor...' : 'Uygula'}
                   </button>
