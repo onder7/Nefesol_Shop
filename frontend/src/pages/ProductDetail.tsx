@@ -148,13 +148,15 @@ function buildWhatsAppUrl(
     .join(', ') ?? '';
   const price = variant ? Number(variant.price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }) : '';
   const url = typeof window !== 'undefined' ? window.location.href : '';
+  // NOT: WhatsApp wa.me ön-dolgusu 4 baytlık (astral) emoji'leri bozuyor (� görünür);
+  // 3 bayta kadar olan BMP karakterler (Türkçe harfler, ₺, •) sorunsuz iletiliyor.
   const msg = [
     `Merhaba, aşağıdaki ürünü sipariş vermek istiyorum:`,
-    `\u{1F4E6} Ürün: ${product.name}`,
-    attrs ? `\u{1F516} Seçenek: ${attrs}` : '',
-    `\u{1F4B0} Fiyat: ${price}`,
-    `\u{1F522} Adet: ${qty}`,
-    url ? `\u{1F517} Ürün Linki: ${url}` : '',
+    `• Ürün: ${product.name}`,
+    attrs ? `• Seçenek: ${attrs}` : '',
+    `• Fiyat: ${price}`,
+    `• Adet: ${qty}`,
+    url ? `• Ürün Linki: ${url}` : '',
   ]
     .filter(Boolean)
     .join('\n');
