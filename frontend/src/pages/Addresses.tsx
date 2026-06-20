@@ -10,36 +10,47 @@ interface Address {
   phone: string;
   city: string;
   district?: string;
+  neighborhood?: string;
   address: string;
   postalCode: string;
   type: 'SHIPPING' | 'BILLING';
 }
+
+interface FormData {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  city: string;
+  district: string;
+  neighborhood: string;
+  address: string;
+  postalCode: string;
+  type: 'SHIPPING' | 'BILLING';
+}
+
+const EMPTY_FORM: FormData = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  city: '',
+  district: '',
+  neighborhood: '',
+  address: '',
+  postalCode: '',
+  type: 'SHIPPING',
+};
+
+const selectClass =
+  'w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function Addresses() {
   const navigate = useNavigate();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState<{
-    firstName: string;
-    lastName: string;
-    phone: string;
-    city: string;
-    district: string;
-    address: string;
-    postalCode: string;
-    type: 'SHIPPING' | 'BILLING';
-  }>({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    city: '',
-    district: '',
-    address: '',
-    postalCode: '',
-    type: 'SHIPPING',
-  });
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
 
   const { data: addresses = [], isLoading, refetch } = useQuery({
     queryKey: ['addresses'],
@@ -51,7 +62,47 @@ export function Addresses() {
     },
   });
 
+  // ─── İl / İlçe / Mahalle verisi (kademeli) ───────────────────────────────
+  const { data: iller = [] } = useQuery<string[]>({
+    queryKey: ['loc-iller'],
+    queryFn: async () => {
+      const res = await fetch('/api/locations/iller');
+      if (!res.ok) return [];
+      return (await res.json()).data || [];
+    },
+    staleTime: Infinity,
+  });
+
+  const { data: ilceler = [] } = useQuery<string[]>({
+    queryKey: ['loc-ilceler', formData.city],
+    queryFn: async () => {
+      const res = await fetch(`/api/locations/ilceler?il=${encodeURIComponent(formData.city)}`);
+      if (!res.ok) return [];
+      return (await res.json()).data || [];
+    },
+    enabled: !!formData.city,
+    staleTime: Infinity,
+  });
+
+  const { data: mahalleler = [] } = useQuery<string[]>({
+    queryKey: ['loc-mahalleler', formData.city, formData.district],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/locations/mahalleler?il=${encodeURIComponent(formData.city)}&ilce=${encodeURIComponent(formData.district)}`,
+      );
+      if (!res.ok) return [];
+      return (await res.json()).data || [];
+    },
+    enabled: !!formData.city && !!formData.district,
+    staleTime: Infinity,
+  });
+
   async function handleSaveAddress() {
+    if (!formData.city || !formData.district) {
+      alert('Lütfen il ve ilçe seçiniz.');
+      return;
+    }
+    setSaving(true);
     try {
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId ? `/api/addresses/${editingId}` : '/api/addresses';
@@ -65,21 +116,14 @@ export function Addresses() {
 
       if (!res.ok) throw new Error('Adres kaydedilemedi');
 
-      setFormData({
-        firstName: '',
-        lastName: '',
-        phone: '',
-        city: '',
-        district: '',
-        address: '',
-        postalCode: '',
-        type: 'SHIPPING',
-      });
+      setFormData(EMPTY_FORM);
       setIsAdding(false);
       setEditingId(null);
       refetch();
     } catch (err: any) {
       alert(err.message || 'Bir hata oluştu');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -100,6 +144,28 @@ export function Addresses() {
     } finally {
       setDeleting(null);
     }
+  }
+
+  function openNew() {
+    setEditingId(null);
+    setFormData(EMPTY_FORM);
+    setIsAdding(true);
+  }
+
+  function openEdit(addr: Address) {
+    setEditingId(addr.id);
+    setFormData({
+      firstName: addr.firstName,
+      lastName: addr.lastName,
+      phone: addr.phone,
+      city: addr.city,
+      district: addr.district || '',
+      neighborhood: addr.neighborhood || '',
+      address: addr.address,
+      postalCode: addr.postalCode,
+      type: addr.type,
+    });
+    setIsAdding(true);
   }
 
   return (
@@ -124,20 +190,7 @@ export function Addresses() {
             </div>
           </div>
           <button
-            onClick={() => {
-              setIsAdding(true);
-              setEditingId(null);
-              setFormData({
-                firstName: '',
-                lastName: '',
-                phone: '',
-                city: '',
-                district: '',
-                address: '',
-                postalCode: '',
-                type: 'SHIPPING',
-              });
-            }}
+            onClick={openNew}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white font-medium hover:bg-opacity-90 transition-all"
           >
             <Plus size={20} />
@@ -157,7 +210,7 @@ export function Addresses() {
               Henüz kayıtlı adres bulunmamaktadır
             </p>
             <button
-              onClick={() => setIsAdding(true)}
+              onClick={openNew}
               className="inline-block text-primary hover:underline font-medium"
             >
               İlk adresini ekle →
@@ -181,20 +234,7 @@ export function Addresses() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => {
-                        setEditingId(addr.id);
-                        setIsAdding(true);
-                        setFormData({
-                          firstName: addr.firstName,
-                          lastName: addr.lastName,
-                          phone: addr.phone,
-                          city: addr.city,
-                          district: addr.district || '',
-                          address: addr.address,
-                          postalCode: addr.postalCode,
-                          type: addr.type,
-                        });
-                      }}
+                      onClick={() => openEdit(addr)}
                       className="text-gray-500 hover:text-primary transition-colors p-2"
                     >
                       <Edit2 size={18} />
@@ -212,8 +252,8 @@ export function Addresses() {
                 <div className="space-y-2 text-sm">
                   <p className="text-gray-700 dark:text-gray-300">{addr.address}</p>
                   <p className="text-gray-700 dark:text-gray-300">
-                    {addr.postalCode} {addr.city}
-                    {addr.district && ` / ${addr.district}`}
+                    {addr.neighborhood && `${addr.neighborhood}, `}
+                    {addr.postalCode} {addr.district && `${addr.district} / `}{addr.city}
                   </p>
                   <p className="text-gray-600 dark:text-gray-400">📱 {addr.phone}</p>
                 </div>
@@ -239,9 +279,7 @@ export function Addresses() {
                   <input
                     type="text"
                     value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
                   />
                 </div>
@@ -252,9 +290,7 @@ export function Addresses() {
                   <input
                     type="text"
                     value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
                   />
                 </div>
@@ -269,58 +305,82 @@ export function Addresses() {
                   type="tel"
                   placeholder="+90 5XX XXX XXXX"
                   value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
                 />
               </div>
 
-              {/* Adres */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Adres
-                </label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-
-              {/* Şehir, İlçe, Posta Kodu */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* İl / İlçe / Mahalle (kademeli) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Şehir
+                    İl
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Istanbul"
+                  <select
                     value={formData.city}
                     onChange={(e) =>
-                      setFormData({ ...formData, city: e.target.value })
+                      // İl değişince ilçe ve mahalleyi sıfırla
+                      setFormData({ ...formData, city: e.target.value, district: '', neighborhood: '' })
                     }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                  />
+                    className={selectClass}
+                  >
+                    <option value="">Seçiniz</option>
+                    {iller.map((il) => (
+                      <option key={il} value={il}>{il}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     İlçe
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Beyoğlu"
+                  <select
                     value={formData.district}
                     onChange={(e) =>
-                      setFormData({ ...formData, district: e.target.value })
+                      // İlçe değişince mahalleyi sıfırla
+                      setFormData({ ...formData, district: e.target.value, neighborhood: '' })
                     }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                  />
+                    disabled={!formData.city}
+                    className={selectClass}
+                  >
+                    <option value="">{formData.city ? 'Seçiniz' : 'Önce il seçin'}</option>
+                    {ilceler.map((ilce) => (
+                      <option key={ilce} value={ilce}>{ilce}</option>
+                    ))}
+                  </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Mahalle / Köy
+                  </label>
+                  <select
+                    value={formData.neighborhood}
+                    onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                    disabled={!formData.district}
+                    className={selectClass}
+                  >
+                    <option value="">{formData.district ? 'Seçiniz' : 'Önce ilçe seçin'}</option>
+                    {mahalleler.map((mah) => (
+                      <option key={mah} value={mah}>{mah}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Açık Adres + Posta Kodu */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Açık Adres (cadde, sokak, bina, daire no)
+                </label>
+                <textarea
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Posta Kodu
@@ -329,9 +389,7 @@ export function Addresses() {
                     type="text"
                     placeholder="34200"
                     value={formData.postalCode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, postalCode: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
                   />
                 </div>
@@ -348,9 +406,7 @@ export function Addresses() {
                       type="radio"
                       value="SHIPPING"
                       checked={formData.type === 'SHIPPING'}
-                      onChange={() =>
-                        setFormData({ ...formData, type: 'SHIPPING' })
-                      }
+                      onChange={() => setFormData({ ...formData, type: 'SHIPPING' })}
                     />
                     <span className="text-gray-700 dark:text-gray-300">📦 Gönderim Adresi</span>
                   </label>
@@ -359,9 +415,7 @@ export function Addresses() {
                       type="radio"
                       value="BILLING"
                       checked={formData.type === 'BILLING'}
-                      onChange={() =>
-                        setFormData({ ...formData, type: 'BILLING' })
-                      }
+                      onChange={() => setFormData({ ...formData, type: 'BILLING' })}
                     />
                     <span className="text-gray-700 dark:text-gray-300">💳 Fatura Adresi</span>
                   </label>
@@ -372,24 +426,16 @@ export function Addresses() {
               <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleSaveAddress}
-                  className="flex-1 px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-opacity-90 transition-all"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-opacity-90 disabled:opacity-50 transition-all"
                 >
-                  {editingId ? 'Güncelle' : 'Ekle'}
+                  {saving ? 'Kaydediliyor...' : editingId ? 'Güncelle' : 'Ekle'}
                 </button>
                 <button
                   onClick={() => {
                     setIsAdding(false);
                     setEditingId(null);
-                    setFormData({
-                      firstName: '',
-                      lastName: '',
-                      phone: '',
-                      city: '',
-                      district: '',
-                      address: '',
-                      postalCode: '',
-                      type: 'SHIPPING',
-                    });
+                    setFormData(EMPTY_FORM);
                   }}
                   className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >

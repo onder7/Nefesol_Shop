@@ -87,6 +87,7 @@ model Address {
   phone      String
   city       String
   district   String
+  neighborhood String?   @map("neighborhood")
   postalCode String?     @map("postal_code")
   address    String
   isDefault  Boolean     @default(false) @map("is_default")

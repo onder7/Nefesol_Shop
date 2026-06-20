@@ -34,6 +34,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 COPY --from=builder /app/dist ./dist
+# Statik veri (il/ilçe/mahalle JSON) tsc tarafından dist'e kopyalanmaz — elle kopyala
+COPY --from=builder /app/src/data ./dist/data
 COPY import-backup.js ./
 COPY create-admin.js ./
 COPY import-variants.js ./

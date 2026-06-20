@@ -9,6 +9,7 @@ export interface AddressInput {
   phone: string;
   city: string;
   district: string;
+  neighborhood?: string;
   postalCode?: string;
   address: string;
   isDefault?: boolean;
