@@ -65,7 +65,7 @@ async function resolveEmailConfig(): Promise<EmailConfig> {
         key: {
           in: [
             'notif_smtp_host', 'notif_smtp_port', 'notif_smtp_user',
-            'notif_smtp_pass', 'notif_smtp_from', 'notif_smtp_from_name',
+            'notif_smtp_pass', 'notif_smtp_from_email', 'notif_smtp_from_name',
           ],
         },
       },
@@ -78,7 +78,7 @@ async function resolveEmailConfig(): Promise<EmailConfig> {
         port: Number(m.smtp_port) || 587,
         user: m.smtp_user || undefined,
         pass: m.smtp_pass || undefined,
-        from: m.smtp_from || 'noreply@example.com',
+        from: m.smtp_from_email || 'noreply@example.com',
         fromName: m.smtp_from_name || storeName,
       };
     }
