@@ -225,8 +225,33 @@ export function Footer() {
       </div>
 
       <div className="border-t border-neutral-900 bg-neutral-950/50 py-6 text-center text-xs text-neutral-500">
-        <div className="container mx-auto px-4 text-center">
+        <div className="container mx-auto px-4 text-center space-y-1.5">
           <p>© {new Date().getFullYear()} {storeName}. Tüm hakları saklıdır.</p>
+          <p className="text-neutral-600">
+            Yazılım &amp; Geliştirme:{' '}
+            <a
+              href="https://nefesol.net/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white hover:underline transition-colors"
+            >
+              nefesol.net
+            </a>
+            <span className="mx-1.5 text-neutral-700">·</span>
+            <a
+              href="mailto:onder7@gmail.com"
+              className="hover:text-white hover:underline transition-colors"
+            >
+              onder7@gmail.com
+            </a>
+            <span className="mx-1.5 text-neutral-700">·</span>
+            <a
+              href="tel:+905414113022"
+              className="hover:text-white hover:underline transition-colors"
+            >
+              0541 411 30 22
+            </a>
+          </p>
         </div>
       </div>
     </footer>
