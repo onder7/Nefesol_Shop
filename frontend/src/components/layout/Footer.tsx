@@ -73,7 +73,7 @@ function SocialBtn({ href, children }: SocialLinkProps) {
 }
 
 export function Footer() {
-  const { name: storeName } = useStoreInfo();
+  const { name: storeName, slogan: storeSlogan } = useStoreInfo();
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -142,7 +142,7 @@ export function Footer() {
         <div>
           <h3 className="text-lg font-bold text-white mb-4">{storeName}</h3>
           <p className="text-neutral-400 mb-6 leading-relaxed">
-            Çeyiz ve ev tekstilinin en kaliteli adresinde, güvenli ödeme ve hızlı kargo seçenekleriyle binlerce ürünü keşfedin.
+            {storeSlogan || 'Güvenli ödeme ve hızlı kargo seçenekleriyle binlerce ürünü keşfedin.'}
           </p>
 
           {/* Sosyal medya iconları — sadece admin panelinde girilmişse görünür */}

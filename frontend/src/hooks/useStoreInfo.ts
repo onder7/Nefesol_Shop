@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 export interface StoreInfo {
   name: string;
   legalName: string;
+  slogan: string;
   email: string;
   phone: string;
   address: string;
@@ -15,6 +16,7 @@ export interface StoreInfo {
 const FALLBACK: StoreInfo = {
   name: 'Mağaza',
   legalName: 'Mağaza',
+  slogan: '',
   email: '',
   phone: '',
   address: '',
@@ -29,6 +31,7 @@ async function fetchStoreInfo(): Promise<StoreInfo> {
   return {
     name: d.name || FALLBACK.name,
     legalName: d.legalName || d.name || FALLBACK.name,
+    slogan: d.slogan || '',
     email: d.email || '',
     phone: d.phone || '',
     address: d.address || '',

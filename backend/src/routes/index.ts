@@ -112,6 +112,7 @@ router.get('/company-info', async (_req, res, next) => {
     res.json({ success: true, data: {
       name: data.store_name || 'Mağaza',
       legalName: data.legal_name || data.store_name || 'Mağaza',
+      slogan: data.footer_slogan || '',
       email: data.email || 'info@example.com',
       phone: data.phone || '',
       address: data.address || '',
