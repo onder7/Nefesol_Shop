@@ -95,9 +95,15 @@ export function ProductCard({ product }: Props) {
           <CampaignBadges />
         </div>
 
-        {/* Fiyat */}
+        {/* Fiyat (KDV dahil) */}
         <span className="text-sm font-semibold text-neutral-800 mt-1">
-          {cheapestVariant ? formatPrice(cheapestVariant.price) : 'Fiyat yok'}
+          {cheapestVariant
+            ? formatPrice(
+                product.vatIncluded
+                  ? Number(cheapestVariant.price)
+                  : Number(cheapestVariant.price) * (1 + product.vatRate / 100),
+              )
+            : 'Fiyat yok'}
         </span>
       </div>
     </Link>

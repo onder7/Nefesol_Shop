@@ -139,14 +139,20 @@ function ProductShareBar({ name, url }: { name: string; url: string }) {
 
 function buildWhatsAppUrl(
   phone: string,
-  product: { name: string },
+  product: { name: string; vatIncluded?: boolean; vatRate?: number },
   variant: { price: number | string; attributeValues?: { attributeValue: { value: string; attribute: { name: string } } }[] } | null,
   qty: number,
 ) {
   const attrs = variant?.attributeValues
     ?.map((av) => `${av.attributeValue.attribute.name}: ${av.attributeValue.value}`)
     .join(', ') ?? '';
-  const price = variant ? Number(variant.price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }) : '';
+  // Fiyat KDV dahil gösterilir (müşteri her yerde KDV dahil fiyat görür)
+  const grossPrice = variant
+    ? product.vatIncluded
+      ? Number(variant.price)
+      : Number(variant.price) * (1 + (product.vatRate ?? 0) / 100)
+    : 0;
+  const price = variant ? grossPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }) : '';
   const url = typeof window !== 'undefined' ? window.location.href : '';
   // NOT: WhatsApp wa.me ön-dolgusu 4 baytlık (astral) emoji'leri bozuyor (� görünür);
   // 3 bayta kadar olan BMP karakterler (Türkçe harfler, ₺, •) sorunsuz iletiliyor.
@@ -395,15 +401,14 @@ export function ProductDetail() {
                     : formatPrice(Number(variant.price) * (1 + product.vatRate / 100))}
                 </span>
                 {hasDiscount && (
-                  <span className="text-lg text-muted-foreground line-through">{formatPrice(variant.compareAt!)}</span>
+                  <span className="text-lg text-muted-foreground line-through">
+                    {product.vatIncluded
+                      ? formatPrice(variant.compareAt!)
+                      : formatPrice(Number(variant.compareAt!) * (1 + product.vatRate / 100))}
+                  </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {product.vatIncluded
-                  ? `KDV Dahil (%${product.vatRate}) · KDV Hariç: ${formatPrice(Number(variant.price) / (1 + product.vatRate / 100))}`
-                  : `KDV Hariç · KDV Dahil (%${product.vatRate}): ${formatPrice(Number(variant.price) * (1 + product.vatRate / 100))}`
-                }
-              </p>
+              <p className="text-xs text-muted-foreground">KDV Dahil</p>
             </div>
           )}
 

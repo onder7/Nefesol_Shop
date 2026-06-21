@@ -154,7 +154,9 @@ export function Header() {
                 <div className="divide-y divide-neutral-50">
                   {predictions.map((prod) => {
                     const primaryImg = prod.images?.find(img => img.isPrimary)?.url || prod.images?.[0]?.url || 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=100';
-                    const price = prod.variants?.[0]?.price ? Number(prod.variants[0].price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '';
+                    const rawPrice = prod.variants?.[0]?.price ? Number(prod.variants[0].price) : 0;
+                    const grossPrice = prod.vatIncluded ? rawPrice : rawPrice * (1 + (prod.vatRate ?? 0) / 100);
+                    const price = rawPrice ? grossPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '';
                     return (
                       <Link
                         key={prod.id}
