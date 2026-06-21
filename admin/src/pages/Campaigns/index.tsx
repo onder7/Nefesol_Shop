@@ -20,6 +20,15 @@ interface Campaign {
   products: any[];
 }
 
+// ISO/UTC zaman damgasını <input type="date"> için yerel YYYY-MM-DD'ye çevirir
+function toDateInput(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 const inputCls = 'w-full rounded border border-stroke bg-transparent px-3 py-2 text-sm text-black outline-none transition focus:border-primary dark:border-strokedark dark:text-white';
 const btnPrimaryCls = 'rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90';
 const btnDangerCls = 'rounded bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90';
@@ -102,8 +111,10 @@ export default function CampaignsPage() {
       discountText: form.discountText,
       discountAmount: form.discountAmount ? Number(form.discountAmount) : undefined,
       discountType: form.discountType,
-      startDate: new Date(form.startDate).toISOString(),
-      endDate: new Date(form.endDate).toISOString(),
+      // Tarihler yerel saatle yorumlanır: başlangıç gün başı (00:00), bitiş gün sonu (23:59:59).
+      // (Aksi halde "2026-06-23" UTC gece yarısı olur ve kampanya TR saatiyle 03:00'te biter.)
+      startDate: new Date(`${form.startDate}T00:00:00`).toISOString(),
+      endDate: new Date(`${form.endDate}T23:59:59`).toISOString(),
       isActive: form.isActive,
       showOnHome: form.showOnHome,
       color: form.color,
@@ -174,8 +185,9 @@ export default function CampaignsPage() {
       discountText: campaign.discountText,
       discountAmount: campaign.discountAmount?.toString() || '',
       discountType: campaign.discountType || 'percentage',
-      startDate: campaign.startDate.split('T')[0],
-      endDate: campaign.endDate.split('T')[0],
+      // Yerel tarih bileşenleriyle çöz: UTC string'i split etmek gün kaydırabilir
+      startDate: toDateInput(campaign.startDate),
+      endDate: toDateInput(campaign.endDate),
       isActive: campaign.isActive,
       showOnHome: campaign.showOnHome,
       color: campaign.color,
