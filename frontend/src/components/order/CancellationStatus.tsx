@@ -62,12 +62,12 @@ export function CancellationStatus({
 
   const handleAcceptCoupon = async () => {
     if (!orderId) return;
-    if (!confirm('İndirimi kabul edip siparişinizi sürdürmek istediğinizden emin misiniz?')) return;
+    if (!confirm('Teklifi kabul edip siparişinizi sürdürmek istediğinizden emin misiniz? Kupon hesabınıza tanımlanacak.')) return;
 
     setRetracting(true);
     try {
       const res = await api.delete<{ success: boolean; message?: string }>(`/checkout/orders/${orderId}/cancel-request`);
-      toast.success(res?.data?.message || 'İndirim bu siparişe uygulandı, siparişiniz devam ediyor!');
+      toast.success(res?.data?.message || 'Kuponunuz tanımlandı, siparişiniz devam ediyor!');
       onRetract?.();
     } catch (error: any) {
       toast.error(error.message || 'İşlem başarısız oldu');
@@ -85,42 +85,45 @@ export function CancellationStatus({
         {/* Başarı Mesajı */}
         <div className="space-y-2">
           <p className="text-xl font-bold text-green-800 flex items-center gap-2">
-            <span className="text-3xl">✅</span> İndirim Bu Siparişe Uygulandı!
+            <span className="text-3xl">🎁</span> Kuponunuz Tanımlandı!
           </p>
           <p className="text-sm text-green-700 leading-relaxed">
-            İptal talebinizden vazgeçtiniz; siparişiniz <span className="font-bold">devam ediyor</span> ve
-            <span className="font-bold"> {couponValue} TRY indirim bu siparişe</span> uygulandı.
-            Güncellenmiş tutarı sipariş detayında görebilirsiniz.
+            İptal talebinizden vazgeçtiniz; siparişiniz <span className="font-bold">tam tutarıyla devam ediyor</span>.
+            Teşekkürler! <span className="font-bold">{couponValue} TRY'lik indirim kuponunuz</span> hesabınıza yüklendi —
+            bir sonraki alışverişinizde nakit gibi kullanabilirsiniz.
           </p>
         </div>
 
-        {/* İndirim Bilgisi */}
+        {/* Kupon Kodu */}
         <div className="bg-white rounded-lg border-2 border-green-200 p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Bu siparişe uygulanan indirim</p>
-            <p className="font-bold text-2xl text-green-600">−{couponValue} TRY</p>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Kupon Kodunuz</p>
+              <p className="font-mono font-bold text-lg text-gray-900 tracking-wider">{couponCode}</p>
+            </div>
+            <p className="font-bold text-2xl text-green-600">{couponValue} TRY</p>
           </div>
           <p className="text-xs text-gray-500 mt-2 border-t border-green-100 pt-2">
-            Bu indirim yalnızca bu siparişe özeldir; başka siparişlerde kullanılamaz.
+            Kupon yalnızca size özeldir ve gelecekteki bir siparişinizde kullanılabilir. İndirimlerim sayfasından da görebilirsiniz.
           </p>
-        </div>
-
-        {/* Sıradaki Adım */}
-        <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
-          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Siparişiniz nasıl tamamlanır?</p>
-          <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1 ml-4 list-disc">
-            <li><strong>Ödemesi tamamlanmış</strong> siparişler otomatik olarak <strong>Hazırlanıyor</strong> durumuna geçer; kargolanınca bilgilendirilirsiniz. Ek işlem gerekmez.</li>
-            <li><strong>Ödeme bekleyen</strong> (havale/kapıda) siparişlerde, sipariş detayındaki <strong>ödeme talimatlarını</strong> izleyerek ödemenizi tamamlayın.</li>
-          </ul>
         </div>
 
         {/* CTA */}
-        <Button
-          render={<Link to="/hesabim/siparisler" />}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
-        >
-          📦 Siparişimi Görüntüle
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            render={<Link to="/hesabim?tab=coupons" />}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
+          >
+            🎟️ İndirimlerim
+          </Button>
+          <Button
+            variant="outline"
+            render={<Link to="/hesabim/siparisler" />}
+            className="flex-1 font-semibold py-3"
+          >
+            📦 Siparişlerim
+          </Button>
+        </div>
       </div>
     );
   }
@@ -142,19 +145,19 @@ export function CancellationStatus({
             </p>
             <p className="text-sm text-amber-800 leading-relaxed">
               Siparişinizi iptal etmek istemediğinizi anladık. İptalden vazgeçerseniz
-              <span className="font-bold text-amber-900"> {couponValue} TRY indirimi bu siparişinize</span>
-              uygulayalım — sipariş tutarınız düşsün, siparişiniz devam etsin.
+              <span className="font-bold text-amber-900"> {couponValue} TRY'lik kişiye özel bir kuponu</span>
+              hesabınıza tanımlayalım — siparişiniz tam tutarıyla devam etsin, kuponu bir sonraki alışverişinizde kullanın.
             </p>
           </div>
 
-          {/* İndirim Card */}
+          {/* Kupon Card */}
           <div className="bg-white rounded-lg border-2 border-amber-200 p-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Bu siparişe uygulanacak indirim</p>
-              <p className="font-bold text-2xl text-amber-600">−{couponValue} TRY</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hesabınıza tanımlanacak kupon</p>
+              <p className="font-bold text-2xl text-amber-600">{couponValue} TRY</p>
             </div>
             <p className="text-xs text-gray-600 border-t border-amber-100 pt-3 mt-3">
-              💡 İndirim yalnızca bu siparişe özeldir; kabul ettiğinizde sipariş iptal edilmez, tutarınız güncellenir.
+              💡 Kupon yalnızca size özeldir ve gelecekteki bir siparişinizde kullanılır. Kabul ettiğinizde bu sipariş iptal edilmez.
             </p>
           </div>
 
@@ -166,12 +169,12 @@ export function CancellationStatus({
               disabled={retracting}
               className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 text-base"
             >
-              {retracting ? '⏳ İşleniyor...' : '🎉 İndirimi Kabul Et, Siparişi Sürdür'}
+              {retracting ? '⏳ İşleniyor...' : '🎉 Kuponu Kabul Et, Siparişi Sürdür'}
             </Button>
           )}
 
           <p className="text-xs text-amber-700 text-center bg-amber-100 rounded px-3 py-2">
-            Kabul ederseniz sipariş iptal edilmez; {couponValue} TRY indirim bu siparişe uygulanır.
+            Kabul ederseniz sipariş iptal edilmez; {couponValue} TRY'lik kupon hesabınıza tanımlanır.
           </p>
         </div>
       )}

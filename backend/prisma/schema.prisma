@@ -45,6 +45,7 @@ model User {
   wishlists        Wishlist[]
   notifications    Notification[]
   discountUsages   DiscountUsage[]
+  discounts        Discount[]
   productQuestions ProductQuestion[]
   productAnswers   ProductAnswer[]
   contactMessages  ContactMessage[]
@@ -462,6 +463,12 @@ model Discount {
   expiresAt    DateTime?    @map("expires_at")
   createdAt    DateTime     @default(now()) @map("created_at")
 
+  // Kişiye özel kupon: userId doluysa yalnızca o kullanıcı kullanabilir (null = herkese açık)
+  userId        String?  @map("user_id")
+  description   String?
+  sourceOrderId String?  @map("source_order_id")
+
+  user   User?           @relation(fields: [userId], references: [id])
   usages DiscountUsage[]
 
   @@map("discounts")

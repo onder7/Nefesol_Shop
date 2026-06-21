@@ -1,6 +1,6 @@
 import { prisma } from '../config/database';
 import { CancellationReason, CancellationStatus, OrderStatus } from '@prisma/client';
-import { getTaxConfig } from './settingsService';
+import { createPersonalCoupon } from './discountService';
 
 const CANCELLATION_REASON_LABELS: Record<CancellationReason, string> = {
   CHANGED_MIND: 'Siparişten Vazgeçtim',
@@ -230,27 +230,8 @@ export async function getOrderCancellation(orderId: string) {
   });
 }
 
-// Kullanıcının kazandığı tüm kuponları döndürür (iptalden vazgeçip kupon kabul edenler)
-export async function getUserCoupons(userId: string) {
-  const cancellations = await prisma.orderCancellation.findMany({
-    where: {
-      status: 'REFUNDED',
-      couponCode: { not: null },
-      order: { userId },
-    },
-    include: {
-      order: { select: { id: true, createdAt: true } },
-    },
-    orderBy: { refundedAt: 'desc' },
-  });
-
-  return cancellations.map((c) => ({
-    code: c.couponCode,
-    value: c.couponValue ? Number(c.couponValue) : 0,
-    orderId: c.orderId,
-    appliedAt: c.refundedAt || c.order.createdAt,
-  }));
-}
+// Not: Kullanıcının kazandığı kuponlar artık discountService.getUserCoupons üzerinden
+// (gerçek Discount kayıtları) döndürülür — kişiye özel, gelecek alışverişte kullanılabilir.
 
 export async function unrejectCancellation(cancellationId: string) {
   const cancellation = await prisma.orderCancellation.findUnique({
@@ -276,36 +257,36 @@ export async function withdrawCancellation(orderId: string, userId: string) {
   if (!cancellation) throw new Error('İptal talebi bulunamadı');
   if (cancellation.order.userId !== userId) throw new Error('Bu talebe erişim yetkiniz yok');
   if (cancellation.status !== 'APPROVED') throw new Error('Sadece onaylı talepleri geri alabilirsiniz');
-  if (!cancellation.couponCode) throw new Error('Kupon teklifi olmayan talepler geri alınamaz');
+  if (!cancellation.couponOffered) throw new Error('Kupon teklifi olmayan talepler geri alınamaz');
 
   const order = cancellation.order;
   const couponAmount = Number(cancellation.couponValue) || 0;
-  const newDiscount = Number(order.discount) + couponAmount;
-
-  // İndirim KDV hariç (net) tutara uygulanır, KDV indirim sonrası net üzerinden yeniden hesaplanır.
-  const { taxRate } = await getTaxConfig();
-  const taxableBase = Number(order.subtotal) - newDiscount;
-  const tax = Math.round(taxableBase * taxRate) / 100;
-  const newTotal = taxableBase + tax + Number(order.shippingFee);
 
   // Kuponu kabul etmek = siparişi iptal etmekten vazgeçmek.
+  // Sipariş TAM FİYATTA kalır (faturası tam kesilir); teklif edilen tutar müşteriye
+  // gelecek alışverişte kullanabileceği KİŞİYE ÖZEL bir kupon olarak tanımlanır.
   // Sipariş ÖDENMİŞSE doğrudan hazırlığa (PROCESSING), ÖDENMEMİŞSE (havale/kapıda) ödeme bekler (PENDING).
   const isPaid = order.payment?.status === 'SUCCESS';
   const reinstateStatus = isPaid ? 'PROCESSING' : 'PENDING';
 
+  // Siparişi tam fiyatta geri yükle (indirim uygulanmaz)
   await prisma.order.update({
     where: { id: orderId },
-    data: {
-      discount: newDiscount,
-      total: newTotal,
-      status: reinstateStatus,
-    },
+    data: { status: reinstateStatus },
   });
 
-  // Update cancellation as completed (coupon offered)
+  // Müşteriye özel, tek kullanımlık kupon oluştur (gelecek alışveriş)
+  const coupon = await createPersonalCoupon({
+    userId,
+    value: couponAmount,
+    sourceOrderId: orderId,
+    description: 'İptalden vazgeçme hediyesi',
+  });
+
+  // Update cancellation as completed; üretilen kupon kodunu referans olarak sakla
   await prisma.orderCancellation.update({
     where: { id: cancellation.id },
-    data: { status: 'REFUNDED', refundedAt: new Date() },
+    data: { status: 'REFUNDED', refundedAt: new Date(), couponCode: coupon.code },
   });
 
   // Add status log
@@ -313,7 +294,7 @@ export async function withdrawCancellation(orderId: string, userId: string) {
     data: {
       orderId,
       status: reinstateStatus,
-      note: `İndirim teklifi kabul edildi (−${couponAmount} TRY). ${isPaid ? 'Sipariş hazırlığa alındı.' : 'Sipariş ödeme bekliyor.'}`,
+      note: `İptalden vazgeçildi — ${couponAmount} TL'lik kişiye özel kupon (${coupon.code}) tanımlandı (gelecek alışveriş). ${isPaid ? 'Sipariş hazırlığa alındı.' : 'Sipariş ödeme bekliyor.'}`,
     },
   });
 
@@ -337,5 +318,5 @@ export async function withdrawCancellation(orderId: string, userId: string) {
     });
   }
 
-  return { reinstateStatus, isPaid, newTotal };
+  return { reinstateStatus, isPaid, couponCode: coupon.code, couponValue: couponAmount };
 }

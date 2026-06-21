@@ -2,6 +2,7 @@ import { prisma } from '../config/database';
 import { getShippingConfig, computeShipping, getTaxConfig } from './settingsService';
 import { logger } from '../config/logger';
 import * as emailSvc from './emailService';
+import { validateCoupon, redeemCoupon } from './discountService';
 
 export { computeShipping };
 
@@ -35,7 +36,7 @@ export async function getCartForCheckout(userId: string) {
   return cart;
 }
 
-export async function createOrder(userId: string, addressId: string) {
+export async function createOrder(userId: string, addressId: string, couponCode?: string) {
   const cart = await getCartForCheckout(userId);
 
   const address = await prisma.address.findFirst({ where: { id: addressId, userId } });
@@ -58,9 +59,18 @@ export async function createOrder(userId: string, addressId: string) {
   const config = await getShippingConfig();
   const shippingFee = computeShipping(subtotal, config);
 
+  // Kupon doğrulama (varsa) — indirim net (KDV hariç) ara toplam üzerinden
+  let discount = 0;
+  let discountId: string | null = null;
+  if (couponCode) {
+    const result = await validateCoupon(couponCode, userId, subtotal);
+    if (!result.ok) throw Object.assign(new Error(result.error), { status: 400 });
+    discount = result.discountAmount;
+    discountId = result.discount.id;
+  }
+
   // Fiyatlar KDV hariç (net). İndirim net tutara uygulanır, KDV indirim sonrası net üzerinden hesaplanır.
   const { taxRate } = await getTaxConfig();
-  const discount = 0;
   const taxableBase = subtotal - discount;
   const tax = Math.round(taxableBase * taxRate) / 100;
   const total = taxableBase + tax + shippingFee;
@@ -69,6 +79,10 @@ export async function createOrder(userId: string, addressId: string) {
     const newOrder = await tx.order.create({
       data: { userId, addressId, subtotal, shippingFee, discount, total, status: 'PENDING' },
     });
+
+    if (discountId) {
+      await redeemCoupon(tx, discountId, userId, newOrder.id);
+    }
 
     for (const item of cart.items) {
       await tx.orderItem.create({

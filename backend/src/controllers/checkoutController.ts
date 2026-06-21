@@ -7,13 +7,14 @@ import { prisma } from '../config/database';
 import * as orderSvc from '../services/orderService';
 import * as paymentSvc from '../services/paymentService';
 import * as emailSvc from '../services/emailService';
+import { validateCoupon } from '../services/discountService';
 import { getShippingConfig, computeShipping, getPaymentMethods, getStoreName, getTaxConfig } from '../services/settingsService';
 
 // Pending checkout data stored in Redis with 30-min TTL
 const PENDING_TTL = 1800;
 const pendingKey = (id: string) => `checkout:pending:${id}`;
 
-interface PendingData { userId: string; addressId: string }
+interface PendingData { userId: string; addressId: string; couponCode?: string }
 
 async function setPending(conversationId: string, data: PendingData) {
   await redis.setex(pendingKey(conversationId), PENDING_TTL, JSON.stringify(data));
@@ -38,7 +39,7 @@ function apiBase(_req: Request) {
 export async function initialize(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-    const { addressId } = req.body as { addressId: string };
+    const { addressId, couponCode } = req.body as { addressId: string; couponCode?: string };
 
     const [user, cart] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, include: { profile: true } }),
@@ -57,13 +58,22 @@ export async function initialize(req: AuthRequest, res: Response, next: NextFunc
     const shippingConfig = await getShippingConfig();
     const shippingFee = computeShipping(subtotal, shippingConfig);
 
+    // Kupon (varsa) — indirim net (KDV hariç) ara toplam üzerinden
+    let discount = 0;
+    if (couponCode) {
+      const result = await validateCoupon(couponCode, userId, subtotal);
+      if (!result.ok) return next(Object.assign(new Error(result.error), { status: 400 }));
+      discount = result.discountAmount;
+    }
+
     // Fiyatlar KDV hariç (net). KDV indirim sonrası net tutar üzerinden hesaplanır.
     const { taxRate } = await getTaxConfig();
-    const tax = Math.round(subtotal * taxRate) / 100;
-    const total = subtotal + tax + shippingFee;
+    const taxableBase = subtotal - discount;
+    const tax = Math.round(taxableBase * taxRate) / 100;
+    const total = taxableBase + tax + shippingFee;
 
     const conversationId = `${userId.slice(-6)}-${Date.now()}`;
-    await setPending(conversationId, { userId, addressId });
+    await setPending(conversationId, { userId, addressId, couponCode });
 
     const contactName = `${address.firstName} ${address.lastName}`;
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -125,6 +135,7 @@ export async function initialize(req: AuthRequest, res: Response, next: NextFunc
         token: formRes.token,
         conversationId,
         subtotal,
+        discount,
         tax,
         shippingFee,
         total,
@@ -165,7 +176,7 @@ export async function callback(req: Request, res: Response, next: NextFunction) 
       return res.redirect(`${env.FRONTEND_URL}/sepet?error=session_expired`);
     }
 
-    const order = await orderSvc.createOrder(pending.userId, pending.addressId);
+    const order = await orderSvc.createOrder(pending.userId, pending.addressId, pending.couponCode);
 
     await prisma.payment.create({
       data: {
@@ -208,7 +219,7 @@ export async function devCallback(req: Request, res: Response, next: NextFunctio
       return res.status(400).json({ success: false, error: 'Oturum bulunamadı veya süresi doldu' });
     }
 
-    const order = await orderSvc.createOrder(pending.userId, pending.addressId);
+    const order = await orderSvc.createOrder(pending.userId, pending.addressId, pending.couponCode);
 
     await prisma.payment.create({
       data: {
@@ -254,7 +265,7 @@ export async function paymentMethods(_req: Request, res: Response, next: NextFun
 export async function placeOrder(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-    const { addressId, method } = req.body as { addressId: string; method: 'cod' | 'havale' };
+    const { addressId, method, couponCode } = req.body as { addressId: string; method: 'cod' | 'havale'; couponCode?: string };
 
     if (!addressId || !['cod', 'havale'].includes(method)) {
       return res.status(400).json({ success: false, error: 'Geçersiz istek' });
@@ -269,7 +280,7 @@ export async function placeOrder(req: AuthRequest, res: Response, next: NextFunc
       return res.status(400).json({ success: false, error: 'Havale/EFT ödemesi şu an aktif değil' });
     }
 
-    const order = await orderSvc.createOrder(userId, addressId);
+    const order = await orderSvc.createOrder(userId, addressId, couponCode);
 
     await prisma.payment.create({
       data: {

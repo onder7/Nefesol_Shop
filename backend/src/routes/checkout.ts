@@ -9,11 +9,13 @@ const router = Router();
 
 const initSchema = z.object({
   addressId: z.string().min(1),
+  couponCode: z.string().optional(),
 });
 
 const placeOrderSchema = z.object({
   addressId: z.string().min(1),
   method: z.enum(['cod', 'havale']),
+  couponCode: z.string().optional(),
 });
 
 // Public

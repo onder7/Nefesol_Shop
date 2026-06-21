@@ -15,7 +15,7 @@ function formatPrice(price: number) {
 }
 
 export function Cart() {
-  const { setCart } = useCartStore();
+  const { setCart, setAppliedCoupon } = useCartStore();
   const qc = useQueryClient();
 
   const [couponCode, setCouponCode] = useState('');
@@ -79,12 +79,17 @@ export function Cart() {
       return;
     }
 
+    const currentSubtotal = (cart?.items ?? []).reduce(
+      (sum, item) => sum + item.priceAtAdd * item.quantity,
+      0,
+    );
+
     setValidatingCoupon(true);
     try {
       const res = await fetch('/api/discounts/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode }),
+        body: JSON.stringify({ code: couponCode, subtotal: currentSubtotal }),
         credentials: 'include',
       });
 
@@ -93,15 +98,18 @@ export function Cart() {
       if (!res.ok || data.success === false) {
         toast.error(data.error || 'Kupon geçersiz');
         setAppliedDiscount(null);
+        setAppliedCoupon(null);
         return;
       }
 
       setAppliedDiscount(data.data);
+      setAppliedCoupon({ code: data.data.code, value: Number(data.data.value), type: data.data.type });
       setCouponCode('');
       toast.success('Kupon başarıyla uygulandı!');
     } catch (err: any) {
       toast.error('Bir hata oluştu');
       setAppliedDiscount(null);
+      setAppliedCoupon(null);
     } finally {
       setValidatingCoupon(false);
     }
@@ -281,6 +289,7 @@ export function Cart() {
                   <button
                     onClick={() => {
                       setAppliedDiscount(null);
+                      setAppliedCoupon(null);
                       setCouponCode('');
                     }}
                     className="shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"

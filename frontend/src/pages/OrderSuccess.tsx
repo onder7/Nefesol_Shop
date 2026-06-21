@@ -14,10 +14,10 @@ function formatPrice(n: number) {
 export function OrderSuccess() {
   const [params] = useSearchParams();
   const orderId = params.get('orderId');
-  const { setCart } = useCartStore();
+  const { setCart, setAppliedCoupon } = useCartStore();
 
-  // Clear cart in store after successful order
-  useEffect(() => { setCart(null); }, [setCart]);
+  // Clear cart + applied coupon in store after successful order
+  useEffect(() => { setCart(null); setAppliedCoupon(null); }, [setCart, setAppliedCoupon]);
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderId],

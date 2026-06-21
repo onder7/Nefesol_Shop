@@ -241,7 +241,7 @@ function HavaleInfo({ info }: { info: NonNullable<{ bankName: string; iban: stri
 export function Checkout() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
-  const { cart, setCart } = useCartStore();
+  const { cart, setCart, appliedCoupon, setAppliedCoupon } = useCartStore();
   const [step, setStep] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -286,7 +286,7 @@ export function Checkout() {
 
   // iyzico initialize
   const initMut = useMutation({
-    mutationFn: (addressId: string) => checkoutApi.initialize(addressId),
+    mutationFn: (addressId: string) => checkoutApi.initialize(addressId, appliedCoupon?.code),
     onSuccess: (res) => {
       setInitData(res.data.data as InitData);
       setStep(2);
@@ -298,9 +298,10 @@ export function Checkout() {
   // COD / Havale place order
   const placeOrderMut = useMutation({
     mutationFn: ({ addressId, method }: { addressId: string; method: 'cod' | 'havale' }) =>
-      checkoutApi.placeOrder(addressId, method),
+      checkoutApi.placeOrder(addressId, method, appliedCoupon?.code),
     onSuccess: (res) => {
       setCart(null);
+      setAppliedCoupon(null);
       const orderId = res.data.data.orderId;
       if (payMethod === 'havale' && res.data.data.havale) {
         // Pass havale info via state to success page
@@ -331,6 +332,16 @@ export function Checkout() {
   const codFee = payMethod === 'cod' ? (methods.cod.fee ?? 0) : 0;
   const shippingFee = initData?.shippingFee ?? (subtotal >= 500 ? 0 : 49.9);
 
+  // Kupon indirimi (net ara toplam üzerinden) — server ile aynı mantık
+  const discount = initData?.discount ?? (appliedCoupon
+    ? Math.min(
+        appliedCoupon.type === 'PERCENT'
+          ? Math.round((subtotal * appliedCoupon.value) / 100 * 100) / 100
+          : appliedCoupon.value,
+        subtotal,
+      )
+    : 0);
+
   // KDV oranı (public ayar) — fiyatlar KDV hariç (net), KDV net üzerinden eklenir
   const { data: taxConfig } = useQuery({
     queryKey: ['tax-config'],
@@ -342,8 +353,8 @@ export function Checkout() {
     staleTime: 1000 * 60 * 10,
   });
   const taxRate = taxConfig?.taxRate ?? 20;
-  const tax = initData?.tax ?? Math.round(subtotal * taxRate) / 100;
-  const total = initData?.total ?? (subtotal + tax + shippingFee + codFee);
+  const tax = initData?.tax ?? Math.round((subtotal - discount) * taxRate) / 100;
+  const total = initData?.total ?? (subtotal - discount + tax + shippingFee + codFee);
 
   const handleProceed = () => {
     if (!selectedAddress) return;
@@ -522,6 +533,12 @@ export function Checkout() {
           <span>Ara Toplam (KDV Hariç)</span>
           <span>{formatPrice(subtotal)}</span>
         </div>
+        {discount > 0 && (
+          <div className="flex justify-between text-sm text-green-700">
+            <span>İndirim {appliedCoupon ? `(${appliedCoupon.code})` : ''}</span>
+            <span>−{formatPrice(discount)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-sm">
           <span>KDV (%{taxRate})</span>
           <span>{formatPrice(tax)}</span>

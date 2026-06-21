@@ -6,6 +6,7 @@ export interface CheckoutInitResponse {
   token: string;
   conversationId: string;
   subtotal: number;
+  discount?: number;
   tax?: number;
   shippingFee: number;
   total: number;
@@ -49,11 +50,11 @@ export const checkoutApi = {
     api.get<{ success: boolean; data: PaymentMethodsResponse }>('/checkout/payment-methods'),
 
   // Checkout
-  initialize: (addressId: string) =>
-    api.post<{ success: boolean; data: CheckoutInitResponse }>('/checkout/initialize', { addressId }),
+  initialize: (addressId: string, couponCode?: string) =>
+    api.post<{ success: boolean; data: CheckoutInitResponse }>('/checkout/initialize', { addressId, couponCode }),
 
-  placeOrder: (addressId: string, method: 'cod' | 'havale') =>
-    api.post<{ success: boolean; data: PlaceOrderResponse }>('/checkout/place-order', { addressId, method }),
+  placeOrder: (addressId: string, method: 'cod' | 'havale', couponCode?: string) =>
+    api.post<{ success: boolean; data: PlaceOrderResponse }>('/checkout/place-order', { addressId, method, couponCode }),
 
   // Orders
   listOrders: () =>
@@ -66,7 +67,18 @@ export const checkoutApi = {
   getOrderCancellation: (orderId: string) =>
     api.get<{ success: boolean; data: any }>(`/checkout/orders/${orderId}/cancellation`),
 
-  // Kullanıcının kazandığı kuponlar
+  // Kullanıcının kişiye özel kuponları (gelecek alışverişte kullanılabilir)
   getMyCoupons: () =>
-    api.get<{ success: boolean; data: Array<{ code: string; value: number; orderId: string; appliedAt: string }> }>('/checkout/my-coupons'),
+    api.get<{ success: boolean; data: Array<{
+      code: string;
+      value: number;
+      type: 'PERCENT' | 'FIXED';
+      minOrder: number | null;
+      expiresAt: string | null;
+      sourceOrderId: string | null;
+      description: string | null;
+      used: boolean;
+      expired: boolean;
+      usable: boolean;
+    }> }>('/checkout/my-coupons'),
 };

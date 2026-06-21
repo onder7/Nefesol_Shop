@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
 import { useQuery } from '@tanstack/react-query';
@@ -41,7 +41,8 @@ export function AccountDashboard() {
   const logout = useAuthStore((s) => s.logout);
   const { hasWarning: profileHasWarning, missingAddress, missingPhone, message: profileWarningMessage } = useProfileCompleteness();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState('orders');
+  const [searchParams] = useSearchParams();
+  const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'orders');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -53,6 +54,7 @@ export function AccountDashboard() {
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<any>(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
   const [appliedCoupons, setAppliedCoupons] = useState<any[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [orderCancellation, setOrderCancellation] = useState<any>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
@@ -1399,54 +1401,77 @@ export function AccountDashboard() {
             </div>
           )}
 
-          {/* Coupons — bilgi amaçlı görüntüleme */}
+          {/* Coupons — kullanılabilir kişiye özel kuponlar */}
           {activeSection === 'coupons' && (
             <div className="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">İndirimlerim</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                İptal talebinizden vazgeçtiğinizde ilgili siparişe uygulanan indirimlerin kaydı. Bilgi amaçlıdır; bu indirimler yeniden kullanılamaz.
+                Size özel indirim kuponlarınız. Kupon kodunu sepette "Kupon Kodu" alanına girerek alışverişinizde kullanabilirsiniz.
               </p>
               {appliedCoupons.length === 0 ? (
                 <div className="text-center py-12">
                   <Gift size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400">Henüz uygulanmış bir indirim bulunmamaktadır.</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Bir siparişin iptalinden vazgeçip indirim teklifini kabul ettiğinizde burada listelenir.</p>
+                  <p className="text-gray-600 dark:text-gray-400">Henüz size özel bir kupon bulunmamaktadır.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Bir siparişin iptalinden vazgeçip teklifi kabul ettiğinizde kuponunuz burada listelenir.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {appliedCoupons.map((coupon, idx) => (
-                    <div
-                      key={idx}
-                      className="border border-green-200 dark:border-green-800 rounded-lg p-4 bg-green-50/60 dark:bg-green-900/10"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide mb-1">Uygulanan İndirim</p>
-                          <p className="text-2xl font-bold text-green-700 dark:text-green-400">−{formatPrice(coupon.value)}</p>
+                  {appliedCoupons.map((coupon, idx) => {
+                    const statusBadge = coupon.usable
+                      ? { text: 'Kullanılabilir', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' }
+                      : coupon.used
+                      ? { text: 'Kullanıldı', cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }
+                      : { text: 'Süresi Doldu', cls: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300' };
+                    return (
+                      <div
+                        key={idx}
+                        className={`border rounded-lg p-4 ${coupon.usable
+                          ? 'border-green-300 dark:border-green-800 bg-green-50/60 dark:bg-green-900/10'
+                          : 'border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/30 opacity-80'}`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide mb-1">İndirim Tutarı</p>
+                            <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+                              {coupon.type === 'PERCENT' ? `%${coupon.value}` : `−${formatPrice(coupon.value)}`}
+                            </p>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadge.cls}`}>
+                            {statusBadge.text}
+                          </span>
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:text-green-300">
-                          Bilgi
-                        </span>
-                      </div>
-                      {coupon.orderId && (
-                        <div className="border-t border-green-200 dark:border-green-800 pt-3">
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Uygulandığı Sipariş</p>
+
+                        {/* Kupon Kodu + Kopyala */}
+                        <div className="flex items-center justify-between gap-2 bg-white dark:bg-gray-900 border border-dashed border-green-300 dark:border-green-700 rounded-md px-3 py-2">
+                          <span className="font-mono font-bold tracking-wider text-gray-900 dark:text-white">{coupon.code}</span>
                           <button
-                            onClick={() => { setActiveSection('orders'); handleSelectOrder(coupon.orderId); }}
-                            className="font-mono text-sm text-primary hover:underline"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(coupon.code);
+                              setCopiedCode(coupon.code);
+                              setTimeout(() => setCopiedCode(null), 1500);
+                            }}
+                            disabled={!coupon.usable}
+                            className="text-xs font-semibold text-primary hover:underline disabled:text-gray-400 disabled:no-underline"
                           >
-                            #TR-{String(coupon.orderId).slice(-8).toUpperCase()}
+                            {copiedCode === coupon.code ? '✓ Kopyalandı' : 'Kopyala'}
                           </button>
                         </div>
-                      )}
-                      <div className="border-t border-green-200 dark:border-green-800 mt-3 pt-3">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Tarih</p>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                          {new Date(coupon.appliedAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </p>
+
+                        <div className="border-t border-gray-200 dark:border-gray-700 mt-3 pt-3 space-y-1">
+                          {coupon.minOrder ? (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Min. sepet tutarı: <span className="font-medium text-gray-700 dark:text-gray-300">{formatPrice(coupon.minOrder)}</span></p>
+                          ) : null}
+                          {coupon.expiresAt && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Son kullanım: <span className="font-medium text-gray-700 dark:text-gray-300">
+                                {new Date(coupon.expiresAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                              </span>
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

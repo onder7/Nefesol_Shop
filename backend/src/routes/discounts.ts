@@ -1,40 +1,27 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { authenticate, requireAdmin } from '../middlewares/auth';
+import { AuthRequest } from '../types';
+import { validateCoupon } from '../services/discountService';
 
 const router = Router();
 
 // ─── POST /api/discounts/validate - İndirim kodunu doğrula
-router.post('/validate', authenticate, async (req: Request, res: Response) => {
+router.post('/validate', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { code } = req.body;
+    const { code, subtotal } = req.body;
     if (!code) {
       return res.status(400).json({ error: 'Kupon kodu gerekli' });
     }
 
-    const discount = await prisma.discount.findUnique({
-      where: { code: code.toUpperCase() },
-    });
-
-    if (!discount) {
-      // Doğrulama hatası "kaynak bulunamadı" değildir → 200 + success:false
-      // (Tarayıcı konsolu 404/400 kırmızı hatayla dolmaz; frontend mesajı gösterir)
-      return res.json({ success: false, error: 'Kupon kodu geçersiz' });
+    // Doğrulama hatası "kaynak bulunamadı" değildir → 200 + success:false
+    // (Tarayıcı konsolu 404/400 kırmızı hatayla dolmaz; frontend mesajı gösterir)
+    const result = await validateCoupon(code, req.user!.id, Number(subtotal) || 0);
+    if (!result.ok) {
+      return res.json({ success: false, error: result.error });
     }
 
-    if (!discount.isActive) {
-      return res.json({ success: false, error: 'Bu kupon aktif değil' });
-    }
-
-    if (discount.expiresAt && new Date(discount.expiresAt) < new Date()) {
-      return res.json({ success: false, error: 'Bu kupon süresi dolmuş' });
-    }
-
-    if (discount.maxUses && discount.usedCount >= discount.maxUses) {
-      return res.json({ success: false, error: 'Bu kupon kullanım limitine ulaştı' });
-    }
-
-    res.json({ success: true, data: discount });
+    res.json({ success: true, data: { ...result.discount, discountAmount: result.discountAmount } });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -74,6 +61,7 @@ router.post('/', authenticate, requireAdmin, async (req: Request, res: Response)
         maxUses: maxUses ? parseInt(maxUses) : null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         isActive: isActive ?? true,
+        description: description ?? null,
       },
     });
 

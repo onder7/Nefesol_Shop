@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../types';
 import * as cancellationService from '../services/cancellationService';
+import * as discountService from '../services/discountService';
 import { CancellationReason } from '@prisma/client';
 import { prisma } from '../config/database';
 
@@ -123,7 +124,7 @@ export async function getUserCoupons(req: AuthRequest, res: Response, next: Next
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, message: 'Oturum açmanız gerekli' });
 
-    const coupons = await cancellationService.getUserCoupons(userId);
+    const coupons = await discountService.getUserCoupons(userId);
 
     res.json({ success: true, data: coupons });
   } catch (err) {
@@ -157,8 +158,8 @@ export async function withdrawCancellation(req: AuthRequest, res: Response, next
       success: true,
       data: result,
       message: result.isPaid
-        ? 'İndirim siparişinize uygulandı. Siparişiniz hazırlanmaya devam ediyor.'
-        : 'İndirim siparişinize uygulandı. Siparişiniz ödeme bekliyor; ödemenizi tamamlayabilirsiniz.',
+        ? `${result.couponValue} TL'lik kuponunuz tanımlandı! Siparişiniz hazırlanmaya devam ediyor; kuponu bir sonraki alışverişinizde kullanabilirsiniz.`
+        : `${result.couponValue} TL'lik kuponunuz tanımlandı! Siparişiniz ödeme bekliyor; kuponu bir sonraki alışverişinizde kullanabilirsiniz.`,
     });
   } catch (err) {
     next(err);
