@@ -114,6 +114,7 @@ export interface CheckoutInitResponse {
   token: string;
   conversationId: string;
   subtotal: number;
+  discount?: number;
   tax?: number;
   shippingFee: number;
   total: number;
