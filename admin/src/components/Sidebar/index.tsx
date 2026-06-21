@@ -66,6 +66,19 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
     localStorage.getItem('sidebar-expanded') !== 'false'
   );
 
+  // Accordion: aynı anda yalnızca bir dropdown açık kalır
+  const computeInitialGroup = (): string | null => {
+    if (pathname.includes('/products') || pathname.includes('/categories') || pathname.includes('/brands') || pathname.includes('/attributes') || pathname.includes('/stock-management')) return 'katalog';
+    if (pathname.includes('/orders') || pathname.includes('/cancellations')) return 'satis';
+    if (pathname.includes('/campaigns') || pathname.includes('/discounts')) return 'pazarlama';
+    if (pathname.includes('/customers') || pathname.includes('/reviews') || pathname.includes('/questions')) return 'musteri';
+    if (pathname.includes('/analytics') || pathname.includes('/reports') || pathname.includes('/user-analytics')) return 'analiz';
+    if (pathname === '/settings') return 'sistem';
+    return null;
+  };
+  const [openGroup, setOpenGroup] = useState<string | null>(computeInitialGroup);
+  const toggleGroup = (key: string) => setOpenGroup((prev) => (prev === key ? null : key));
+
   useEffect(() => {
     const clickHandler = ({ target }: MouseEvent) => {
       if (!sidebar.current || !trigger.current) return;
@@ -157,7 +170,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
             </li>
 
             {/* Katalog Yönetimi Dropdown */}
-            <SidebarLinkGroup activeCondition={pathname.includes('/products') || pathname.includes('/categories') || pathname.includes('/brands') || pathname.includes('/attributes') || pathname.includes('/stock-management')}>
+            <SidebarLinkGroup activeCondition={pathname.includes('/products') || pathname.includes('/categories') || pathname.includes('/brands') || pathname.includes('/attributes') || pathname.includes('/stock-management')} isOpen={openGroup === 'katalog'} onToggle={() => toggleGroup('katalog')}>
               {(handleClick, open) => {
                 return (
                   <React.Fragment>
@@ -234,7 +247,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
             </SidebarLinkGroup>
 
             {/* Satış & Operasyon Dropdown */}
-            <SidebarLinkGroup activeCondition={pathname.includes('/orders') || pathname.includes('/cancellations')}>
+            <SidebarLinkGroup activeCondition={pathname.includes('/orders') || pathname.includes('/cancellations')} isOpen={openGroup === 'satis'} onToggle={() => toggleGroup('satis')}>
               {(handleClick, open) => {
                 return (
                   <React.Fragment>
@@ -281,7 +294,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
             </SidebarLinkGroup>
 
             {/* Pazarlama Dropdown */}
-            <SidebarLinkGroup activeCondition={pathname.includes('/campaigns') || pathname.includes('/discounts')}>
+            <SidebarLinkGroup activeCondition={pathname.includes('/campaigns') || pathname.includes('/discounts')} isOpen={openGroup === 'pazarlama'} onToggle={() => toggleGroup('pazarlama')}>
               {(handleClick, open) => {
                 return (
                   <React.Fragment>
@@ -328,7 +341,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
             </SidebarLinkGroup>
 
             {/* Müşteri İlişkileri Dropdown */}
-            <SidebarLinkGroup activeCondition={pathname.includes('/customers') || pathname.includes('/reviews') || pathname.includes('/questions')}>
+            <SidebarLinkGroup activeCondition={pathname.includes('/customers') || pathname.includes('/reviews') || pathname.includes('/questions')} isOpen={openGroup === 'musteri'} onToggle={() => toggleGroup('musteri')}>
               {(handleClick, open) => {
                 return (
                   <React.Fragment>
@@ -385,7 +398,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
             </SidebarLinkGroup>
 
             {/* Analiz & Raporlama Dropdown */}
-            <SidebarLinkGroup activeCondition={pathname.includes('/analytics') || pathname.includes('/reports') || pathname.includes('/user-analytics')}>
+            <SidebarLinkGroup activeCondition={pathname.includes('/analytics') || pathname.includes('/reports') || pathname.includes('/user-analytics')} isOpen={openGroup === 'analiz'} onToggle={() => toggleGroup('analiz')}>
               {(handleClick, open) => {
                 return (
                   <React.Fragment>
@@ -442,7 +455,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
             </SidebarLinkGroup>
 
             {/* Sistem (Ayarlar) Dropdown */}
-            <SidebarLinkGroup activeCondition={pathname === '/settings'}>
+            <SidebarLinkGroup activeCondition={pathname === '/settings'} isOpen={openGroup === 'sistem'} onToggle={() => toggleGroup('sistem')}>
               {(handleClick, open) => {
                 const systemTabs = [
                   { key: 'general', label: 'Genel' },
