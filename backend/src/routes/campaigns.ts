@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../config/database';
-import { authenticate } from '../middlewares/auth';
+import { authenticate, requireAdmin } from '../middlewares/auth';
 
 const router = express.Router();
 
@@ -84,6 +84,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post(
   '/',
   authenticate,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const {
@@ -139,6 +140,7 @@ router.post(
 router.put(
   '/:id',
   authenticate,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : (req.params.id as string);
@@ -192,6 +194,7 @@ router.put(
 router.delete(
   '/:id',
   authenticate,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : (req.params.id as string);
@@ -209,6 +212,7 @@ router.delete(
 router.post(
   '/:id/products',
   authenticate,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : (req.params.id as string);
@@ -238,6 +242,7 @@ router.post(
 router.delete(
   '/:id/products',
   authenticate,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : (req.params.id as string);
@@ -257,6 +262,7 @@ router.delete(
 router.delete(
   '/:id/products/:productId',
   authenticate,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : (req.params.id as string);
