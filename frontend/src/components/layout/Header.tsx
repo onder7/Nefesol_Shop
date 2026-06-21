@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserCircle, Heart, ShoppingBag, Search, Menu, LogOut, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { UserCircle, Heart, ShoppingBag, Search, LogOut, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -10,7 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
@@ -311,117 +309,7 @@ export function Header() {
             <span className="hidden md:block text-[11px] font-medium">Sepetim</span>
           </Link>
         </div>
-
-        <Sheet>
-            <SheetTrigger
-              nativeButton={true}
-              className="inline-flex lg:hidden h-10 w-10 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 transition-colors"
-              aria-label="Menüyü aç"
-            >
-              <Menu className="h-5 w-5" />
-            </SheetTrigger>
-          <SheetContent side="right" className="w-[85vw] sm:w-[300px] md:w-[350px] p-0">
-            <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 py-4 sm:py-6 px-4 sm:px-6 h-full overflow-y-auto">
-              <SheetClose render={<Link to="/" className="text-xl font-bold text-primary px-2" />}>
-                {storeName}
-              </SheetClose>
-              <div className="flex flex-col gap-4">
-                <p className="font-semibold text-sm text-muted-foreground px-2">Kategoriler</p>
-                <div className="flex flex-col gap-2">
-                  {categories.map((cat) => (
-                    <SheetClose
-                      key={cat.id}
-                      render={
-                        <Link
-                          to={`/kategori/${cat.slug}`}
-                          className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                        />
-                      }
-                    >
-                      {cat.name}
-                    </SheetClose>
-                  ))}
-                </div>
-              </div>
-                <div className="border-t pt-4 mt-auto">
-              <div className="flex flex-col gap-2">
-                <SheetClose
-                  render={
-                    <Link
-                      to="/ara"
-                      className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                    />
-                  }
-                >
-                  Tüm Ürünler
-                </SheetClose>
-                {isAuthenticated ? (
-                  user?.isGuest ? (
-                    <SheetClose
-                      render={
-                        <Button
-                          variant="ghost"
-                          onClick={handleLogout}
-                          className="justify-start px-2 py-1.5 h-auto text-destructive hover:text-destructive hover:bg-destructive/10"
-                        />
-                      }
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Çıkış Yap
-                    </SheetClose>
-                  ) : (
-                    <>
-                      <SheetClose
-                        render={
-                          <Link
-                            to="/hesabim"
-                            className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                          />
-                        }
-                      >
-                        Hesap Özeti
-                      </SheetClose>
-                      <SheetClose
-                        render={
-                          <Link
-                            to="/hesabim/siparisler"
-                            className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                          />
-                        }
-                      >
-                        Siparişlerim
-                      </SheetClose>
-                      <SheetClose
-                        render={
-                          <Button
-                            variant="ghost"
-                            onClick={handleLogout}
-                            className="justify-start px-2 py-1.5 h-auto text-destructive hover:text-destructive hover:bg-destructive/10"
-                          />
-                        }
-                      >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Çıkış Yap
-                      </SheetClose>
-                    </>
-                  )
-                ) : (
-                  <SheetClose
-                    render={
-                      <Button
-                        render={<Link to="/giris" />}
-                        className="w-full mt-2"
-                      />
-                    }
-                  >
-                    Giriş Yap
-                  </SheetClose>
-                )}
-              </div>
-            </div>
-            </div>
-            </SheetContent>
-          </Sheet>
+        {/* Mobil hamburger menü kaldırıldı — mobilde alt menü (BottomNav) zaten aynı menüyü sunuyor */}
       </div>
 
       {/* ─── Renkli Gradient Şerit ───────────────────────────────────── */}

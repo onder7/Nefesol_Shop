@@ -86,8 +86,8 @@ export function CookieConsent() {
 
   return (
     <>
-      {/* Cookie Consent Banner */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg dark:bg-gray-900 dark:border-gray-700">
+      {/* Cookie Consent Banner — mobilde alt menünün üzerine (bottom-16) ve asistan ikonunun üstüne (z-[80]) */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-[80] bg-white border-t border-gray-200 shadow-lg dark:bg-gray-900 dark:border-gray-700">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex-1">
@@ -136,10 +136,10 @@ export function CookieConsent() {
       {showSettings && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40"
+            className="fixed inset-0 z-[80] bg-black/40"
             onClick={() => setShowSettings(false)}
           />
-          <div className="fixed inset-x-4 top-1/2 z-50 w-full max-w-2xl transform -translate-y-1/2 -translate-x-1/2 left-1/2 bg-white rounded-lg shadow-xl dark:bg-gray-900 max-h-screen overflow-y-auto">
+          <div className="fixed inset-x-4 top-1/2 z-[90] w-full max-w-2xl transform -translate-y-1/2 -translate-x-1/2 left-1/2 bg-white rounded-lg shadow-xl dark:bg-gray-900 max-h-screen overflow-y-auto">
             <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 Çerez Ayarları
