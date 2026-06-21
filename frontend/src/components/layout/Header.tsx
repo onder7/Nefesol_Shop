@@ -264,12 +264,6 @@ export function Header() {
                       Beğendiklerim
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-
-                    {/* Additional Links */}
-                    <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
-                      Kuponlarım
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                   </>
                 )}
 
