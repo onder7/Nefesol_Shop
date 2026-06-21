@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../config/database';
 import { AppError } from '../types';
 import { updateSettingsGroup } from './settingsService';
+import { seedDefaultRulesIfEmpty } from './chatbotService';
 
 // ─── İlk Kurulum Sihirbazı ────────────────────────────────────────────────────
 // Altyapı (DATABASE_URL, REDIS_URL, JWT_SECRET) uygulama açılmadan gerektiği için
@@ -105,7 +106,10 @@ export async function completeSetup(input: SetupInput): Promise<{ email: string 
     });
   }
 
-  // 4) İşaretle (admin varlığı asıl kapı olsa da niyet kaydı için)
+  // 4) Varsayılan asistan (chatbot) kurallarını ekle — admin sonradan düzenleyebilir
+  await seedDefaultRulesIfEmpty();
+
+  // 5) İşaretle (admin varlığı asıl kapı olsa da niyet kaydı için)
   await updateSettingsGroup('setup_', { completed: 'true', completed_at: new Date().toISOString() });
 
   return { email };
