@@ -38,6 +38,8 @@ const productInclude = {
     select: { id: true, url: true, altText: true, isPrimary: true },
   },
   tags: { select: { tag: true } },
+  // Kart üzerinde ortalama puan göstermek için onaylı yorumların puanları
+  reviews: { where: { isApproved: true }, select: { rating: true } },
   _count: { select: { reviews: { where: { isApproved: true } } } },
 } satisfies Prisma.ProductInclude;
 
