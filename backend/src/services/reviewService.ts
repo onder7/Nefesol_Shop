@@ -2,9 +2,10 @@ import { prisma } from '../config/database';
 import { AppError } from '../types';
 import { logger } from '../config/logger';
 import * as emailSvc from './emailService';
+import { maskProfile } from '../utils/maskName';
 
 export async function getReviews(productId: string) {
-  const reviews = await prisma.review.findMany({
+  const raw = await prisma.review.findMany({
     where: { productId, isApproved: true },
     orderBy: { createdAt: 'desc' },
     include: {
@@ -16,6 +17,12 @@ export async function getReviews(productId: string) {
       },
     },
   });
+
+  // Gizlilik: müşteriye dönük listede ad/soyad maskelenir
+  const reviews = raw.map((r) => ({
+    ...r,
+    user: r.user ? { ...r.user, profile: maskProfile(r.user.profile) } : r.user,
+  }));
 
   const total = reviews.length;
   const avgRating =

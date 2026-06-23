@@ -96,17 +96,12 @@ export async function listProducts(filters: ProductFilters = {}) {
 }
 
 export async function getProductBySlug(slug: string) {
+  // Not: yorumlar yalnızca puan ortalaması için kullanılır; yorum yazarı ad/soyad
+  // (ve email) sızmaması için productInclude'daki rating-only select miras alınır.
+  // Yorumların kendisi maskeli olarak /reviews (reviewService.getReviews) ile gelir.
   const product = await prisma.product.findUnique({
     where: { slug },
-    include: {
-      ...productInclude,
-      reviews: {
-        where: { isApproved: true },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: { user: { include: { profile: true } } },
-      },
-    },
+    include: productInclude,
   });
   if (!product || !product.isActive) throw new AppError('Ürün bulunamadı', 404);
   return product;

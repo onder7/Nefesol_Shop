@@ -1,8 +1,9 @@
 import { prisma } from '../config/database';
 import { AppError } from '../types';
+import { maskProfile, maskFullName } from '../utils/maskName';
 
 export async function getQuestions(productId: string) {
-  return prisma.productQuestion.findMany({
+  const raw = await prisma.productQuestion.findMany({
     where: { productId, isApproved: true },
     orderBy: { createdAt: 'desc' },
     include: {
@@ -26,6 +27,20 @@ export async function getQuestions(productId: string) {
       },
     },
   });
+
+  // Gizlilik: müşteriye dönük listede ad/soyad ve misafir adı maskelenir.
+  // ADMIN (Satıcı) cevapları frontend'de "Satıcı" gösterildiği için maskelenmez.
+  return raw.map((q) => ({
+    ...q,
+    guestName: maskFullName(q.guestName),
+    user: q.user ? { ...q.user, profile: maskProfile(q.user.profile) } : q.user,
+    answers: q.answers.map((a) => ({
+      ...a,
+      user: a.user && a.user.role !== 'ADMIN'
+        ? { ...a.user, profile: maskProfile(a.user.profile) }
+        : a.user,
+    })),
+  }));
 }
 
 export async function addQuestion(
