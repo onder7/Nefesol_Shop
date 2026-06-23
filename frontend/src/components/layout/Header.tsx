@@ -16,6 +16,7 @@ import { authApi } from '@/services/authApi';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '@/services/productApi';
+import { api } from '@/services/api';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 import type { Product } from '@/types';
@@ -95,6 +96,14 @@ export function Header() {
   });
   const categories = (categoriesData?.data?.data ?? []).filter((cat: any) => cat.showInMenu !== false);
 
+  // Üst şerit menüsü — admin tarafından yönetilen Müşteri Hizmetleri sayfaları
+  const { data: menuPagesData } = useQuery({
+    queryKey: ['menu-pages'],
+    queryFn: () => api.get<{ success: boolean; data: Array<{ slug: string; title: string; isSystem: boolean }> }>('/pages'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const menuPages = menuPagesData?.data?.data ?? [];
+
   async function handleLogout() {
     try {
       await authApi.logout();
@@ -117,6 +126,25 @@ export function Header() {
 
   return (
     <header className="border-b bg-white sticky top-0 z-40">
+      {/* ─── Üst Şerit: Müşteri Hizmetleri sayfaları (masaüstü) ─────────── */}
+      {menuPages.length > 0 && (
+        <div className="hidden lg:block border-b border-neutral-100 bg-neutral-50/70">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-end gap-x-5 gap-y-1 py-1.5 flex-wrap">
+              {menuPages.map((p) => (
+                <Link
+                  key={p.slug}
+                  to={p.isSystem ? `/${p.slug}` : `/sayfa/${p.slug}`}
+                  className="text-xs font-medium text-neutral-600 hover:text-primary transition-colors whitespace-nowrap"
+                >
+                  {p.title}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── Üst Bar: Logo + Arama + İkonlar ─────────────────────────── */}
       <div className="container mx-auto px-2 sm:px-4 h-20 flex items-center gap-3 sm:gap-6">
         <Link to="/" className="flex items-center h-full flex-shrink-0">
