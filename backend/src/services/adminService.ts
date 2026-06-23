@@ -360,7 +360,28 @@ export async function adminGetProduct(id: string) {
 export async function adminDeleteProduct(id: string) {
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) throw new AppError('Ürün bulunamadı', 404);
-  await prisma.product.delete({ where: { id } });
+
+  // Sipariş edilmiş ürün silinemez (OrderItem FK Restrict) — anlamlı mesaj ver
+  const orderCount = await prisma.orderItem.count({ where: { variant: { productId: id } } });
+  if (orderCount > 0) {
+    throw new AppError(
+      'Bu ürün daha önce sipariş edildiği için kalıcı olarak silinemez. Müşterilerden gizlemek için ürünü düzenleyip "Pasif" yapabilirsiniz.',
+      409,
+    );
+  }
+
+  try {
+    await prisma.product.delete({ where: { id } });
+  } catch (err) {
+    // Sepet/favori gibi başka bir FK kısıtı engelliyorsa (P2003) anlaşılır mesaj
+    if ((err as { code?: string })?.code === 'P2003') {
+      throw new AppError(
+        'Bu ürün şu anda müşterilerin sepetinde veya favorilerinde bulunduğu için silinemez. Müşterilerden gizlemek için ürünü "Pasif" yapabilirsiniz.',
+        409,
+      );
+    }
+    throw err;
+  }
 }
 
 // ─── Admin Sipariş Yönetimi ───────────────────────────────────────────────────
