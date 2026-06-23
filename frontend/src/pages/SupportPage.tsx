@@ -138,7 +138,7 @@ export function SupportPage() {
   const activeLabel = pageTitle || menuPages.find(p => p.slug === currentSlug)?.title || 'Müşteri Hizmetleri';
 
   return (
-    <main className="bg-neutral-50/50 min-h-[calc(100vh-160px)] pb-16 pt-8">
+    <main className="bg-neutral-50/50 dark:bg-neutral-950 min-h-[calc(100vh-160px)] pb-16 pt-8">
       <div className="container mx-auto px-4">
         {/* Breadcrumb / Back button */}
         <div className="mb-6 flex items-center gap-2 text-sm text-neutral-500">
@@ -147,14 +147,14 @@ export function SupportPage() {
             <span>Ana Sayfa</span>
           </button>
           <span>/</span>
-          <span className="text-neutral-800 font-medium">{activeLabel}</span>
+          <span className="text-neutral-800 dark:text-neutral-200 font-medium">{activeLabel}</span>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar Nav */}
           <aside className="w-full lg:w-64 shrink-0">
-            <div className="bg-white rounded-2xl border border-neutral-100 p-4 shadow-xs sticky top-24">
-              <h2 className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-3 mb-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800 p-4 shadow-xs sticky top-24">
+              <h2 className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest px-3 mb-4">
                 Müşteri Hizmetleri
               </h2>
               <nav className="space-y-1">
@@ -169,10 +169,10 @@ export function SupportPage() {
                       className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition ${
                         isActive
                           ? 'bg-primary/10 text-primary font-semibold'
-                          : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                          : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white'
                       }`}
                     >
-                      <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-neutral-400'}`} />
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-neutral-400 dark:text-neutral-500'}`} />
                       <span>{item.title}</span>
                     </Link>
                   );
@@ -183,7 +183,7 @@ export function SupportPage() {
 
           {/* Page Content Card */}
           <section className="flex-1 min-w-0">
-            <div className="bg-white rounded-2xl border border-neutral-100 p-6 md:p-10 shadow-xs">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800 p-6 md:p-10 shadow-xs">
               {loading ? (
                 <div className="py-20 flex flex-col items-center justify-center text-neutral-400 gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -203,17 +203,17 @@ export function SupportPage() {
                 <div className="space-y-8">
                   {/* Rich HTML Content from Database */}
                   <div 
-                    className="prose max-w-none text-neutral-700 leading-relaxed font-sans"
+                    className="prose dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed font-sans"
                     dangerouslySetInnerHTML={{ __html: content }}
                   />
 
                   {/* Interactive form only on iletisim page */}
                   {currentSlug === 'iletisim' && (
-                    <div className="mt-8 border-t border-neutral-100 pt-8">
+                    <div className="mt-8 border-t border-neutral-100 dark:border-neutral-800 pt-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Form */}
                         <div>
-                          <h3 className="text-lg font-bold text-neutral-800 mb-4">Bizimle İletişime Geçin</h3>
+                          <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100 mb-4">Bizimle İletişime Geçin</h3>
                           <form onSubmit={handleSubmit} className="space-y-4">
                             {submitSuccess && (
                               <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium">
@@ -226,7 +226,7 @@ export function SupportPage() {
                               </div>
                             )}
                             <div>
-                              <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">
+                              <label className="block text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
                                 Ad Soyad *
                               </label>
                               <input
@@ -234,12 +234,12 @@ export function SupportPage() {
                                 required
                                 value={formData.name}
                                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+                                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 dark:text-neutral-100 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                                 placeholder="Adınız Soyadınız"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">
+                              <label className="block text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
                                 E-posta *
                               </label>
                               <input
@@ -247,24 +247,24 @@ export function SupportPage() {
                                 required
                                 value={formData.email}
                                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+                                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 dark:text-neutral-100 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                                 placeholder="ornek@mail.com"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">
+                              <label className="block text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
                                 Konu
                               </label>
                               <input
                                 type="text"
                                 value={formData.subject}
                                 onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+                                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 dark:text-neutral-100 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                                 placeholder="Mesaj konusu"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">
+                              <label className="block text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
                                 Mesajınız *
                               </label>
                               <textarea
@@ -272,7 +272,7 @@ export function SupportPage() {
                                 rows={4}
                                 value={formData.body}
                                 onChange={(e) => setFormData(prev => ({ ...prev, body: e.target.value }))}
-                                className="w-full rounded-xl border border-neutral-200 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary resize-none"
+                                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 dark:text-neutral-100 bg-transparent px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary resize-none"
                                 placeholder="Sorunuzu veya mesajınızı buraya yazın..."
                               />
                             </div>
@@ -295,24 +295,24 @@ export function SupportPage() {
 
                         {/* Company Info Card */}
                         <div>
-                          <h3 className="text-lg font-bold text-neutral-800 mb-4">Merkez Ofisimiz</h3>
+                          <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100 mb-4">Merkez Ofisimiz</h3>
                           <div className="space-y-4">
-                            <p className="text-sm text-neutral-600 font-sans leading-relaxed">
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed">
                               {companyInfo ? `Ziyaret etmek veya soru sormak isterseniz, merkez ofisimiz ${companyInfo.city} şehir merkezinde yer almaktadır.` : 'Ziyaret etmek veya soru sormak isterseniz, merkez ofisimiz Ankara şehir merkezinde yer almaktadır.'}
                             </p>
                             {companyInfo && (
-                              <div className="space-y-3 pt-4 border-t border-neutral-200">
+                              <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
                                 <div className="flex items-start gap-3">
                                   <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                                   <div>
-                                    <p className="text-xs font-semibold text-neutral-500 uppercase">Adres</p>
-                                    <p className="text-sm text-neutral-800 font-medium">{companyInfo.address}</p>
+                                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase">Adres</p>
+                                    <p className="text-sm text-neutral-800 dark:text-neutral-200 font-medium">{companyInfo.address}</p>
                                   </div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                   <Mail className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                                   <div>
-                                    <p className="text-xs font-semibold text-neutral-500 uppercase">E-posta</p>
+                                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase">E-posta</p>
                                     <a href={`mailto:${companyInfo.email}`} className="text-sm text-primary hover:underline font-medium">
                                       {companyInfo.email}
                                     </a>
@@ -321,7 +321,7 @@ export function SupportPage() {
                                 <div className="flex items-start gap-3">
                                   <Phone className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                                   <div>
-                                    <p className="text-xs font-semibold text-neutral-500 uppercase">Telefon</p>
+                                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase">Telefon</p>
                                     <a href={`tel:${companyInfo.phone}`} className="text-sm text-primary hover:underline font-medium">
                                       {companyInfo.phone}
                                     </a>
@@ -335,9 +335,9 @@ export function SupportPage() {
 
                       {/* Map Section */}
                       {companyInfo && (
-                        <div className="mt-8 pt-8 border-t border-neutral-100">
-                          <h3 className="text-lg font-bold text-neutral-800 mb-4">Konumumuz</h3>
-                          <div className="h-[400px] rounded-2xl overflow-hidden border border-neutral-100 shadow-xs">
+                        <div className="mt-8 pt-8 border-t border-neutral-100 dark:border-neutral-800">
+                          <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100 mb-4">Konumumuz</h3>
+                          <div className="h-[400px] rounded-2xl overflow-hidden border border-neutral-100 dark:border-neutral-800 shadow-xs">
                             <iframe
                               src={companyInfo.mapEmbed}
                               width="100%"
