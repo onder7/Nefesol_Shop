@@ -608,6 +608,23 @@ model SiteSettings {
   @@map("site_settings")
 }
 
+// ─── Statik Sayfalar (Müşteri Hizmetleri) ────────────────────────────────────
+
+model Page {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  title      String
+  content    String   @db.Text
+  showInMenu Boolean  @default(true)  @map("show_in_menu")
+  sortOrder  Int      @default(0)     @map("sort_order")
+  isActive   Boolean  @default(true)  @map("is_active")
+  isSystem   Boolean  @default(false) @map("is_system") // 7 sabit sayfa: silinemez, slug değişmez
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt      @map("updated_at")
+
+  @@map("pages")
+}
+
 // ─── Chatbot Kuralları ────────────────────────────────────────────────────────
 
 model ChatbotRule {

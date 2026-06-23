@@ -3,6 +3,7 @@ import { prisma } from '../config/database';
 import { AppError } from '../types';
 import { updateSettingsGroup } from './settingsService';
 import { seedDefaultRulesIfEmpty } from './chatbotService';
+import { seedDefaultPagesIfEmpty } from './pageService';
 
 // ─── İlk Kurulum Sihirbazı ────────────────────────────────────────────────────
 // Altyapı (DATABASE_URL, REDIS_URL, JWT_SECRET) uygulama açılmadan gerektiği için
@@ -106,8 +107,9 @@ export async function completeSetup(input: SetupInput): Promise<{ email: string 
     });
   }
 
-  // 4) Varsayılan asistan (chatbot) kurallarını ekle — admin sonradan düzenleyebilir
+  // 4) Varsayılan asistan (chatbot) kurallarını ve statik sayfaları ekle — admin sonradan düzenleyebilir
   await seedDefaultRulesIfEmpty();
+  await seedDefaultPagesIfEmpty();
 
   // 5) İşaretle (admin varlığı asıl kapı olsa da niyet kaydı için)
   await updateSettingsGroup('setup_', { completed: 'true', completed_at: new Date().toISOString() });

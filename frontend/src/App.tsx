@@ -77,6 +77,7 @@ function AppContent() {
         <Route path="/hakkimizda" element={<SupportPage />} />
         <Route path="/kvkk" element={<SupportPage />} />
         <Route path="/uyelik" element={<SupportPage />} />
+        <Route path="/sayfa/:slug" element={<SupportPage />} />
 
         {/* Korumalı route'lar */}
         <Route element={<ProtectedRoute />}>

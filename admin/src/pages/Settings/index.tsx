@@ -1504,71 +1504,234 @@ function MaintenanceTab() {
   );
 }
 
+interface AdminPage {
+  id: string;
+  slug: string;
+  title: string;
+  content: string;
+  showInMenu: boolean;
+  sortOrder: number;
+  isActive: boolean;
+  isSystem: boolean;
+}
+
+interface PageDraft {
+  id: string;        // boş = yeni sayfa
+  slug: string;
+  title: string;
+  content: string;
+  showInMenu: boolean;
+  isSystem: boolean;
+}
+
 function PagesTab() {
   const [loading, setLoading] = useState(true);
-  const [activePage, setActivePage] = useState<'iletisim' | 'iade' | 'sss' | 'sozlesmeler' | 'hakkimizda' | 'kvkk' | 'uyelik'>('iletisim');
-  const s = useSave('pages', {
-    iletisim: '',
-    iade: '',
-    sss: '',
-    sozlesmeler: '',
-    hakkimizda: '',
-    kvkk: '',
-    uyelik: '',
-  });
+  const [pages, setPages] = useState<AdminPage[]>([]);
+  const [draft, setDraft] = useState<PageDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = () =>
+    api
+      .get<{ success: boolean; data: AdminPage[] }>('/admin/pages')
+      .then((r) => setPages(r.data ?? []))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
 
   useEffect(() => {
-    api
-      .get<{ success: boolean; data: Record<string, string> }>('/admin/settings/pages')
-      .then((r) => s.load(r.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (loading) return <Loader />;
+  async function toggle(p: AdminPage, field: 'showInMenu' | 'isActive') {
+    setPages((prev) => prev.map((x) => (x.id === p.id ? { ...x, [field]: !x[field] } : x)));
+    try {
+      await api.put(`/admin/pages/${p.id}`, { [field]: !p[field] });
+    } catch (e: any) {
+      setError(e.message);
+      load();
+    }
+  }
 
-  const pageLabels: Record<string, string> = {
-    iletisim: 'İletişim & Destek',
-    iade: 'Kolay İade & Değişim',
-    sss: 'Sıkça Sorulan Sorular',
-    sozlesmeler: 'Şartlar & Politikalar',
-    hakkimizda: 'Hakkımızda',
-    kvkk: 'KVKK Sözleşmesi',
-    uyelik: 'Üyelik Sözleşmesi',
-  };
+  async function remove(p: AdminPage) {
+    if (!confirm(`"${p.title}" sayfasını silmek istediğinize emin misiniz?`)) return;
+    try {
+      await api.delete(`/admin/pages/${p.id}`);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function saveDraft() {
+    if (!draft) return;
+    if (!draft.title.trim()) { setError('Başlık gerekli'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      if (draft.id) {
+        await api.put(`/admin/pages/${draft.id}`, {
+          title: draft.title,
+          content: draft.content,
+          showInMenu: draft.showInMenu,
+          ...(draft.isSystem ? {} : { slug: draft.slug }),
+        });
+      } else {
+        await api.post('/admin/pages', {
+          title: draft.title,
+          content: draft.content,
+          showInMenu: draft.showInMenu,
+          slug: draft.slug || undefined,
+        });
+      }
+      setDraft(null);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <Loader />;
 
   return (
     <div>
-      <SectionCard title="Müşteri Hizmetleri Sayfaları" subtitle="Web sitesindeki statik yardım ve kurumsal sayfaları düzenleyin">
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 border-b border-stroke dark:border-strokedark">
-          {(['iletisim', 'iade', 'sss', 'sozlesmeler', 'hakkimizda', 'kvkk', 'uyelik'] as const).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setActivePage(key)}
-              className={`px-4 py-2 text-sm rounded transition whitespace-nowrap ${
-                activePage === key
-                  ? 'bg-primary text-white font-medium'
-                  : 'bg-gray-100 text-gray-700 dark:bg-meta-4 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-opacity-80'
-              }`}
-            >
-              {pageLabels[key]}
-            </button>
-          ))}
+      <SectionCard
+        title="Müşteri Hizmetleri Sayfaları"
+        subtitle="Sayfaları düzenleyin, yeni özel sayfa ekleyin ve menüde gösterilecekleri seçin"
+      >
+        {error && (
+          <div className="mb-4 rounded bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-stroke dark:border-strokedark text-left text-xs uppercase text-gray-500">
+                <th className="py-2 pr-4">Başlık</th>
+                <th className="py-2 pr-4">Bağlantı</th>
+                <th className="py-2 pr-4 text-center">Menüde</th>
+                <th className="py-2 pr-4 text-center">Aktif</th>
+                <th className="py-2 pr-4 text-right">İşlem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pages.map((p) => (
+                <tr key={p.id} className="border-b border-stroke dark:border-strokedark">
+                  <td className="py-3 pr-4 font-medium text-black dark:text-white">
+                    {p.title}
+                    {p.isSystem && (
+                      <span className="ml-2 rounded-full bg-gray-100 dark:bg-meta-4 px-2 py-0.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                        Sistem
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4 font-mono text-xs text-gray-500">
+                    /{p.isSystem ? p.slug : `sayfa/${p.slug}`}
+                  </td>
+                  <td className="py-3 pr-4 text-center">
+                    <input type="checkbox" checked={p.showInMenu} onChange={() => toggle(p, 'showInMenu')} className="h-4 w-4 cursor-pointer" />
+                  </td>
+                  <td className="py-3 pr-4 text-center">
+                    <input type="checkbox" checked={p.isActive} onChange={() => toggle(p, 'isActive')} className="h-4 w-4 cursor-pointer" />
+                  </td>
+                  <td className="py-3 pr-4 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => setDraft({ id: p.id, slug: p.slug, title: p.title, content: p.content, showInMenu: p.showInMenu, isSystem: p.isSystem })}
+                      className="text-primary hover:underline mr-3"
+                    >
+                      Düzenle
+                    </button>
+                    {!p.isSystem && (
+                      <button type="button" onClick={() => remove(p)} className="text-red-500 hover:underline">
+                        Sil
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        <Field label={`${pageLabels[activePage]} İçeriği (HTML formatında)`} hint="Sayfanın içeriğini zenginleştirmek için standart HTML etiketlerini (h1, h2, p, ul, li vb.) kullanabilirsiniz.">
-          <textarea
-            className={inputCls + ' min-h-[400px] font-mono text-xs resize-y'}
-            value={s.form[activePage] ?? ''}
-            onChange={(e) => s.set(activePage, e.target.value)}
-            placeholder="<h1>Sayfa Başlığı</h1>\n<p>İçerik yazısı buraya...</p>"
-          />
-        </Field>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setDraft({ id: '', slug: '', title: '', content: '', showInMenu: true, isSystem: false })}
+            className="rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90"
+          >
+            + Yeni Sayfa Ekle
+          </button>
+        </div>
       </SectionCard>
 
-      <SaveBar saving={s.saving} saved={s.saved} error={s.error} onSave={s.save} onReset={s.reset} />
+      {draft && (
+        <SectionCard
+          title={draft.id ? `Sayfayı Düzenle: ${draft.title}` : 'Yeni Sayfa'}
+          subtitle={draft.isSystem ? 'Sistem sayfası — bağlantı (slug) değiştirilemez' : 'Başlık, bağlantı ve içerik belirleyin'}
+        >
+          <Field label="Başlık">
+            <input
+              className={inputCls}
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              placeholder="Örn. Kargo Takip"
+            />
+          </Field>
+
+          {!draft.isSystem && (
+            <Field label="Bağlantı (slug)" hint="Boş bırakırsanız başlıktan otomatik üretilir. Sayfa /sayfa/<slug> adresinde açılır.">
+              <input
+                className={inputCls}
+                value={draft.slug}
+                onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+                placeholder="kargo-takip"
+              />
+            </Field>
+          )}
+
+          <Field label="İçerik (HTML formatında)" hint="h1, h2, p, ul, li gibi standart HTML etiketlerini kullanabilirsiniz.">
+            <textarea
+              className={inputCls + ' min-h-[360px] font-mono text-xs resize-y'}
+              value={draft.content}
+              onChange={(e) => setDraft({ ...draft, content: e.target.value })}
+              placeholder="<h1>Sayfa Başlığı</h1>&#10;<p>İçerik yazısı buraya...</p>"
+            />
+          </Field>
+
+          <label className="flex items-center gap-2 text-sm text-black dark:text-white cursor-pointer mb-4">
+            <input
+              type="checkbox"
+              checked={draft.showInMenu}
+              onChange={(e) => setDraft({ ...draft, showInMenu: e.target.checked })}
+              className="h-4 w-4"
+            />
+            Müşteri Hizmetleri menüsünde göster
+          </label>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={saveDraft}
+              disabled={saving}
+              className="rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 disabled:opacity-50"
+            >
+              {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setDraft(null); setError(''); }}
+              className="rounded bg-gray-100 dark:bg-meta-4 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200"
+            >
+              İptal
+            </button>
+          </div>
+        </SectionCard>
+      )}
     </div>
   );
 }

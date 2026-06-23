@@ -1,25 +1,30 @@
 import { useState, useEffect } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
 import { Mail, RefreshCw, HelpCircle, FileText, Info, Lock, ArrowLeft, Loader2, MapPin, Phone } from 'lucide-react';
 
-const PAGES = [
-  { slug: 'iletisim', label: 'İletişim & Destek', icon: Mail },
-  { slug: 'iade', label: 'Kolay İade & Değişim', icon: RefreshCw },
-  { slug: 'sss', label: 'Sıkça Sorulan Sorular', icon: HelpCircle },
-  { slug: 'sozlesmeler', label: 'Şartlar & Politikalar', icon: FileText },
-  { slug: 'hakkimizda', label: 'Hakkımızda', icon: Info },
-  { slug: 'kvkk', label: 'KVKK Sözleşmesi', icon: Lock },
-  { slug: 'uyelik', label: 'Üyelik Sözleşmesi', icon: FileText },
-];
+// Sistem sayfaları için ikon eşlemesi (özel sayfalar genel FileText kullanır)
+const SYSTEM_ICONS: Record<string, typeof Mail> = {
+  iletisim: Mail,
+  iade: RefreshCw,
+  sss: HelpCircle,
+  sozlesmeler: FileText,
+  hakkimizda: Info,
+  kvkk: Lock,
+  uyelik: FileText,
+};
+
+interface MenuPage { slug: string; title: string; isSystem: boolean }
 
 export function SupportPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const params = useParams();
   const { isAuthenticated, user } = useAuthStore();
-  
+
   const getSlugFromPath = (path: string) => {
+    if (path.startsWith('/sayfa/')) return params.slug || '';
     if (path.startsWith('/iade')) return 'iade';
     if (path.startsWith('/sss')) return 'sss';
     if (path.startsWith('/sozlesmeler')) return 'sozlesmeler';
@@ -30,6 +35,8 @@ export function SupportPage() {
   };
   const currentSlug = getSlugFromPath(location.pathname);
 
+  const [menuPages, setMenuPages] = useState<MenuPage[]>([]);
+  const [pageTitle, setPageTitle] = useState<string>('');
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -58,22 +65,30 @@ export function SupportPage() {
     }
   }, [isAuthenticated, user]);
 
+  // Menüde gösterilecek sayfalar (kenar çubuğu)
+  useEffect(() => {
+    api.get<{ success: boolean; data: MenuPage[] }>('/pages')
+      .then((res) => { if (res.data?.success) setMenuPages(res.data.data); })
+      .catch((err) => console.error('Failed to load menu pages:', err));
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     setError('');
     setSubmitSuccess(false);
     setSubmitError('');
-    api.get<{ success: boolean; data: { slug: string; content: string } }>(`/pages/${currentSlug}`)
+    api.get<{ success: boolean; data: { slug: string; title: string; content: string } }>(`/pages/${currentSlug}`)
       .then((res) => {
         if (res.data?.success) {
           setContent(res.data.data.content);
+          setPageTitle(res.data.data.title);
         } else {
           setError('Sayfa içeriği yüklenemedi.');
         }
       })
       .catch((err) => {
         console.error('Failed to load page content:', err);
-        setError('Sayfa yüklenirken bir ağ hatası oluştu.');
+        setError('Sayfa bulunamadı veya yüklenirken bir hata oluştu.');
       })
       .finally(() => {
         setLoading(false);
@@ -120,7 +135,7 @@ export function SupportPage() {
     }
   };
 
-  const activePage = PAGES.find(p => p.slug === currentSlug) || PAGES[0];
+  const activeLabel = pageTitle || menuPages.find(p => p.slug === currentSlug)?.title || 'Müşteri Hizmetleri';
 
   return (
     <main className="bg-neutral-50/50 min-h-[calc(100vh-160px)] pb-16 pt-8">
@@ -132,7 +147,7 @@ export function SupportPage() {
             <span>Ana Sayfa</span>
           </button>
           <span>/</span>
-          <span className="text-neutral-800 font-medium">{activePage.label}</span>
+          <span className="text-neutral-800 font-medium">{activeLabel}</span>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -143,13 +158,14 @@ export function SupportPage() {
                 Müşteri Hizmetleri
               </h2>
               <nav className="space-y-1">
-                {PAGES.map((item) => {
-                  const Icon = item.icon;
+                {menuPages.map((item) => {
+                  const Icon = item.isSystem ? (SYSTEM_ICONS[item.slug] ?? FileText) : FileText;
                   const isActive = item.slug === currentSlug;
+                  const to = item.isSystem ? `/${item.slug}` : `/sayfa/${item.slug}`;
                   return (
                     <Link
                       key={item.slug}
-                      to={`/${item.slug}`}
+                      to={to}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition ${
                         isActive
                           ? 'bg-primary/10 text-primary font-semibold'
@@ -157,7 +173,7 @@ export function SupportPage() {
                       }`}
                     >
                       <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-neutral-400'}`} />
-                      <span>{item.label}</span>
+                      <span>{item.title}</span>
                     </Link>
                   );
                 })}

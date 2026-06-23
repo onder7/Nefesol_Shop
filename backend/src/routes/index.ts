@@ -18,11 +18,12 @@ import pricingRouter from './pricing';
 import campaignsRouter from './campaigns';
 import discountsRouter from './discounts';
 import locationsRouter from './locations';
+import pagesRouter from './pages';
 import { getActiveRules } from '../controllers/chatbotController';
 import { getSetupStatus, postSetup } from '../controllers/setupController';
 import { getActivePopup } from '../controllers/popupController';
 import { getActiveCampaign } from '../controllers/discountCampaignController';
-import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig, getStoreIdentity, getGoogleClientId } from '../services/settingsService';
+import { getShippingConfig, getMaintenanceConfig, getSettingsGroup, getTaxConfig, getGoogleClientId } from '../services/settingsService';
 import { optionalAuthenticate } from '../middlewares/auth';
 import { AuthRequest } from '../types';
 
@@ -64,6 +65,7 @@ router.use('/locations', locationsRouter);
 router.use('/checkout', checkoutRouter);
 router.use('/wishlist', wishlistRouter);
 router.use('/reviews', reviewsRouter);
+router.use('/', pagesRouter);
 
 // GET /api/questions/my-questions — kullanıcının sorduğu sorular (hesabım sayfası)
 import { authenticate as authMw } from '../middlewares/auth';
@@ -150,142 +152,6 @@ router.get('/maintenance-status', async (_req, res, next) => {
   try {
     const data = await getMaintenanceConfig();
     res.json({ success: true, data });
-  } catch (err) { next(err); }
-});
-
-router.get('/pages/:slug', async (req, res, next) => {
-  try {
-    const { slug } = req.params;
-    const allowedSlugs = ['iletisim', 'iade', 'sss', 'sozlesmeler', 'hakkimizda', 'kvkk', 'uyelik'];
-    if (!allowedSlugs.includes(slug)) {
-      return res.status(404).json({ success: false, error: 'Sayfa bulunamadı' });
-    }
-    const { prisma } = await import('../config/database');
-    const row = await prisma.siteSettings.findUnique({
-      where: { key: `pages_${slug}` }
-    });
-
-    // Varsayılan sayfa içeriklerindeki marka/iletişim bilgisi ayarlardan gelir
-    const store = await getStoreIdentity();
-
-    const defaults: Record<string, string> = {
-      iletisim: `
-        <div class="space-y-6">
-          <h1 class="text-3xl font-extrabold text-white">İletişim & Destek</h1>
-          <p class="text-slate-400">Bizimle iletişime geçmek için aşağıdaki kanalları kullanabilirsiniz. Destek ekibimiz en kısa sürede size dönüş yapacaktır.</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            <div class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
-              <h3 class="text-lg font-semibold text-white mb-2">E-posta</h3>
-              <p class="text-primary font-medium">${store.email}</p>
-              <p class="text-xs text-slate-500 mt-1">7/24 e-posta gönderebilirsiniz.</p>
-            </div>
-            <div class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
-              <h3 class="text-lg font-semibold text-white mb-2">Telefon</h3>
-              <p class="text-primary font-medium">+90 (312) 000 00 00</p>
-              <p class="text-xs text-slate-500 mt-1">Hafta içi: 09:00 - 18:00</p>
-            </div>
-          </div>
-        </div>
-      `,
-      iade: `
-        <div class="space-y-6">
-          <h1 class="text-3xl font-extrabold text-white">Kolay İade & Değişim</h1>
-          <p class="text-slate-400">${store.name} üzerinden satın aldığınız ürünleri, teslimat tarihinden itibaren 14 gün içerisinde ücretsiz olarak iade edebilir veya değiştirebilirsiniz.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">İade Koşulları</h2>
-          <ul class="list-disc pl-5 space-y-2 text-slate-400 font-sans">
-            <li>Ürünün orijinal ambalajı bozulmamış, kullanılmamış ve hasar görmemiş olmalıdır.</li>
-            <li>Tüm aksesuarları ve faturası ile birlikte gönderilmelidir.</li>
-            <li>Kişiselleştirilmiş ürünlerde iade yapılmamaktadır.</li>
-          </ul>
-        </div>
-      `,
-      sss: `
-        <div class="space-y-6">
-          <h1 class="text-3xl font-extrabold text-white">Sıkça Sorulan Sorular</h1>
-          <div class="space-y-4">
-            <div class="border-b border-slate-800 pb-4">
-              <h3 class="text-lg font-semibold text-white mb-1">Siparişim ne zaman kargoya verilir?</h3>
-              <p class="text-slate-400 font-sans">Hafta içi saat 15:00'e kadar verilen siparişler aynı gün kargoya verilir.</p>
-            </div>
-            <div class="border-b border-slate-800 pb-4">
-              <h3 class="text-lg font-semibold text-white mb-1">Kargo ücreti ne kadar?</h3>
-              <p class="text-slate-400 font-sans">500 TL ve üzeri alışverişlerinizde kargo ücretsizdir. Diğer siparişler için standart kargo ücreti 49.90 TL'dir.</p>
-            </div>
-            <div class="border-b border-slate-800 pb-4">
-              <h3 class="text-lg font-semibold text-white mb-1">Ödeme seçenekleriniz nelerdir?</h3>
-              <p class="text-slate-400 font-sans">Kredi kartı (iyzico / PayTR) ve kapıda nakit ödeme seçeneklerimiz mevcuttur.</p>
-            </div>
-          </div>
-        </div>
-      `,
-      sozlesmeler: `
-        <div class="space-y-6">
-          <h1 class="text-3xl font-extrabold text-white">Şartlar & Politikalar</h1>
-          <p class="text-slate-400">${store.name} web sitesini kullanarak aşağıdaki üyelik sözleşmesi, gizlilik politikası ve mesafeli satış sözleşmesi şartlarını kabul etmiş olursunuz.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">1. Gizlilik Politikası</h2>
-          <p class="text-slate-400 font-sans">Kişisel verileriniz KVKK kapsamında korunmakta ve üçüncü şahıslarla paylaşılmamaktadır.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">2. Mesafeli Satış Sözleşmesi</h2>
-          <p class="text-slate-400 font-sans">Satın alma işlemlerinde Tüketici Hakları Kanunu geçerlidir.</p>
-        </div>
-      `,
-      hakkimizda: `
-        <div class="space-y-6">
-          <h1 class="text-3xl font-extrabold text-white">Hakkımızda</h1>
-          <p class="text-slate-400">${store.name}, kalite ve güvenirliliğin simgesidir. Kuruluşundan itibaren müşteri memnuniyetini ön planda tutarak hizmet vermekteyiz.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">Misyonumuz</h2>
-          <p class="text-slate-400 font-sans">En kaliteli ürünleri en uygun fiyatlarla sunarak, her müşterinin evini daha güzel ve konforlu bir yer haline getirmek.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">Vizyonumuz</h2>
-          <p class="text-slate-400 font-sans">Çeyiz ve ev tekstili sektöründe Türkiye'nin en güvenilir ve tercih edilen e-ticaret platformu olmak.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">Değerlerimiz</h2>
-          <ul class="list-disc pl-5 space-y-2 text-slate-400 font-sans">
-            <li>Müşteri Memnuniyeti: Her zaman müşterinin ihtiyaçlarını ön planda tutuyor, hızlı ve kaliteli hizmet sunuyoruz.</li>
-            <li>Kalite: Ürünlerimiz en yüksek kalite standartlarını karşılamak üzere seçilmektedir.</li>
-            <li>Güvenilirlik: Tüm işlemlerde şeffaflık ve dürüstlüğü prensip ediyoruz.</li>
-            <li>İnovasyon: Teknoloji kullanarak müşteri deneyimini sürekli geliştiriyoruz.</li>
-          </ul>
-        </div>
-      `,
-      kvkk: `
-        <div class="space-y-6">
-          <h1 class="text-3xl font-extrabold text-white">KVKK Sözleşmesi (Gizlilik Politikası)</h1>
-          <p class="text-slate-400">6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca, kişisel verilerinizin nasıl işlendiğini açıklamak istiyoruz.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">1. Veri Sahibinin Hakları</h2>
-          <p class="text-slate-400 font-sans">Kişisel verileriniz hakkında bilgi sahibi olmak, düzeltmesini isteyebilmek, silinmesini talep edebilmek gibi haklara sahipsiniz.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">2. Verilerin Kullanımı</h2>
-          <p class="text-slate-400 font-sans">Toplanan kişisel verileriniz, siparişlerinizi işlemek, kargo göndermek, müşteri hizmetleri sağlamak ve kanuni yükümlülükleri yerine getirmek amacıyla kullanılır.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">3. Veri Güvenliği</h2>
-          <p class="text-slate-400 font-sans">Verileriniz en modern şifreleme teknolojileri kullanılarak korunmakta ve üçüncü şahıslarla izinsiz paylaşılmamaktadır.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">4. İletişim</h2>
-          <p class="text-slate-400 font-sans">Veri konusunda sorularınız için: ${store.email} adresine yazabilirsiniz.</p>
-        </div>
-      `,
-      uyelik: `
-        <div class="space-y-6">
-          <h1 class="text-3xl font-extrabold text-white">Üyelik Sözleşmesi</h1>
-          <p class="text-slate-400">${store.name} platformunda üyeliğiniz ile ilgili hak ve sorumlulukları açıklamak istiyoruz.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">1. Üyelik Şartları</h2>
-          <ul class="list-disc pl-5 space-y-2 text-slate-400 font-sans">
-            <li>18 yaşından büyük olmanız gerekir.</li>
-            <li>Gerçek kişi veya yasal tüzel kişi olmanız şarttır.</li>
-            <li>Sahte, yanıltıcı bilgi vermeniz yasaktır.</li>
-          </ul>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">2. Üyelik Hakkı</h2>
-          <p class="text-slate-400 font-sans">Üyelik iptal edilmesi durumunda sipariş verme, cari bakiye ve diğer hizmetlerden faydalanma hakkınız sona erer.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">3. Sorumluluklar</h2>
-          <p class="text-slate-400 font-sans">Şifrenizin gizliliğini sağlamaktan, verdiğiniz bilgilerin doğruluğundan ve hesabınızda yapılan işlemlerden siz sorumlusunuz.</p>
-          <h2 class="text-xl font-bold text-white mt-6 mb-3">4. Kısıtlamalar</h2>
-          <p class="text-slate-400 font-sans">Platform herhangi bir nedenden dolayı hesabı kapatma veya kısıtlama hakkına sahiptir.</p>
-        </div>
-      `,
-    };
-    
-    res.json({
-      success: true,
-      data: {
-        slug,
-        content: row?.value ?? defaults[slug] ?? ''
-      }
-    });
   } catch (err) { next(err); }
 });
 

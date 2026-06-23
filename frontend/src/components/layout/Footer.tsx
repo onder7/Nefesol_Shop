@@ -83,6 +83,14 @@ export function Footer() {
   });
   const categories = categoriesData?.data?.data?.slice(0, 5) ?? [];
 
+  // Müşteri Hizmetleri menüsü — admin tarafından yönetilen sayfalar
+  const { data: menuPagesData } = useQuery({
+    queryKey: ['menu-pages'],
+    queryFn: () => api.get<{ success: boolean; data: Array<{ slug: string; title: string; isSystem: boolean }> }>('/pages'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const menuPages = menuPagesData?.data?.data ?? [];
+
   const { data: socialLinks } = useSocialLinks();
 
   const handleSubscribe = async (e: React.FormEvent) => {
@@ -210,18 +218,23 @@ export function Footer() {
           </ul>
         </div>
 
-        <div>
-          <h3 className="font-semibold text-white mb-4 tracking-wider">Müşteri Hizmetleri</h3>
-          <ul className="space-y-3 text-neutral-400">
-            <li><Link to="/iletisim" className="hover:text-white hover:underline transition-colors">İletişim & Destek</Link></li>
-            <li><Link to="/iade" className="hover:text-white hover:underline transition-colors">Kolay İade & Değişim</Link></li>
-            <li><Link to="/sss" className="hover:text-white hover:underline transition-colors">Sıkça Sorulan Sorular</Link></li>
-            <li><Link to="/sozlesmeler" className="hover:text-white hover:underline transition-colors">Şartlar & Politikalar</Link></li>
-            <li><Link to="/hakkimizda" className="hover:text-white hover:underline transition-colors">Hakkımızda</Link></li>
-            <li><Link to="/kvkk" className="hover:text-white hover:underline transition-colors">KVKK Sözleşmesi</Link></li>
-            <li><Link to="/uyelik" className="hover:text-white hover:underline transition-colors">Üyelik Sözleşmesi</Link></li>
-          </ul>
-        </div>
+        {menuPages.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-white mb-4 tracking-wider">Müşteri Hizmetleri</h3>
+            <ul className="space-y-3 text-neutral-400">
+              {menuPages.map((p) => (
+                <li key={p.slug}>
+                  <Link
+                    to={p.isSystem ? `/${p.slug}` : `/sayfa/${p.slug}`}
+                    className="hover:text-white hover:underline transition-colors"
+                  >
+                    {p.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-neutral-900 bg-neutral-950/50 py-6 text-center text-xs text-neutral-500">
