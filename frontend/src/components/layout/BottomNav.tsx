@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '@/services/productApi';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 export function BottomNav() {
   const { isAuthenticated, user, logout } = useAuthStore();
@@ -44,7 +45,7 @@ export function BottomNav() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 lg:hidden bg-white border-t border-neutral-200 px-2 py-2 z-[60]">
+    <nav className="fixed bottom-0 left-0 right-0 lg:hidden bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 px-2 py-2 z-[60]">
       <div className="flex items-center justify-around h-16">
         {/* Hesabım */}
         {isAuthenticated ? (
@@ -161,6 +162,7 @@ export function BottomNav() {
               {/* Hesabım / Hesap Özeti */}
               <div className="border-t pt-4 mt-auto">
                 <div className="flex flex-col gap-2">
+                  <ThemeToggle showLabel className="px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted justify-start w-full" />
                   <SheetClose
                     render={
                       <Link

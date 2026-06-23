@@ -29,8 +29,8 @@
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--background);
+  color: var(--foreground);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -116,25 +116,26 @@ body {
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Gece modu — sıcak siyah zemin + krem/altın vurgular */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: oklch(0.17 0.006 70);
+  --foreground: oklch(0.92 0.018 82);
+  --card: oklch(0.215 0.008 70);
+  --card-foreground: oklch(0.92 0.018 82);
+  --popover: oklch(0.215 0.008 70);
+  --popover-foreground: oklch(0.92 0.018 82);
+  --primary: oklch(0.80 0.07 78);
+  --primary-foreground: oklch(0.20 0.012 70);
+  --secondary: oklch(0.27 0.008 70);
+  --secondary-foreground: oklch(0.92 0.018 82);
+  --muted: oklch(0.27 0.008 70);
+  --muted-foreground: oklch(0.72 0.022 82);
+  --accent: oklch(0.31 0.012 76);
+  --accent-foreground: oklch(0.92 0.018 82);
+  --destructive: oklch(0.62 0.20 25);
+  --border: oklch(0.33 0.012 76);
+  --input: oklch(0.33 0.012 76);
+  --ring: oklch(0.80 0.07 78);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

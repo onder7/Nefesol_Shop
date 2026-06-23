@@ -70,10 +70,10 @@ export function ProductCard({ product }: Props) {
   return (
     <Link
       to={`/urun/${product.slug}`}
-      className="group flex flex-col rounded-lg border border-neutral-200 bg-white overflow-hidden text-left hover:shadow-lg hover:border-neutral-300 transition-all duration-200"
+      className="group flex flex-col rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden text-left hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-700 transition-all duration-200"
     >
       {/* Görsel Kutusu */}
-      <div className="relative aspect-[4/5] bg-[#F4F4F4] flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-[4/5] bg-[#F4F4F4] dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
         {primaryImage ? (
           <img
             src={primaryImage.url}
@@ -111,7 +111,7 @@ export function ProductCard({ product }: Props) {
         </div>
 
         {/* Ürün Adı (marka + ad, 2 satır) */}
-        <h3 className="text-sm text-neutral-800 group-hover:text-primary transition-colors line-clamp-2 leading-snug min-h-[2.5rem]">
+        <h3 className="text-sm text-neutral-800 dark:text-neutral-100 group-hover:text-primary transition-colors line-clamp-2 leading-snug min-h-[2.5rem]">
           {product.brand?.name && <span className="font-bold">{product.brand.name} </span>}
           {product.name}
         </h3>
@@ -120,30 +120,30 @@ export function ProductCard({ product }: Props) {
         {avgRating !== null && (
           <div className="flex items-center gap-1 text-xs">
             <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-            <span className="font-semibold text-neutral-700">
+            <span className="font-semibold text-neutral-700 dark:text-neutral-300">
               {avgRating.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
             </span>
-            <span className="text-neutral-400">({reviewCount})</span>
+            <span className="text-neutral-400 dark:text-neutral-500">({reviewCount})</span>
           </div>
         )}
 
         {/* Fiyat bilgisi (gri alan) + Sepete Ekle */}
-        <div className="mt-auto rounded-md bg-neutral-100 px-3 py-2 flex items-end justify-between gap-2">
+        <div className="mt-auto rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 flex items-end justify-between gap-2">
           <div className="min-w-0">
             {discount > 0 && (
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-xs text-neutral-400 line-through">{formatPrice(grossCompareAt)}</span>
-                <span className="text-[11px] font-bold text-neutral-600 bg-neutral-200 rounded px-1.5 py-0.5">%{discount}</span>
+                <span className="text-xs text-neutral-400 dark:text-neutral-500 line-through">{formatPrice(grossCompareAt)}</span>
+                <span className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 bg-neutral-200 dark:bg-neutral-700 rounded px-1.5 py-0.5">%{discount}</span>
               </div>
             )}
-            <span className={`text-lg font-extrabold ${discount > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+            <span className={`text-lg font-extrabold ${discount > 0 ? 'text-red-600 dark:text-red-400' : 'text-neutral-900 dark:text-neutral-100'}`}>
               {cheapestVariant ? formatPrice(grossPrice) : 'Fiyat yok'}
             </span>
           </div>
           {inStock && (
             <button
               onClick={handleAddToCart}
-              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full border border-neutral-300 bg-white text-neutral-700 hover:bg-primary hover:text-white hover:border-primary active:scale-95 transition-all cursor-pointer"
+              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:bg-primary hover:text-white hover:border-primary active:scale-95 transition-all cursor-pointer"
               aria-label="Sepete Ekle"
             >
               <ShoppingCart className="h-4.5 w-4.5" />

@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '@/services/productApi';
 import { api } from '@/services/api';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 import type { Product } from '@/types';
@@ -125,17 +126,17 @@ export function Header() {
   };
 
   return (
-    <header className="border-b bg-white sticky top-0 z-40">
+    <header className="border-b bg-white dark:bg-neutral-950 dark:border-neutral-800 sticky top-0 z-40">
       {/* ─── Üst Şerit: Müşteri Hizmetleri sayfaları (masaüstü) ─────────── */}
       {menuPages.length > 0 && (
-        <div className="hidden lg:block border-b border-neutral-100 bg-neutral-50/70">
+        <div className="hidden lg:block border-b border-neutral-100 bg-neutral-50/70 dark:bg-neutral-900 dark:border-neutral-800">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-end gap-x-5 gap-y-1 py-1.5 flex-wrap">
               {menuPages.map((p) => (
                 <Link
                   key={p.slug}
                   to={p.isSystem ? `/${p.slug}` : `/sayfa/${p.slug}`}
-                  className="text-xs font-medium text-neutral-600 hover:text-primary transition-colors whitespace-nowrap"
+                  className="text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary transition-colors whitespace-nowrap"
                 >
                   {p.title}
                 </Link>
@@ -164,7 +165,7 @@ export function Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setShowPredictions(true)}
-            className="h-11 pl-11 pr-4 bg-white border-2 border-neutral-300 focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:border-neutral-400 text-sm rounded-lg placeholder-neutral-400 shadow-sm"
+            className="h-11 pl-11 pr-4 bg-white dark:bg-neutral-900 border-2 border-neutral-300 dark:border-neutral-700 dark:text-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:border-neutral-400 text-sm rounded-lg placeholder-neutral-400 shadow-sm"
           />
 
           {showPredictions && searchQuery.trim().length >= 2 && (
@@ -226,6 +227,7 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
+          <ThemeToggle className="text-neutral-700 hover:text-primary dark:text-neutral-300" />
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -346,7 +348,7 @@ export function Header() {
       />
 
       {/* ─── Kategori Navigasyon Barı ────────────────────────────────── */}
-      <nav className="hidden lg:block bg-white border-t border-neutral-100">
+      <nav className="hidden lg:block bg-white dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between gap-1 py-2.5">
             {categories.slice(0, 9).map((cat, idx) => {
@@ -357,7 +359,7 @@ export function Header() {
                   <div className="group relative">
                     <Link
                       to={`/kategori/${cat.slug}`}
-                      className="inline-flex items-center justify-center gap-1 text-center px-2 py-1.5 rounded-md text-[13px] leading-tight font-semibold text-neutral-700 group-hover:text-primary group-hover:bg-orange-50 group-hover:-translate-y-0.5 transition-all duration-200"
+                      className="inline-flex items-center justify-center gap-1 text-center px-2 py-1.5 rounded-md text-[13px] leading-tight font-semibold text-neutral-700 dark:text-neutral-200 group-hover:text-primary dark:group-hover:bg-neutral-800 group-hover:bg-orange-50 group-hover:-translate-y-0.5 transition-all duration-200"
                     >
                       <span className="whitespace-pre-line">{cat.name}</span>
                       {hasChildren && (

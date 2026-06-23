@@ -167,14 +167,14 @@ export function Home() {
   };
 
   return (
-    <main className="bg-neutral-50/50 pb-16">
+    <main className="bg-neutral-50/50 dark:bg-neutral-950 pb-16">
       <SeoHead
         description={`Hızlı kargo, kolay iade ve uygun fiyat garantisiyle ${storeName} ürünlerini keşfedin.`}
         schema={[organizationSchema(storeName), websiteSchema(storeName)]}
       />
       {/* Hero Carousel — yalnızca tanımlı slide varsa */}
       {slides.length > 0 && (
-      <section className="relative overflow-hidden bg-white border-b border-neutral-100">
+      <section className="relative overflow-hidden bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
         <div className="relative w-full aspect-[2/1] overflow-hidden bg-neutral-100">
           {slides.map((slide, index) => (
             <Link
@@ -223,15 +223,15 @@ export function Home() {
       )}
 
       {/* Avantajlar / Hizmet Kutuları */}
-      <section className="container mx-auto px-4 py-8 mt-12 bg-white rounded-2xl shadow-xs border border-neutral-100">
+      <section className="container mx-auto px-4 py-8 mt-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-xs border border-neutral-100 dark:border-neutral-800">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <div className="flex items-center gap-4 px-2">
             <div className="p-3.5 bg-primary/10 rounded-xl text-primary shrink-0">
               <Truck className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="font-semibold text-neutral-800 text-sm">Ücretsiz & Hızlı Kargo</h4>
-              <p className="text-neutral-500 text-xs mt-1">750₺ üzeri alışverişlerinizde kargo bedava.</p>
+              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">Ücretsiz & Hızlı Kargo</h4>
+              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">750₺ üzeri alışverişlerinizde kargo bedava.</p>
             </div>
           </div>
           <div className="flex items-center gap-4 px-2">
@@ -239,8 +239,8 @@ export function Home() {
               <RotateCcw className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="font-semibold text-neutral-800 text-sm">14 Gün Kolay İade</h4>
-              <p className="text-neutral-500 text-xs mt-1">Koşulsuz iade ve kolay değişim garantisi.</p>
+              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">14 Gün Kolay İade</h4>
+              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">Koşulsuz iade ve kolay değişim garantisi.</p>
             </div>
           </div>
           <div className="flex items-center gap-4 px-2">
@@ -248,8 +248,8 @@ export function Home() {
               <Headphones className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="font-semibold text-neutral-800 text-sm">7/24 Canlı Destek</h4>
-              <p className="text-neutral-500 text-xs mt-1">Sorularınız için her an yardıma hazırız.</p>
+              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">7/24 Canlı Destek</h4>
+              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">Sorularınız için her an yardıma hazırız.</p>
             </div>
           </div>
           <div className="flex items-center gap-4 px-2">
@@ -257,8 +257,8 @@ export function Home() {
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="font-semibold text-neutral-800 text-sm">Güvenli Ödeme Altyapısı</h4>
-              <p className="text-neutral-500 text-xs mt-1">256-bit SSL ve İyzico güvencesiyle ödeyin.</p>
+              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">Güvenli Ödeme Altyapısı</h4>
+              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">256-bit SSL ve İyzico güvencesiyle ödeyin.</p>
             </div>
           </div>
         </div>
@@ -274,7 +274,7 @@ export function Home() {
       {/* Kategoriler (Slider) */}
       <section className="container mx-auto px-4 py-12 relative group/slider">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-neutral-800 tracking-tight">Kategoriler</h2>
+          <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 tracking-tight">Kategoriler</h2>
           <div className="flex gap-2">
             <button
               onClick={() => scroll('left')}
@@ -357,7 +357,7 @@ export function Home() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Flame className="h-6 w-6 text-primary fill-primary animate-pulse" />
-            <h2 className="text-2xl font-bold text-neutral-800 tracking-tight">Yeni Gelenler</h2>
+            <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 tracking-tight">Yeni Gelenler</h2>
           </div>
           <Link to="/ara?sort=newest" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
             Tümünü Gör
@@ -371,7 +371,7 @@ export function Home() {
       {/* Öne Çıkan Ürünler */}
       <section className="container mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-neutral-800 tracking-tight">Öne Çıkan Ürünler</h2>
+          <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 tracking-tight">Öne Çıkan Ürünler</h2>
           <Link to="/ara" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
             Tümünü Gör
           </Link>
