@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, X, Send, Bot, User, ChevronDown } from 'lucide-react';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
+import { useSocialLinks } from '@/hooks/useSocialLinks';
 
 // ─── Tip tanımları ────────────────────────────────────────────────────────────
 
@@ -163,6 +164,9 @@ const GREETING: Message = {
 
 export function LiveChat() {
   const { name: storeName } = useStoreInfo();
+  // WhatsApp numarası sistem ayarlarından (Sosyal Medya); yoksa env fallback
+  const { data: socialLinks } = useSocialLinks();
+  const waNumber = socialLinks?.whatsapp ? socialLinks.whatsapp.replace(/\D/g, '') : WA_NUMBER;
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [input, setInput] = useState('');
@@ -236,7 +240,7 @@ export function LiveChat() {
           ts: Date.now(),
         });
         setTimeout(() => {
-          window.open(`https://wa.me/${WA_NUMBER}?text=Merhaba, web sitesi üzerinden yardım almak istiyorum.`, '_blank');
+          window.open(`https://wa.me/${waNumber}?text=Merhaba, web sitesi üzerinden yardım almak istiyorum.`, '_blank');
         }, 800);
         return;
       }
@@ -291,7 +295,7 @@ export function LiveChat() {
         quickReplies: rule.quickReplies,
       });
     },
-    [pushMessage]
+    [pushMessage, waNumber]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
