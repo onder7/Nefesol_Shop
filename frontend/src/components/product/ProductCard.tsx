@@ -13,7 +13,7 @@ interface Props {
 }
 
 function formatPrice(price: number | string): string {
-  return Number(price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
+  return Number(price).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' TL';
 }
 
 export function ProductCard({ product }: Props) {
@@ -32,10 +32,10 @@ export function ProductCard({ product }: Props) {
   const reviewCount = product._count?.reviews ?? ratings.length;
   const avgRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
 
-  // KDV dahil fiyat
-  const grossPrice = cheapestVariant
-    ? (product.vatIncluded ? Number(cheapestVariant.price) : Number(cheapestVariant.price) * (1 + product.vatRate / 100))
-    : 0;
+  // KDV dahil fiyat (ve indirim öncesi üstü çizili fiyat)
+  const toGross = (v: number) => (product.vatIncluded ? v : v * (1 + product.vatRate / 100));
+  const grossPrice = cheapestVariant ? toGross(Number(cheapestVariant.price)) : 0;
+  const grossCompareAt = discount > 0 && cheapestVariant?.compareAt ? toGross(Number(cheapestVariant.compareAt)) : 0;
 
   const { isFavorite, toggleFavorite } = useWishlistStore();
   const { setCart } = useCartStore();
@@ -85,13 +85,6 @@ export function ProductCard({ product }: Props) {
           <span className="text-neutral-400 text-xs font-semibold">Görsel Yok</span>
         )}
 
-        {/* İndirim Badge */}
-        {discount > 0 && (
-          <div className="absolute top-3 left-3 z-10 bg-red-600 text-white px-2 py-1 rounded-sm shadow-md">
-            <span className="text-xs font-bold">-%{discount}</span>
-          </div>
-        )}
-
         {/* Favori */}
         <button
           onClick={handleFavoriteClick}
@@ -134,15 +127,23 @@ export function ProductCard({ product }: Props) {
           </div>
         )}
 
-        {/* Fiyat (KDV dahil) + Sepete Ekle */}
-        <div className="flex items-end justify-between mt-auto pt-1">
-          <span className="text-lg font-extrabold text-neutral-900">
-            {cheapestVariant ? formatPrice(grossPrice) : 'Fiyat yok'}
-          </span>
+        {/* Fiyat bilgisi (gri alan) + Sepete Ekle */}
+        <div className="mt-auto rounded-md bg-neutral-100 px-3 py-2 flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            {discount > 0 && (
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs text-neutral-400 line-through">{formatPrice(grossCompareAt)}</span>
+                <span className="text-[11px] font-bold text-neutral-600 bg-neutral-200 rounded px-1.5 py-0.5">%{discount}</span>
+              </div>
+            )}
+            <span className={`text-lg font-extrabold ${discount > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+              {cheapestVariant ? formatPrice(grossPrice) : 'Fiyat yok'}
+            </span>
+          </div>
           {inStock && (
             <button
               onClick={handleAddToCart}
-              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full border border-neutral-200 text-neutral-700 hover:bg-primary hover:text-white hover:border-primary active:scale-95 transition-all cursor-pointer"
+              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full border border-neutral-300 bg-white text-neutral-700 hover:bg-primary hover:text-white hover:border-primary active:scale-95 transition-all cursor-pointer"
               aria-label="Sepete Ekle"
             >
               <ShoppingCart className="h-4.5 w-4.5" />
