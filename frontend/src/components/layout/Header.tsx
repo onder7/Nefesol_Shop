@@ -20,12 +20,14 @@ import { api } from '@/services/api';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
+import { useTaxConfig } from '@/hooks/useTaxConfig';
 import type { Product } from '@/types';
 
 export function Header() {
   const { isAuthenticated, user, logout } = useAuthStore();
   const { name: storeName } = useStoreInfo();
   const { hasWarning: profileHasWarning, message: profileWarningMessage } = useProfileCompleteness();
+  const { taxRate } = useTaxConfig();
   const itemCount = useCartStore((s) => s.itemCount);
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,7 +186,7 @@ export function Header() {
                   {predictions.map((prod) => {
                     const primaryImg = prod.images?.find(img => img.isPrimary)?.url || prod.images?.[0]?.url || 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=100';
                     const rawPrice = prod.variants?.[0]?.price ? Number(prod.variants[0].price) : 0;
-                    const grossPrice = prod.vatIncluded ? rawPrice : rawPrice * (1 + (prod.vatRate ?? 0) / 100);
+                    const grossPrice = prod.vatIncluded ? rawPrice : rawPrice * (1 + taxRate / 100);
                     const price = rawPrice ? grossPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '';
                     return (
                       <Link

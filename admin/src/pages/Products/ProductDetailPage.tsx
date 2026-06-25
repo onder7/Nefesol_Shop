@@ -119,6 +119,7 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
 
   const [form, setForm]             = useState<FormState>(defaultForm());
+  const [globalTaxRate, setGlobalTaxRate] = useState(20);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands]         = useState<Brand[]>([]);
@@ -138,10 +139,12 @@ export default function ProductDetailPage() {
       api.get<{ success: boolean; data: Category[] }>('/admin/categories'),
       api.get<{ success: boolean; data: Brand[] }>('/admin/brands'),
       api.get<{ success: boolean; data: Attribute[] }>('/admin/attributes'),
-    ]).then(([c, b, a]) => {
+      api.get<{ taxRate: number }>('/tax-config'),
+    ]).then(([c, b, a, t]) => {
       setCategories(c.data ?? []);
       setBrands(b.data ?? []);
       setAttributes(a.data ?? []);
+      if ((t as any)?.taxRate) setGlobalTaxRate((t as any).taxRate);
     });
   }, []);
 
@@ -624,7 +627,7 @@ export default function ProductDetailPage() {
                       <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">★ Öne Çıkan</span>
                     )}
                     <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                      KDV {form.vatIncluded ? 'Dahil' : 'Hariç'} %{form.vatRate}
+                      KDV {form.vatIncluded ? 'Dahil' : 'Hariç'} %{globalTaxRate}
                     </span>
                   </div>
                 </div>
@@ -730,17 +733,9 @@ export default function ProductDetailPage() {
           {/* Kart 3: KDV Ayarları */}
           <Card title="KDV Ayarları">
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">KDV Oranı</label>
-                <select
-                  value={form.vatRate}
-                  onChange={(e) => set('vatRate', Number(e.target.value))}
-                  className={inputCls}
-                >
-                  {VAT_RATES.map((r) => (
-                    <option key={r} value={r}>%{r}</option>
-                  ))}
-                </select>
+              {/* KDV oranı artık Sistem Ayarları → KDV'den yönetiliyor */}
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                KDV oranı tüm ürünler için <strong>Sistem Ayarları → KDV</strong> bölümünden tek merkezden belirlenir. Ürün sayfası, sepet ve ödeme adımı hep aynı oranı kullanır.
               </div>
 
               <label className="flex items-center justify-between cursor-pointer">
@@ -748,8 +743,8 @@ export default function ProductDetailPage() {
                   <p className="text-sm font-medium text-black dark:text-white">Fiyata KDV Dahil</p>
                   <p className="text-xs text-gray-400">
                     {form.vatIncluded
-                      ? 'Girilen fiyat KDV dahil (müşterinin ödediği fiyat)'
-                      : 'Girilen fiyat KDV hariç, müşteriye KDV dahil gösterilir'}
+                      ? 'Girilen fiyat KDV dahil (müşterinin ödediği son fiyat)'
+                      : 'Girilen fiyat KDV hariç — müşteriye KDV eklenerek gösterilir'}
                   </p>
                 </div>
                 <div
@@ -761,7 +756,9 @@ export default function ProductDetailPage() {
               </label>
 
               <div className="rounded-lg bg-gray-50 dark:bg-meta-4 px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                Fiyatlar <strong className="text-black dark:text-white">KDV {form.vatIncluded ? 'Dahil' : 'Hariç'}</strong> · Oran: <strong className="text-black dark:text-white">%{form.vatRate}</strong>
+                {form.vatIncluded
+                  ? 'Fiyat olduğu gibi gösterilir. Sepette KDV ayrıca eklenmez.'
+                  : 'Fiyata global KDV oranı eklenerek müşteriye gösterilir. Sepette de aynı oran uygulanır.'}
               </div>
             </div>
           </Card>
@@ -1032,16 +1029,16 @@ export default function ProductDetailPage() {
                               </p>
                               <p className="text-[10px] text-gray-400 mt-0.5">
                                 {form.vatIncluded
-                                  ? `H: ${(Number(calculateVariantPrice(v)) / (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`
-                                  : `D: ${(Number(calculateVariantPrice(v)) * (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`}
+                                  ? `H: ${(Number(calculateVariantPrice(v)) / (1 + globalTaxRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`
+                                  : `D: ${(Number(calculateVariantPrice(v)) * (1 + globalTaxRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`}
                               </p>
                             </>
                           )}
-                          {form.pricingMethod === 'fixed' && v.price && Number(v.price) > 0 && form.vatRate > 0 && (
+                          {form.pricingMethod === 'fixed' && v.price && Number(v.price) > 0 && globalTaxRate > 0 && (
                             <p className="text-[10px] text-gray-400 mt-0.5">
                               {form.vatIncluded
-                                ? `H: ${(Number(v.price) / (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`
-                                : `D: ${(Number(v.price) * (1 + form.vatRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`}
+                                ? `H: ${(Number(v.price) / (1 + globalTaxRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`
+                                : `D: ${(Number(v.price) * (1 + globalTaxRate / 100)).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}₺`}
                             </p>
                           )}
                         </div>

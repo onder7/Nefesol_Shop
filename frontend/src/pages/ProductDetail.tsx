@@ -18,6 +18,7 @@ import { RecentlyViewed } from '@/components/product/RecentlyViewed';
 import { useRecentlyViewedStore } from '@/store/recentlyViewedStore';
 import { SeoHead, SITE_URL } from '@/components/seo/SeoHead';
 import { productSchema, breadcrumbSchema } from '@/lib/schemas';
+import { useTaxConfig } from '@/hooks/useTaxConfig';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 
@@ -139,18 +140,18 @@ function ProductShareBar({ name, url }: { name: string; url: string }) {
 
 function buildWhatsAppUrl(
   phone: string,
-  product: { name: string; vatIncluded?: boolean; vatRate?: number },
+  product: { name: string; vatIncluded?: boolean },
   variant: { price: number | string; attributeValues?: { attributeValue: { value: string; attribute: { name: string } } }[] } | null,
   qty: number,
+  taxRate: number,
 ) {
   const attrs = variant?.attributeValues
     ?.map((av) => `${av.attributeValue.attribute.name}: ${av.attributeValue.value}`)
     .join(', ') ?? '';
-  // Fiyat KDV dahil gösterilir (müşteri her yerde KDV dahil fiyat görür)
   const grossPrice = variant
     ? product.vatIncluded
       ? Number(variant.price)
-      : Number(variant.price) * (1 + (product.vatRate ?? 0) / 100)
+      : Number(variant.price) * (1 + taxRate / 100)
     : 0;
   const price = variant ? grossPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }) : '';
   const url = typeof window !== 'undefined' ? window.location.href : '';
@@ -176,6 +177,7 @@ function formatPrice(price: number | string): string {
 export function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { name: storeName } = useStoreInfo();
+  const { taxRate } = useTaxConfig();
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState<'reviews' | 'qa'>('reviews');
@@ -398,13 +400,13 @@ export function ProductDetail() {
                 <span className="text-3xl font-bold text-primary">
                   {product.vatIncluded
                     ? formatPrice(variant.price)
-                    : formatPrice(Number(variant.price) * (1 + product.vatRate / 100))}
+                    : formatPrice(Number(variant.price) * (1 + taxRate / 100))}
                 </span>
                 {hasDiscount && (
                   <span className="text-lg text-muted-foreground line-through">
                     {product.vatIncluded
                       ? formatPrice(variant.compareAt!)
-                      : formatPrice(Number(variant.compareAt!) * (1 + product.vatRate / 100))}
+                      : formatPrice(Number(variant.compareAt!) * (1 + taxRate / 100))}
                   </span>
                 )}
               </div>
@@ -498,7 +500,7 @@ export function ProductDetail() {
 
           {/* WhatsApp Sipariş */}
           <a
-            href={buildWhatsAppUrl(waNumber, product, variant, qty)}
+            href={buildWhatsAppUrl(waNumber, product, variant, qty, taxRate)}
             target="_blank"
             rel="noopener noreferrer"
             className={`flex items-center justify-center gap-2.5 w-full rounded-lg py-3 px-5 text-sm font-semibold text-white transition-all ${

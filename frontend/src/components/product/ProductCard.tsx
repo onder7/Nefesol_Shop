@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { cartApi } from '@/services/cartApi';
 import { toast } from 'sonner';
 import { CampaignBadges } from '@/components/common/CampaignDisplay';
+import { useTaxConfig } from '@/hooks/useTaxConfig';
 
 interface Props {
   product: Product;
@@ -32,8 +33,9 @@ export function ProductCard({ product }: Props) {
   const reviewCount = product._count?.reviews ?? ratings.length;
   const avgRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
 
-  // KDV dahil fiyat (ve indirim öncesi üstü çizili fiyat)
-  const toGross = (v: number) => (product.vatIncluded ? v : v * (1 + product.vatRate / 100));
+  // KDV dahil fiyat — global tax-config kullanılır (sepet ile tutarlı)
+  const { taxRate } = useTaxConfig();
+  const toGross = (v: number) => (product.vatIncluded ? v : v * (1 + taxRate / 100));
   const grossPrice = cheapestVariant ? toGross(Number(cheapestVariant.price)) : 0;
   const grossCompareAt = discount > 0 && cheapestVariant?.compareAt ? toGross(Number(cheapestVariant.compareAt)) : 0;
 
