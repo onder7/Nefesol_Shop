@@ -144,7 +144,8 @@ export default function ProductDetailPage() {
       setCategories(c.data ?? []);
       setBrands(b.data ?? []);
       setAttributes(a.data ?? []);
-      if ((t as any)?.taxRate) setGlobalTaxRate((t as any).taxRate);
+      const rate = (t as any)?.data?.taxRate ?? (t as any)?.taxRate;
+      if (rate) setGlobalTaxRate(rate);
     });
   }, []);
 
