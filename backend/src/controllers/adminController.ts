@@ -262,6 +262,24 @@ export async function updateShippingConfig(req: AuthRequest, res: Response, next
   } catch (err) { next(err); }
 }
 
+export async function getTaxConfigAdmin(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await settingsService.getTaxConfig();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateTaxConfigAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { taxRate } = req.body as { taxRate: number };
+    if (typeof taxRate !== 'number' || taxRate < 0 || taxRate > 100) {
+      return res.status(400).json({ success: false, error: 'KDV oranı 0-100 arasında olmalıdır' });
+    }
+    const data = await settingsService.updateTaxConfig(taxRate);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 // Analytics
 export async function getAnalytics(req: AuthRequest, res: Response, next: NextFunction) {
   try {

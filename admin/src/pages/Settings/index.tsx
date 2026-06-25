@@ -564,6 +564,9 @@ function PaymentTab() {
 function ShippingTab() {
   const [loading, setLoading] = useState(true);
   const s = useSave('shipping', {});
+  const [taxRate, setTaxRate] = useState(20);
+  const [savingTax, setSavingTax] = useState(false);
+  const [savedTax, setSavedTax] = useState(false);
 
   useEffect(() => {
     api
@@ -587,8 +590,26 @@ function ShippingTab() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    api.get<{ taxRate: number }>('/tax-config').then((r: any) => {
+      if (r?.taxRate != null) setTaxRate(r.taxRate);
+    }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSaveTax = async () => {
+    setSavingTax(true);
+    setSavedTax(false);
+    try {
+      await api.put('/admin/tax-config', { taxRate });
+      setSavedTax(true);
+      setTimeout(() => setSavedTax(false), 2000);
+    } catch {
+      alert('KDV oranı kaydedilemedi');
+    } finally {
+      setSavingTax(false);
+    }
+  };
 
   const handleSave = async () => {
     // Save legacy shipping config + generic group
@@ -641,6 +662,32 @@ function ShippingTab() {
           <Field label="Ücretsiz Kargo Limiti (₺)" hint="Bu tutarın üzerindeki siparişler ücretsiz kargo alır">
             <input className={inputCls} type="number" min="0" step="1" value={g.free_threshold ?? ''} onChange={(e) => s.set('free_threshold', e.target.value)} placeholder="500" />
           </Field>
+        </div>
+      </SectionCard>
+
+      {/* KDV Ayarları — tüm ürün/sepet/ödeme hesaplamalarında kullanılır */}
+      <SectionCard title="KDV (Katma Değer Vergisi)" subtitle="Ürün sayfası, sepet ve ödeme adımında uygulanacak global oran">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">KDV Oranı (%)</label>
+            <select
+              value={taxRate}
+              onChange={(e) => setTaxRate(Number(e.target.value))}
+              className={inputCls}
+            >
+              {[0, 1, 5, 8, 10, 18, 20].map((r) => (
+                <option key={r} value={r}>%{r}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">Bu oran ürün fiyatı üzerine eklenir (kargo ücreti KDV dahil gösterilir).</p>
+          </div>
+          <button
+            onClick={handleSaveTax}
+            disabled={savingTax}
+            className="shrink-0 px-5 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {savingTax ? 'Kaydediliyor…' : savedTax ? '✓ Kaydedildi' : 'KDV Kaydet'}
+          </button>
         </div>
       </SectionCard>
 

@@ -89,6 +89,10 @@ router.delete('/brands/:id', ctrl.deleteBrand);
 router.get('/shipping-config', ctrl.getShippingConfig);
 router.put('/shipping-config', ctrl.updateShippingConfig);
 
+// Tax Config
+router.get('/tax-config', ctrl.getTaxConfigAdmin);
+router.put('/tax-config', ctrl.updateTaxConfigAdmin);
+
 // Maintenance Settings
 router.get('/settings/maintenance', ctrl.getMaintenanceSettings);
 router.put('/settings/maintenance', ctrl.updateMaintenanceSettings);
