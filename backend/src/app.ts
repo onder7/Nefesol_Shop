@@ -16,9 +16,27 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(helmet());
 
+// FRONTEND_URL ve ADMIN_URL'nin www / non-www varyantlarını da kabul et
+function buildCorsOrigins(...urls: string[]): string[] {
+  const set = new Set<string>();
+  for (const url of urls) {
+    if (!url) continue;
+    try {
+      const u = new URL(url);
+      set.add(`${u.protocol}//${u.hostname}`);
+      if (u.hostname.startsWith('www.')) {
+        set.add(`${u.protocol}//${u.hostname.slice(4)}`);
+      } else {
+        set.add(`${u.protocol}//www.${u.hostname}`);
+      }
+    } catch { set.add(url); }
+  }
+  return [...set];
+}
+
 app.use(
   cors({
-    origin: [env.FRONTEND_URL, env.ADMIN_URL],
+    origin: buildCorsOrigins(env.FRONTEND_URL, env.ADMIN_URL),
     credentials: true,
   }),
 );
