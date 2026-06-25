@@ -584,6 +584,195 @@ export async function sendCartReminderEmail(
   await sendMail({ to, subject: 'Sepetinizde ürünler sizi bekliyor 🛒', html });
 }
 
+// ─── Invoice Email ────────────────────────────────────────────────────────────
+
+export interface InvoiceEmailOrder {
+  id: string;
+  createdAt: Date | string;
+  subtotal: number;
+  discount: number;
+  shippingFee: number;
+  total: number;
+  customerName: string;
+  customerEmail: string;
+  address: {
+    firstName: string;
+    lastName: string;
+    address: string;
+    neighborhood?: string | null;
+    district: string;
+    city: string;
+    postalCode?: string | null;
+    phone: string;
+  };
+  items: Array<{
+    name: string;
+    sku: string;
+    quantity: number;
+    unitPrice: number;
+    attributes?: Record<string, string> | null;
+  }>;
+  payment?: { provider: string; status: string } | null;
+}
+
+export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> {
+  const [storeName, companyData] = await Promise.all([
+    getStoreName(),
+    (async () => {
+      try {
+        const { prisma } = await import('../config/database');
+        const rows = await prisma.siteSettings.findMany({
+          where: { key: { in: ['general_address', 'general_city', 'general_email', 'general_phone', 'general_legal_name'] } },
+        });
+        return Object.fromEntries(rows.map((r) => [r.key.replace('general_', ''), r.value]));
+      } catch { return {}; }
+    })(),
+  ]);
+
+  const orderRef = `#TR-${order.id.slice(-8).toUpperCase()}`;
+  const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const legalName = companyData['legal_name'] || storeName;
+  const companyAddress = [companyData['address'], companyData['city']].filter(Boolean).join(', ');
+
+  const subtotal = Number(order.subtotal);
+  const discount = Number(order.discount);
+  const shipping = Number(order.shippingFee);
+  const total = Number(order.total);
+  const vatNet = subtotal - discount;
+  const vatAmount = Math.max(0, Math.round((total - shipping - vatNet) * 100) / 100);
+  const vatRate = vatNet > 0 ? Math.round((vatAmount / vatNet) * 100) : 0;
+
+  const PROVIDER_LABEL: Record<string, string> = {
+    iyzico: 'İyzico', stripe: 'Stripe', cod: 'Kapıda Ödeme', bank: 'Havale/EFT',
+  };
+  const paymentLabel = order.payment
+    ? `${PROVIDER_LABEL[order.payment.provider] ?? order.payment.provider}`
+    : '—';
+
+  const addrLine = [
+    `${order.address.firstName} ${order.address.lastName}`,
+    order.address.phone,
+    order.address.address,
+    [order.address.neighborhood, order.address.district].filter(Boolean).join(', '),
+    [order.address.city, order.address.postalCode].filter(Boolean).join(' '),
+  ].map(escapeHtml).join('<br>');
+
+  const itemRows = order.items.map((item) => {
+    const attrs = Object.entries(item.attributes ?? {}).map(([k, v]) => `${k}: ${v}`).join(' / ');
+    const lineTotal = item.unitPrice * item.quantity;
+    return `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee">
+          <div style="font-weight:500;color:#111">${escapeHtml(item.name)}</div>
+          ${attrs ? `<div style="font-size:12px;color:#888;margin-top:2px">${escapeHtml(attrs)}</div>` : ''}
+          <div style="font-size:11px;color:#aaa;font-family:monospace;margin-top:2px">${escapeHtml(item.sku)}</div>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center">${item.quantity}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right">${formatPrice(item.unitPrice)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600">${formatPrice(lineTotal)}</td>
+      </tr>`;
+  }).join('');
+
+  const html = `
+<!DOCTYPE html>
+<html lang="tr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif">
+<div style="max-width:700px;margin:32px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+
+  <!-- Header -->
+  <div style="background:#1e3a5f;padding:28px 32px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="color:#fff;font-size:22px;font-weight:700;letter-spacing:.5px">${escapeHtml(storeName)}</div>
+      ${companyAddress ? `<div style="color:#a8c7f0;font-size:13px;margin-top:4px">${escapeHtml(companyAddress)}</div>` : ''}
+      ${companyData['email'] ? `<div style="color:#a8c7f0;font-size:13px">${escapeHtml(companyData['email'])}</div>` : ''}
+    </div>
+    <div style="text-align:right">
+      <div style="color:#fff;font-size:28px;font-weight:700;letter-spacing:1px">FATURA</div>
+      <div style="color:#a8c7f0;font-size:14px;margin-top:4px">${orderRef}</div>
+      <div style="color:#a8c7f0;font-size:13px">${orderDate}</div>
+    </div>
+  </div>
+
+  <!-- Info Grid -->
+  <div style="padding:24px 32px;display:grid;grid-template-columns:1fr 1fr;gap:24px;border-bottom:1px solid #eee">
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Teslimat Adresi</div>
+      <div style="font-size:14px;color:#333;line-height:1.7">${addrLine}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Sipariş Bilgileri</div>
+      <table style="font-size:13px;color:#444;border-collapse:collapse;width:100%">
+        <tr><td style="padding:3px 0;color:#888">Sipariş No</td><td style="padding:3px 0;padding-left:12px;font-weight:600;color:#111">${orderRef}</td></tr>
+        <tr><td style="padding:3px 0;color:#888">Tarih</td><td style="padding:3px 0;padding-left:12px">${orderDate}</td></tr>
+        <tr><td style="padding:3px 0;color:#888">Ödeme</td><td style="padding:3px 0;padding-left:12px">${escapeHtml(paymentLabel)}</td></tr>
+        <tr><td style="padding:3px 0;color:#888">Alıcı</td><td style="padding:3px 0;padding-left:12px">${escapeHtml(order.customerName || order.customerEmail)}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div style="padding:0 32px">
+    <table style="width:100%;border-collapse:collapse;margin-top:4px">
+      <thead>
+        <tr style="background:#f8f9fa">
+          <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#666;border-bottom:2px solid #e5e7eb">Ürün</th>
+          <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#666;border-bottom:2px solid #e5e7eb">Adet</th>
+          <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#666;border-bottom:2px solid #e5e7eb">Birim Fiyat</th>
+          <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#666;border-bottom:2px solid #e5e7eb">Toplam</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Price Summary -->
+  <div style="padding:16px 32px 28px">
+    <div style="max-width:280px;margin-left:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr>
+          <td style="padding:5px 0;color:#555">Ara Toplam (KDV Hariç)</td>
+          <td style="padding:5px 0;text-align:right;color:#333">${formatPrice(subtotal)}</td>
+        </tr>
+        ${discount > 0 ? `<tr>
+          <td style="padding:5px 0;color:#16a34a">İndirim</td>
+          <td style="padding:5px 0;text-align:right;color:#16a34a">−${formatPrice(discount)}</td>
+        </tr>` : ''}
+        ${vatAmount > 0 ? `<tr>
+          <td style="padding:5px 0;color:#555">KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td>
+          <td style="padding:5px 0;text-align:right;color:#333">${formatPrice(vatAmount)}</td>
+        </tr>` : ''}
+        <tr>
+          <td style="padding:5px 0;color:#555">Kargo</td>
+          <td style="padding:5px 0;text-align:right;${shipping === 0 ? 'color:#16a34a;font-weight:600' : 'color:#333'}">${shipping === 0 ? 'Ücretsiz' : formatPrice(shipping)}</td>
+        </tr>
+        <tr style="border-top:2px solid #1e3a5f">
+          <td style="padding:10px 0;font-size:15px;font-weight:700;color:#111">Genel Toplam</td>
+          <td style="padding:10px 0;text-align:right;font-size:15px;font-weight:700;color:#1e3a5f">${formatPrice(total)}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#f8f9fa;padding:16px 32px;text-align:center;border-top:1px solid #eee">
+    <p style="margin:0;font-size:12px;color:#888">${escapeHtml(legalName)} — Bizi tercih ettiğiniz için teşekkürler.</p>
+    <p style="margin:4px 0 0;font-size:12px;color:#aaa">Bu e-posta bilgilendirme amaçlıdır.</p>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  await sendMail({
+    to: order.customerEmail,
+    subject: `Siparişinizin Faturası — ${orderRef}`,
+    html,
+  });
+}
+
 export async function sendMarketingEmail(
   emails: string[],
   subject: string,

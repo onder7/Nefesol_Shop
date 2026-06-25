@@ -336,3 +336,33 @@ export async function getOrder(req: AuthRequest, res: Response, next: NextFuncti
     res.json({ success: true, data: order });
   } catch (err) { next(err); }
 }
+
+// ─── POST /api/checkout/orders/:id/resend-invoice ─────────────────────────────
+export async function resendInvoice(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const order = await orderSvc.getOrderDetail(req.user!.id, req.params['id'] as string);
+    const customerName = (order as any).user?.profile?.firstName
+      ? `${(order as any).user.profile.firstName} ${(order as any).user.profile.lastName ?? ''}`.trim()
+      : '';
+    await emailSvc.sendInvoiceEmail({
+      id: order.id,
+      createdAt: order.createdAt,
+      subtotal: Number(order.subtotal),
+      discount: Number(order.discount),
+      shippingFee: Number(order.shippingFee),
+      total: Number(order.total),
+      customerName,
+      customerEmail: req.user!.email,
+      address: (order as any).address,
+      items: order.items.map((item: any) => ({
+        name: item.variant.product.name,
+        sku: item.variant.sku,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        attributes: item.variant.attributes ?? null,
+      })),
+      payment: (order as any).payment ?? null,
+    });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+}

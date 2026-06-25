@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Package, ChevronRight, Clock, Truck, CheckCircle, XCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Package, ChevronRight, Clock, Truck, CheckCircle, XCircle, RefreshCw, AlertCircle, Printer, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { checkoutApi } from '@/services/checkoutApi';
+import { api } from '@/services/api';
 import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
 import type { Order } from '@/types';
@@ -140,6 +141,24 @@ export function OrderDetail() {
   const { id: orderId = '' } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const [isCancellationModalOpen, setIsCancellationModalOpen] = useState(false);
+  const [invoiceSending, setInvoiceSending] = useState(false);
+  const [invoiceOk, setInvoiceOk] = useState(false);
+  const [invoiceErr, setInvoiceErr] = useState('');
+
+  async function handleResendInvoice() {
+    setInvoiceSending(true);
+    setInvoiceErr('');
+    try {
+      await api.post(`/checkout/orders/${orderId}/resend-invoice`, {});
+      setInvoiceOk(true);
+      setTimeout(() => setInvoiceOk(false), 5000);
+    } catch {
+      setInvoiceErr('E-posta gönderilemedi, lütfen tekrar deneyin.');
+      setTimeout(() => setInvoiceErr(''), 5000);
+    } finally {
+      setInvoiceSending(false);
+    }
+  }
   const { data: order, isLoading, isError, refetch } = useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => (await checkoutApi.getOrder(orderId)).data.data,
@@ -369,9 +388,38 @@ export function OrderDetail() {
         </div>
       )}
 
-      <div className="mt-6 flex gap-3">
+      {/* Invoice actions */}
+      {invoiceOk && (
+        <div className="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 px-4 py-3 text-sm">
+          Fatura e-postanıza gönderildi.
+        </div>
+      )}
+      {invoiceErr && (
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+          {invoiceErr}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap gap-3">
         <Button variant="outline" render={<Link to="/hesabim/siparisler" />}>← Siparişlerim</Button>
         <Button render={<Link to="/ara" />}>Alışverişe Devam</Button>
+        <Button
+          variant="outline"
+          onClick={() => window.print()}
+          className="flex items-center gap-2"
+        >
+          <Printer className="h-4 w-4" />
+          Fatura Yazdır
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleResendInvoice}
+          disabled={invoiceSending}
+          className="flex items-center gap-2"
+        >
+          <Mail className="h-4 w-4" />
+          {invoiceSending ? 'Gönderiliyor…' : 'Fatura E-postası Gönder'}
+        </Button>
       </div>
 
       {/* Cancellation Modal */}

@@ -30,6 +30,7 @@ router.post('/dev-callback', ctrl.devCallback);     // Test mode bypass
 // Orders (authenticated)
 router.get('/orders', authenticate, ctrl.listOrders);
 router.get('/orders/:id', authenticate, ctrl.getOrder);
+router.post('/orders/:id/resend-invoice', authenticate, ctrl.resendInvoice);
 
 // Order Cancellation (customer)
 router.post('/orders/:orderId/cancel-request', authenticate, cancelCtrl.requestCancellation as any);

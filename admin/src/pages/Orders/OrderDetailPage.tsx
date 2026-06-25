@@ -227,6 +227,26 @@ export default function OrderDetailPage() {
   // Cancel confirm
   const [confirmCancel, setConfirmCancel] = useState(false);
 
+  // Invoice email
+  const [invoiceSending, setInvoiceSending] = useState(false);
+  const [invoiceOk, setInvoiceOk]           = useState(false);
+  const [invoiceErr, setInvoiceErr]         = useState('');
+
+  async function handleSendInvoice() {
+    setInvoiceSending(true);
+    setInvoiceErr('');
+    try {
+      await api.post(`/admin/orders/${orderId}/send-invoice`, {});
+      setInvoiceOk(true);
+      setTimeout(() => setInvoiceOk(false), 4000);
+    } catch (err) {
+      setInvoiceErr(err instanceof Error ? err.message : 'E-posta gönderilemedi');
+      setTimeout(() => setInvoiceErr(''), 5000);
+    } finally {
+      setInvoiceSending(false);
+    }
+  }
+
   function loadOrder() {
     setLoading(true);
     api.get<{ success: boolean; data: OrderDetail }>(`/admin/orders/${orderId}`)
@@ -316,7 +336,9 @@ export default function OrderDetailPage() {
   const shipping = Number(order.shippingFee);
   const discount = Number(order.discount);
   const total    = Number(order.total);
-  const vat      = subtotal / 1.2 * 0.2; // KDV dahil fiyattan %20 KDV
+  const vatNet   = subtotal - discount;
+  const vat      = Math.max(0, Math.round((total - shipping - vatNet) * 100) / 100);
+  const vatRate  = vatNet > 0 ? Math.round((vat / vatNet) * 100) : 0;
 
   const customerName = order.user.profile?.firstName
     ? `${order.user.profile.firstName} ${order.user.profile.lastName ?? ''}`.trim()
@@ -342,6 +364,28 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Email invoice feedback */}
+          {invoiceOk && (
+            <span className="text-xs text-green-600 font-medium px-2">Fatura e-postası gönderildi</span>
+          )}
+          {invoiceErr && (
+            <span className="text-xs text-red-600 font-medium px-2">{invoiceErr}</span>
+          )}
+
+          {/* Send invoice email */}
+          <button
+            onClick={handleSendInvoice}
+            disabled={invoiceSending}
+            title={`Faturayı ${order.user.email} adresine gönder`}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-stroke bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:bg-meta-4 transition disabled:opacity-50"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {invoiceSending ? 'Gönderiliyor…' : 'Faturayı E-posta Gönder'}
+          </button>
+
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-stroke bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:bg-meta-4 transition"
@@ -563,18 +607,8 @@ export default function OrderDetailPage() {
             {/* Fiyat kırılımı */}
             <div className="border-t border-stroke dark:border-strokedark mt-4 pt-4 space-y-2">
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Ara Toplam</span>
+                <span>Ara Toplam (KDV Hariç)</span>
                 <span>{fmt(subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500">
-                <span>KDV (%20 dahil)</span>
-                <span>{fmt(vat)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Kargo</span>
-                <span className={shipping === 0 ? 'text-green-600 font-medium' : ''}>
-                  {shipping === 0 ? 'Ücretsiz' : fmt(shipping)}
-                </span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
@@ -582,6 +616,18 @@ export default function OrderDetailPage() {
                   <span>−{fmt(discount)}</span>
                 </div>
               )}
+              {vat > 0 && (
+                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                  <span>KDV{vatRate > 0 ? ` (%${vatRate})` : ''}</span>
+                  <span>{fmt(vat)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                <span>Kargo (KDV Dahil)</span>
+                <span className={shipping === 0 ? 'text-green-600 font-medium' : ''}>
+                  {shipping === 0 ? 'Ücretsiz' : fmt(shipping)}
+                </span>
+              </div>
               <div className="flex justify-between text-base font-bold text-black dark:text-white border-t border-stroke dark:border-strokedark pt-2 mt-1">
                 <span>Genel Toplam</span>
                 <span>{fmt(total)}</span>
@@ -703,11 +749,55 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
+      {/* Print-only invoice header */}
+      <div className="hidden print:block mb-8">
+        <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
+          <div>
+            <div className="text-xl font-bold text-black">{/* store name via window.document.title or static */}Mağaza</div>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold tracking-widest text-black">FATURA</div>
+            <div className="text-sm mt-1 text-gray-600">
+              <span className="font-mono font-bold">#{order.id.slice(-8).toUpperCase()}</span>
+              <span className="mx-2">·</span>
+              {fmtDateShort(order.createdAt)}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-8 text-sm">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Müşteri / Teslimat Adresi</p>
+            <p className="font-semibold text-black">{order.address.firstName} {order.address.lastName}</p>
+            <p className="text-gray-600">{order.address.phone}</p>
+            <p className="text-gray-600 mt-1 leading-relaxed">
+              {order.address.address}<br />
+              {order.address.neighborhood ? `${order.address.neighborhood}, ` : ''}
+              {order.address.district} / {order.address.city}
+              {order.address.postalCode ? ` ${order.address.postalCode}` : ''}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Sipariş Bilgileri</p>
+            <table className="text-sm">
+              <tbody>
+                <tr><td className="text-gray-500 pr-4 py-0.5">Sipariş No</td><td className="font-mono font-bold text-black">#TR-{order.id.slice(-8).toUpperCase()}</td></tr>
+                <tr><td className="text-gray-500 pr-4 py-0.5">Tarih</td><td>{fmtDate(order.createdAt)}</td></tr>
+                <tr><td className="text-gray-500 pr-4 py-0.5">E-posta</td><td>{order.user.email}</td></tr>
+                {order.payment && <tr><td className="text-gray-500 pr-4 py-0.5">Ödeme</td><td>{PROVIDER_LABEL[order.payment.provider] ?? order.payment.provider}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {/* Print styles */}
       <style>{`
         @media print {
           .print\\:hidden { display: none !important; }
-          body { background: white; }
+          .print\\:block { display: block !important; }
+          body { background: white !important; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          @page { margin: 16mm 20mm; }
         }
       `}</style>
     </div>

@@ -3,7 +3,7 @@ import { AuthRequest } from '../types';
 import { env } from '../config/env';
 import * as adminService from '../services/adminService';
 import * as settingsService from '../services/settingsService';
-import { getEmailStatus as emailStatus, sendOrderConfirmation } from '../services/emailService';
+import { getEmailStatus as emailStatus, sendOrderConfirmation, sendInvoiceEmail } from '../services/emailService';
 import * as backupSvc from '../services/backupService';
 import { importProductsFromBuffer } from '../services/importService';
 import { getSystemStats } from '../services/systemService';
@@ -112,6 +112,37 @@ export async function updateOrderShipping(req: AuthRequest, res: Response, next:
     const { carrier, trackingNumber } = req.body as { carrier?: string; trackingNumber?: string };
     const data = await adminService.adminUpdateOrderShipping(String(req.params.id), { carrier, trackingNumber });
     res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function sendOrderInvoiceEmail(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const order = await adminService.adminGetOrderDetail(String(req.params.id));
+    const customerName = order.user.profile?.firstName
+      ? `${order.user.profile.firstName} ${order.user.profile.lastName ?? ''}`.trim()
+      : '';
+    await sendInvoiceEmail({
+      id: order.id,
+      createdAt: order.createdAt,
+      subtotal: Number(order.subtotal),
+      discount: Number(order.discount),
+      shippingFee: Number(order.shippingFee),
+      total: Number(order.total),
+      customerName,
+      customerEmail: order.user.email,
+      address: order.address as any,
+      items: order.items.map((item: any) => ({
+        name: item.variant.product.name,
+        sku: item.variant.sku,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        attributes: item.variant.attributes ?? null,
+      })),
+      payment: order.payment,
+    });
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

@@ -36,6 +36,7 @@ router.get('/orders', ctrl.listOrders);
 router.get('/orders/:id', ctrl.getOrderDetail);
 router.put('/orders/:id/status', ctrl.updateOrderStatus);
 router.put('/orders/:id/shipping', ctrl.updateOrderShipping);
+router.post('/orders/:id/send-invoice', ctrl.sendOrderInvoiceEmail);
 
 // Reviews (moderasyon — onaylanmadan müşteri tarafında görünmez)
 router.get('/reviews', ctrl.listReviews);
