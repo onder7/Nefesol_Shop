@@ -170,3 +170,22 @@ body {
     display: none;
   }
 }
+
+/* Quill HTML output from admin */
+.product-description h1, .product-description h2, .product-description h3 {
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.product-description h2 { font-size: 1.05rem; }
+.product-description h3 { font-size: 0.95rem; }
+.product-description p  { margin-bottom: 0.4rem; }
+.product-description ul, .product-description ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.4rem;
+}
+.product-description ul { list-style: disc; }
+.product-description ol { list-style: decimal; }
+.product-description strong { font-weight: 600; }
+.product-description em { font-style: italic; }
+.product-description a  { color: var(--color-primary); text-decoration: underline; }

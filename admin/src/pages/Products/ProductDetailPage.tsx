@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { QuillEditor } from '../../components/QuillEditor';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -691,12 +692,9 @@ export default function ProductDetailPage() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Açıklama</label>
-                <textarea
+                <QuillEditor
                   value={form.description}
-                  onChange={(e) => set('description', e.target.value)}
-                  rows={4}
-                  className={inputCls}
-                  placeholder="Ürün açıklaması..."
+                  onChange={(html) => set('description', html)}
                 />
               </div>
 

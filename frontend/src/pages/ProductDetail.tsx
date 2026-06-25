@@ -525,7 +525,10 @@ export function ProductDetail() {
           {product.description && (
             <div className="border-t pt-4">
               <h3 className="font-medium mb-2">Ürün Açıklaması</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
+              <div
+                className="text-sm text-muted-foreground leading-relaxed product-description"
+                dangerouslySetInnerHTML={{ __html: product.description }}
+              />
             </div>
           )}
         </div>
