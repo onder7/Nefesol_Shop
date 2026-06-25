@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessageCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { qaApi, type ProductQuestion } from '@/services/qaApi';
 import { useAuthStore } from '@/store/authStore';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,7 @@ function QuestionCard({
 }) {
   const qc = useQueryClient();
   const { isAuthenticated } = useAuthStore();
+  const { name: storeName } = useStoreInfo();
   const [expanded, setExpanded] = useState(false);
   const [answerBody, setAnswerBody] = useState('');
 
@@ -94,7 +96,7 @@ function QuestionCard({
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-semibold">
-                      {ans.user.role === 'ADMIN' ? 'Satıcı' : aName}
+                      {ans.user.role === 'ADMIN' ? (storeName || 'Satıcı') : aName}
                     </p>
                     <p className="text-sm text-muted-foreground leading-snug">{ans.body}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{aDate}</p>

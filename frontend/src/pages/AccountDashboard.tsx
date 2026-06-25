@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
+import { useStoreInfo } from '@/hooks/useStoreInfo';
 
 function formatPrice(price: number) {
   return price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
@@ -39,6 +40,7 @@ const ORDER_STATUS_MAP: Record<string, { label: string; color: string }> = {
 export function AccountDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const { name: storeName } = useStoreInfo();
   const { hasWarning: profileHasWarning, missingAddress, missingPhone, message: profileWarningMessage } = useProfileCompleteness();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1377,7 +1379,7 @@ export function AccountDashboard() {
                                 return (
                                   <div key={ans.id}>
                                     <p className="text-xs font-semibold text-primary">
-                                      {ans.user?.role === 'ADMIN' ? '✓ Satıcı' : aName}
+                                      {ans.user?.role === 'ADMIN' ? `✓ ${storeName || 'Satıcı'}` : aName}
                                     </p>
                                     <p className="text-sm text-gray-600 dark:text-gray-400">{ans.body}</p>
                                     <p className="text-xs text-gray-400 mt-0.5">
