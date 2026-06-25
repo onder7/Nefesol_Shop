@@ -591,8 +591,9 @@ function ShippingTab() {
       .catch(console.error)
       .finally(() => setLoading(false));
 
-    api.get<{ taxRate: number }>('/tax-config').then((r: any) => {
-      if (r?.taxRate != null) setTaxRate(r.taxRate);
+    api.get('/tax-config').then((r: any) => {
+      const rate = r?.data?.taxRate ?? r?.taxRate;
+      if (rate != null) setTaxRate(rate);
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
