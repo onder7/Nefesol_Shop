@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Trash2, Edit2, Plus, ArrowLeft } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 
 type AddressType = 'SHIPPING' | 'BILLING' | 'BOTH';
 
@@ -31,18 +32,20 @@ interface FormData {
   isBilling: boolean;
 }
 
-const EMPTY_FORM: FormData = {
-  firstName: '',
-  lastName: '',
-  phone: '',
-  city: '',
-  district: '',
-  neighborhood: '',
-  address: '',
-  postalCode: '',
-  isShipping: true,
-  isBilling: false,
-};
+function buildEmptyForm(user?: { profile?: { firstName?: string; lastName?: string; phone?: string } | null }): FormData {
+  return {
+    firstName: user?.profile?.firstName || '',
+    lastName: user?.profile?.lastName || '',
+    phone: user?.profile?.phone || '',
+    city: '',
+    district: '',
+    neighborhood: '',
+    address: '',
+    postalCode: '',
+    isShipping: true,
+    isBilling: false,
+  };
+}
 
 // Tip etiketleri
 function TypeBadges({ type }: { type: AddressType }) {
@@ -84,13 +87,15 @@ const selectClass = inputClass + ' disabled:opacity-50 disabled:cursor-not-allow
 
 export function Addresses() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [typeError, setTypeError] = useState('');
+  const [saveError, setSaveError] = useState('');
 
-  const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
+  const [formData, setFormData] = useState<FormData>(() => buildEmptyForm(user ?? undefined));
 
   const { data: addresses = [], isLoading, refetch } = useQuery({
     queryKey: ['addresses'],
@@ -138,8 +143,21 @@ export function Addresses() {
   });
 
   async function handleSaveAddress() {
+    setSaveError('');
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setSaveError('Ad ve soyadı zorunludur.');
+      return;
+    }
+    if (!formData.phone.trim() || formData.phone.replace(/\D/g, '').length < 10) {
+      setSaveError('Geçerli bir telefon numarası giriniz (en az 10 rakam).');
+      return;
+    }
     if (!formData.city || !formData.district) {
-      alert('Lütfen il ve ilçe seçiniz.');
+      setSaveError('İl ve ilçe seçimi zorunludur.');
+      return;
+    }
+    if (!formData.address.trim() || formData.address.trim().length < 5) {
+      setSaveError('Adres en az 5 karakter olmalıdır.');
       return;
     }
     if (!formData.isShipping && !formData.isBilling) {
@@ -152,14 +170,14 @@ export function Addresses() {
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId ? `/api/addresses/${editingId}` : '/api/addresses';
       const payload = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: formData.phone.trim(),
         city: formData.city,
         district: formData.district,
         neighborhood: formData.neighborhood,
-        address: formData.address,
-        postalCode: formData.postalCode,
+        address: formData.address.trim(),
+        postalCode: formData.postalCode.trim(),
         type: toType(formData.isShipping, formData.isBilling),
       };
       const res = await fetch(url, {
@@ -168,13 +186,16 @@ export function Addresses() {
         body: JSON.stringify(payload),
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Adres kaydedilemedi');
-      setFormData(EMPTY_FORM);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || body?.error || 'Adres kaydedilemedi');
+      }
+      setFormData(buildEmptyForm(user ?? undefined));
       setIsAdding(false);
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      alert(err.message || 'Bir hata oluştu');
+      setSaveError(err.message || 'Bir hata oluştu');
     } finally {
       setSaving(false);
     }
@@ -196,8 +217,9 @@ export function Addresses() {
 
   function openNew() {
     setEditingId(null);
-    setFormData(EMPTY_FORM);
+    setFormData(buildEmptyForm(user ?? undefined));
     setTypeError('');
+    setSaveError('');
     setIsAdding(true);
   }
 
@@ -215,6 +237,7 @@ export function Addresses() {
       ...fromType(addr.type),
     });
     setTypeError('');
+    setSaveError('');
     setIsAdding(true);
   }
 
@@ -406,6 +429,11 @@ export function Addresses() {
                 {typeError && <p className="text-xs text-red-500 mt-1.5">{typeError}</p>}
               </div>
 
+              {/* Hata mesajı */}
+              {saveError && (
+                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{saveError}</p>
+              )}
+
               {/* Buttons */}
               <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
@@ -416,7 +444,7 @@ export function Addresses() {
                   {saving ? 'Kaydediliyor...' : editingId ? 'Güncelle' : 'Ekle'}
                 </button>
                 <button
-                  onClick={() => { setIsAdding(false); setEditingId(null); setFormData(EMPTY_FORM); setTypeError(''); }}
+                  onClick={() => { setIsAdding(false); setEditingId(null); setFormData(buildEmptyForm(user ?? undefined)); setTypeError(''); setSaveError(''); }}
                   className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   İptal

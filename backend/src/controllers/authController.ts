@@ -3,10 +3,20 @@ import * as authService from '../services/authService';
 import { AuthRequest } from '../types';
 import { env } from '../config/env';
 
+function getRootCookieDomain(): string | undefined {
+  if (env.NODE_ENV !== 'production') return undefined;
+  try {
+    const hostname = new URL(env.FRONTEND_URL).hostname.replace(/^www\./, '');
+    const parts = hostname.split('.');
+    return parts.length >= 2 ? `.${parts.slice(-2).join('.')}` : undefined;
+  } catch { return undefined; }
+}
+
 const COOKIE_OPTS = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
+  domain: getRootCookieDomain(),
 };
 
 function setTokenCookies(res: Response, accessToken: string, refreshToken: string): void {

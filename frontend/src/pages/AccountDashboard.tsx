@@ -1193,9 +1193,14 @@ export function AccountDashboard() {
                             <p className="font-medium text-gray-900 dark:text-white">
                               {address.firstName} {address.lastName}
                             </p>
-                            <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded">
-                              {address.type === 'SHIPPING' ? '📦 Kargo' : '💳 Fatura'}
-                            </span>
+                            <div className="flex gap-1 flex-wrap justify-end">
+                              {(address.type === 'SHIPPING' || address.type === 'BOTH') && (
+                                <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded">📦 Gönderim</span>
+                              )}
+                              {(address.type === 'BILLING' || address.type === 'BOTH') && (
+                                <span className="text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 px-2 py-0.5 rounded">💳 Fatura</span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             {address.address}
