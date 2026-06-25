@@ -5,7 +5,12 @@ import { QuillEditor } from '../../components/QuillEditor';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Category { id: string; name: string }
+interface Category {
+  id: string;
+  name: string;
+  parentId?: string | null;
+  children?: { id: string; name: string; parentId?: string | null; children?: { id: string; name: string }[] }[];
+}
 interface Brand    { id: string; name: string }
 
 interface AttributeValue { id: string; value: string; colorHex?: string | null; sortOrder: number }
@@ -674,7 +679,31 @@ export default function ProductDetailPage() {
                   className={inputCls}
                 >
                   <option value="">Seçiniz...</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {categories
+                    .filter((c) => !c.parentId)
+                    .map((parent) => {
+                      const subs = categories.filter((c) => c.parentId === parent.id);
+                      if (subs.length === 0) {
+                        return <option key={parent.id} value={parent.id}>{parent.name}</option>;
+                      }
+                      return (
+                        <optgroup key={parent.id} label={parent.name}>
+                          <option value={parent.id}>— {parent.name} (tümü)</option>
+                          {subs.map((sub) => {
+                            const grands = categories.filter((c) => c.parentId === sub.id);
+                            if (grands.length === 0) {
+                              return <option key={sub.id} value={sub.id}>↳ {sub.name}</option>;
+                            }
+                            return [
+                              <option key={sub.id} value={sub.id}>↳ {sub.name}</option>,
+                              ...grands.map((g) => (
+                                <option key={g.id} value={g.id}>&nbsp;&nbsp;↳↳ {g.name}</option>
+                              )),
+                            ];
+                          })}
+                        </optgroup>
+                      );
+                    })}
                 </select>
               </div>
 

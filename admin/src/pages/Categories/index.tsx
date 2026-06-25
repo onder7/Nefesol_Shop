@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -50,8 +50,6 @@ interface DraggableCategoryRowProps {
   cat: Category;
   isParent: boolean;
   depth?: number;
-  isExpanded?: boolean;
-  onToggleExpand?: (id: string) => void;
   onEdit: (cat: Category) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string) => Promise<void>;
@@ -60,7 +58,7 @@ interface DraggableCategoryRowProps {
   togglingMenu?: string | null;
 }
 
-function DraggableCategoryRow({ cat, isParent, depth = 0, isExpanded = true, onToggleExpand, onEdit, onDelete, onToggleActive, onToggleMenu, togglingActive, togglingMenu }: DraggableCategoryRowProps) {
+function DraggableCategoryRow({ cat, isParent, depth = 0, onEdit, onDelete, onToggleActive, onToggleMenu, togglingActive, togglingMenu }: DraggableCategoryRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -79,23 +77,9 @@ function DraggableCategoryRow({ cat, isParent, depth = 0, isExpanded = true, onT
     >
       <td className="px-5 py-4">
         <div className="flex items-center gap-2">
-          {onToggleExpand && cat.children.length > 0 ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleExpand(cat.id);
-              }}
-              className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white transition"
-              title={isExpanded ? 'Gizle' : 'Göster'}
-            >
-              {isExpanded ? '▼' : '▶'}
-            </button>
-          ) : (
-            <span className="w-5" />
-          )}
           {isParent && (
             <span
-              className="mr-2 text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600"
+              className="text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 shrink-0"
               {...listeners}
               title="Sürükleyerek sırala"
             >
@@ -186,8 +170,6 @@ export default function Categories() {
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const initializedRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [togglingActive, setTogglingActive] = useState<string | null>(null);
   const [togglingMenu, setTogglingMenu] = useState<string | null>(null);
@@ -195,14 +177,7 @@ export default function Categories() {
   const load = useCallback(() => {
     setLoading(true);
     api.get<{ success: boolean; data: Category[] }>('/admin/categories')
-      .then((r) => {
-        const cats = r.data ?? [];
-        setCategories(cats);
-        if (!initializedRef.current) {
-          initializedRef.current = true;
-          setExpandedCategories(new Set(cats.filter((c) => !c.parentId).map((c) => c.id)));
-        }
-      })
+      .then((r) => setCategories(r.data ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -532,24 +507,13 @@ export default function Categories() {
                         const subCategories = categories
                           .filter((c) => c.parentId === parent.id)
                           .sort((a, b) => a.sortOrder - b.sortOrder);
-                        const isExpanded = expandedCategories.has(parent.id);
-
-                        const toggleExpand = (id: string) => {
-                          setExpandedCategories((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(id)) next.delete(id);
-                            else next.add(id);
-                            return next;
-                          });
-                        };
 
                         return [
                           <DraggableCategoryRow
                             key={parent.id}
                             cat={parent}
                             isParent={true}
-                            isExpanded={isExpanded}
-                            onToggleExpand={toggleExpand}
+                            depth={0}
                             onEdit={openEdit}
                             onDelete={(id) => setDeleteConfirm(id)}
                             onToggleActive={handleToggleActive}
@@ -557,46 +521,39 @@ export default function Categories() {
                             togglingActive={togglingActive}
                             togglingMenu={togglingMenu}
                           />,
-                          ...(isExpanded
-                            ? subCategories.flatMap((sub) => {
-                                const grandChildren = categories
-                                  .filter((c) => c.parentId === sub.id)
-                                  .sort((a, b) => a.sortOrder - b.sortOrder);
-                                const subExpanded = expandedCategories.has(sub.id);
-                                return [
-                                  <DraggableCategoryRow
-                                    key={sub.id}
-                                    cat={sub}
-                                    isParent={false}
-                                    depth={1}
-                                    isExpanded={subExpanded}
-                                    onToggleExpand={grandChildren.length > 0 ? toggleExpand : undefined}
-                                    onEdit={openEdit}
-                                    onDelete={(id) => setDeleteConfirm(id)}
-                                    onToggleActive={handleToggleActive}
-                                    onToggleMenu={handleToggleMenu}
-                                    togglingActive={togglingActive}
-                                    togglingMenu={togglingMenu}
-                                  />,
-                                  ...(subExpanded
-                                    ? grandChildren.map((grand) => (
-                                        <DraggableCategoryRow
-                                          key={grand.id}
-                                          cat={grand}
-                                          isParent={false}
-                                          depth={2}
-                                          onEdit={openEdit}
-                                          onDelete={(id) => setDeleteConfirm(id)}
-                                          onToggleActive={handleToggleActive}
-                                          onToggleMenu={handleToggleMenu}
-                                          togglingActive={togglingActive}
-                                          togglingMenu={togglingMenu}
-                                        />
-                                      ))
-                                    : []),
-                                ];
-                              })
-                            : []),
+                          ...subCategories.flatMap((sub) => {
+                            const grandChildren = categories
+                              .filter((c) => c.parentId === sub.id)
+                              .sort((a, b) => a.sortOrder - b.sortOrder);
+                            return [
+                              <DraggableCategoryRow
+                                key={sub.id}
+                                cat={sub}
+                                isParent={false}
+                                depth={1}
+                                onEdit={openEdit}
+                                onDelete={(id) => setDeleteConfirm(id)}
+                                onToggleActive={handleToggleActive}
+                                onToggleMenu={handleToggleMenu}
+                                togglingActive={togglingActive}
+                                togglingMenu={togglingMenu}
+                              />,
+                              ...grandChildren.map((grand) => (
+                                <DraggableCategoryRow
+                                  key={grand.id}
+                                  cat={grand}
+                                  isParent={false}
+                                  depth={2}
+                                  onEdit={openEdit}
+                                  onDelete={(id) => setDeleteConfirm(id)}
+                                  onToggleActive={handleToggleActive}
+                                  onToggleMenu={handleToggleMenu}
+                                  togglingActive={togglingActive}
+                                  togglingMenu={togglingMenu}
+                                />
+                              )),
+                            ];
+                          }),
                         ];
                       })}
                     {categories.length === 0 && (
