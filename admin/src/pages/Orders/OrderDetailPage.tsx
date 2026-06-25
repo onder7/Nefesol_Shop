@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api } from '../../lib/api';
+import { api, API_BASE } from '../../lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -253,13 +253,19 @@ export default function OrderDetailPage() {
     // Şirket bilgilerini API'den çek
     let company: {
       name: string; legalName: string; address: string; city: string;
-      phone: string; email: string; taxNumber: string; logoUrl: string;
-    } = { name: '', legalName: '', address: '', city: '', phone: '', email: '', taxNumber: '', logoUrl: '' };
+      phone: string; email: string; taxOffice: string; taxNumber: string; logoUrl: string;
+    } = { name: '', legalName: '', address: '', city: '', phone: '', email: '', taxOffice: '', taxNumber: '', logoUrl: '' };
 
     try {
       const r = await api.get('/company-info');
       company = (r as any)?.data ?? company;
-    } catch {/* şirket bilgisi yoksa boş geçer */}
+    } catch (e) { console.warn('company-info yüklenemedi', e); }
+
+    // Göreceli logo URL'sini absolute yap (print penceresi about:blank'tan açılıyor)
+    const apiOrigin = API_BASE.replace(/\/api$/, '');
+    if (company.logoUrl && company.logoUrl.startsWith('/')) {
+      company.logoUrl = `${apiOrigin}${company.logoUrl}`;
+    }
 
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -306,6 +312,7 @@ export default function OrderDetailPage() {
       company.city,
       company.phone ? `Tel: ${company.phone}` : '',
       company.email ? `E: ${company.email}` : '',
+      company.taxOffice ? `Vergi Dairesi: ${company.taxOffice}` : '',
       company.taxNumber ? `Vergi No: ${company.taxNumber}` : '',
     ].filter(Boolean).join('<br>');
 
@@ -429,9 +436,10 @@ export default function OrderDetailPage() {
   <!-- Footer -->
   <div class="footer">
     <div class="footer-note">
-      Bu belge bilgi amaçlı olup resmi e-arşiv fatura değildir.<br>
-      ${company.taxNumber ? `Vergi Kimlik No: ${company.taxNumber}` : ''}<br>
+      Bu belge bilgi amaçlıdır.<br>
       ${company.legalName || company.name}
+      ${company.taxOffice ? `<br>Vergi Dairesi: ${company.taxOffice}` : ''}
+      ${company.taxNumber ? `<br>Vergi No: ${company.taxNumber}` : ''}
     </div>
     <div class="footer-sign">
       <div class="sign-line"></div>

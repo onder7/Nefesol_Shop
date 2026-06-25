@@ -163,12 +163,17 @@ export function OrderDetail() {
   async function handlePrintInvoice() {
     if (!order) return;
 
-    let company: { name: string; legalName: string; address: string; city: string; phone: string; email: string; taxNumber: string; logoUrl: string; } =
-      { name: '', legalName: '', address: '', city: '', phone: '', email: '', taxNumber: '', logoUrl: '' };
+    let company: { name: string; legalName: string; address: string; city: string; phone: string; email: string; taxOffice: string; taxNumber: string; logoUrl: string; } =
+      { name: '', legalName: '', address: '', city: '', phone: '', email: '', taxOffice: '', taxNumber: '', logoUrl: '' };
     try {
       const r = await api.get<{ success: boolean; data: typeof company }>('/company-info');
       company = (r as any)?.data ?? company;
-    } catch {/* devam */}
+    } catch (e) { console.warn('company-info', e); }
+
+    // Göreceli logo URL'sini absolute yap (print penceresi about:blank'tan açılıyor)
+    if (company.logoUrl && company.logoUrl.startsWith('/')) {
+      company.logoUrl = `${window.location.origin}${company.logoUrl}`;
+    }
 
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -194,6 +199,7 @@ export function OrderDetail() {
       company.address, company.city,
       company.phone ? `Tel: ${company.phone}` : '',
       company.email ? `E: ${company.email}` : '',
+      company.taxOffice ? `Vergi Dairesi: ${company.taxOffice}` : '',
       company.taxNumber ? `Vergi No: ${company.taxNumber}` : '',
     ].filter(Boolean).join('<br>');
 
@@ -282,7 +288,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
     </table>
   </div>
   <div class="footer">
-    <div>${company.taxNumber ? `Vergi Kimlik No: ${company.taxNumber}<br>` : ''}${company.legalName || company.name || ''}<br>Bu belge bilgi amaçlıdır.</div>
+    <div>${company.legalName || company.name || ''}${company.taxOffice ? `<br>Vergi Dairesi: ${company.taxOffice}` : ''}${company.taxNumber ? `<br>Vergi No: ${company.taxNumber}` : ''}<br>Bu belge bilgi amaçlıdır.</div>
     <div style="text-align:right"><div class="sign-line"></div><div>Kaşe / İmza</div></div>
   </div>
 </div>
