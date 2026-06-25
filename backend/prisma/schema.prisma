@@ -76,6 +76,7 @@ model UserProfile {
 enum AddressType {
   BILLING
   SHIPPING
+  BOTH
 }
 
 model Address {

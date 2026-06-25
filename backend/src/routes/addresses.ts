@@ -7,7 +7,7 @@ import * as ctrl from '../controllers/addressController';
 const router = Router();
 
 const addressSchema = z.object({
-  type: z.enum(['BILLING', 'SHIPPING']).default('SHIPPING'),
+  type: z.enum(['BILLING', 'SHIPPING', 'BOTH']).default('SHIPPING'),
   // Form ayrı bir "başlık" alanı göstermiyor — verilmezse varsayılan ata
   title: z.string().min(1).max(50).optional().default('Adresim'),
   firstName: z.string().min(1).max(50),

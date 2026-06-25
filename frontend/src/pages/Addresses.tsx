@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Trash2, Edit2, Plus, ArrowLeft } from 'lucide-react';
 
+type AddressType = 'SHIPPING' | 'BILLING' | 'BOTH';
+
 interface Address {
   id: string;
   firstName: string;
@@ -13,7 +15,7 @@ interface Address {
   neighborhood?: string;
   address: string;
   postalCode: string;
-  type: 'SHIPPING' | 'BILLING';
+  type: AddressType;
 }
 
 interface FormData {
@@ -25,7 +27,8 @@ interface FormData {
   neighborhood: string;
   address: string;
   postalCode: string;
-  type: 'SHIPPING' | 'BILLING';
+  isShipping: boolean;
+  isBilling: boolean;
 }
 
 const EMPTY_FORM: FormData = {
@@ -37,11 +40,47 @@ const EMPTY_FORM: FormData = {
   neighborhood: '',
   address: '',
   postalCode: '',
-  type: 'SHIPPING',
+  isShipping: true,
+  isBilling: false,
 };
 
-const selectClass =
-  'w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed';
+// Tip etiketleri
+function TypeBadges({ type }: { type: AddressType }) {
+  return (
+    <div className="flex gap-2 flex-wrap mt-1">
+      {(type === 'SHIPPING' || type === 'BOTH') && (
+        <span className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+          📦 Gönderim Adresi
+        </span>
+      )}
+      {(type === 'BILLING' || type === 'BOTH') && (
+        <span className="text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+          💳 Fatura Adresi
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Form state → API type dönüşümü
+function toType(isShipping: boolean, isBilling: boolean): AddressType {
+  if (isShipping && isBilling) return 'BOTH';
+  if (isBilling) return 'BILLING';
+  return 'SHIPPING';
+}
+
+// API type → Form state dönüşümü
+function fromType(type: AddressType) {
+  return {
+    isShipping: type === 'SHIPPING' || type === 'BOTH',
+    isBilling: type === 'BILLING' || type === 'BOTH',
+  };
+}
+
+const inputClass =
+  'w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white focus:border-primary outline-none transition-colors';
+
+const selectClass = inputClass + ' disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function Addresses() {
   const navigate = useNavigate();
@@ -49,6 +88,7 @@ export function Addresses() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [typeError, setTypeError] = useState('');
 
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
 
@@ -62,7 +102,7 @@ export function Addresses() {
     },
   });
 
-  // ─── İl / İlçe / Mahalle verisi (kademeli) ───────────────────────────────
+  // ─── İl / İlçe / Mahalle (kademeli) ─────────────────────────────────────────
   const { data: iller = [] } = useQuery<string[]>({
     queryKey: ['loc-iller'],
     queryFn: async () => {
@@ -102,20 +142,33 @@ export function Addresses() {
       alert('Lütfen il ve ilçe seçiniz.');
       return;
     }
+    if (!formData.isShipping && !formData.isBilling) {
+      setTypeError('En az bir adres türü seçmelisiniz.');
+      return;
+    }
+    setTypeError('');
     setSaving(true);
     try {
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId ? `/api/addresses/${editingId}` : '/api/addresses';
-
+      const payload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        city: formData.city,
+        district: formData.district,
+        neighborhood: formData.neighborhood,
+        address: formData.address,
+        postalCode: formData.postalCode,
+        type: toType(formData.isShipping, formData.isBilling),
+      };
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
         credentials: 'include',
       });
-
       if (!res.ok) throw new Error('Adres kaydedilemedi');
-
       setFormData(EMPTY_FORM);
       setIsAdding(false);
       setEditingId(null);
@@ -129,14 +182,9 @@ export function Addresses() {
 
   async function handleDeleteAddress(id: string) {
     if (!window.confirm('Bu adresi silmek istediğinize emin misiniz?')) return;
-
     setDeleting(id);
     try {
-      const res = await fetch(`/api/addresses/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
+      const res = await fetch(`/api/addresses/${id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Adres silinemedi');
       refetch();
     } catch (err: any) {
@@ -149,6 +197,7 @@ export function Addresses() {
   function openNew() {
     setEditingId(null);
     setFormData(EMPTY_FORM);
+    setTypeError('');
     setIsAdding(true);
   }
 
@@ -163,8 +212,9 @@ export function Addresses() {
       neighborhood: addr.neighborhood || '',
       address: addr.address,
       postalCode: addr.postalCode,
-      type: addr.type,
+      ...fromType(addr.type),
     });
+    setTypeError('');
     setIsAdding(true);
   }
 
@@ -174,19 +224,12 @@ export function Addresses() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/hesabim')}
-              className="text-primary hover:text-primary/80 transition-colors"
-            >
+            <button onClick={() => navigate('/hesabim')} className="text-primary hover:text-primary/80 transition-colors">
               <ArrowLeft size={24} />
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Adreslerim
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Gönderim ve fatura adreslerinizi yönetin
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Adreslerim</h1>
+              <p className="text-gray-600 dark:text-gray-400">Gönderim ve fatura adreslerinizi yönetin</p>
             </div>
           </div>
           <button
@@ -198,7 +241,7 @@ export function Addresses() {
           </button>
         </div>
 
-        {/* Addresses List */}
+        {/* Address List */}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -206,37 +249,24 @@ export function Addresses() {
         ) : addresses.length === 0 && !isAdding ? (
           <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-100 p-12 text-center dark:border-gray-700 dark:bg-gray-800">
             <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Henüz kayıtlı adres bulunmamaktadır
-            </p>
-            <button
-              onClick={openNew}
-              className="inline-block text-primary hover:underline font-medium"
-            >
+            <p className="text-gray-600 dark:text-gray-400 mb-4">Henüz kayıtlı adres bulunmamaktadır</p>
+            <button onClick={openNew} className="inline-block text-primary hover:underline font-medium">
               İlk adresini ekle →
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 mb-8">
             {addresses.map((addr: Address) => (
-              <div
-                key={addr.id}
-                className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800"
-              >
-                <div className="flex items-start justify-between mb-4">
+              <div key={addr.id} className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       {addr.firstName} {addr.lastName}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {addr.type === 'SHIPPING' ? '📦 Gönderim Adresi' : '💳 Fatura Adresi'}
-                    </p>
+                    <TypeBadges type={addr.type} />
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openEdit(addr)}
-                      className="text-gray-500 hover:text-primary transition-colors p-2"
-                    >
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => openEdit(addr)} className="text-gray-500 hover:text-primary transition-colors p-2">
                       <Edit2 size={18} />
                     </button>
                     <button
@@ -248,8 +278,7 @@ export function Addresses() {
                     </button>
                   </div>
                 </div>
-
-                <div className="space-y-2 text-sm">
+                <div className="space-y-1 text-sm">
                   <p className="text-gray-700 dark:text-gray-300">{addr.address}</p>
                   <p className="text-gray-700 dark:text-gray-300">
                     {addr.neighborhood && `${addr.neighborhood}, `}
@@ -273,86 +302,48 @@ export function Addresses() {
               {/* Ad Soyadı */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Ad
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ad</label>
+                  <input type="text" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} className={inputClass} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Soyadı
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Soyadı</label>
+                  <input type="text" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} className={inputClass} />
                 </div>
               </div>
 
               {/* Telefon */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Telefon
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+90 5XX XXX XXXX"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefon</label>
+                <input type="tel" placeholder="+90 5XX XXX XXXX" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className={inputClass} />
               </div>
 
-              {/* İl / İlçe / Mahalle (kademeli) */}
+              {/* İl / İlçe / Mahalle */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    İl
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">İl</label>
                   <select
                     value={formData.city}
-                    onChange={(e) =>
-                      // İl değişince ilçe ve mahalleyi sıfırla
-                      setFormData({ ...formData, city: e.target.value, district: '', neighborhood: '' })
-                    }
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value, district: '', neighborhood: '' })}
                     className={selectClass}
                   >
                     <option value="">Seçiniz</option>
-                    {iller.map((il) => (
-                      <option key={il} value={il}>{il}</option>
-                    ))}
+                    {iller.map((il) => <option key={il} value={il}>{il}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    İlçe
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">İlçe</label>
                   <select
                     value={formData.district}
-                    onChange={(e) =>
-                      // İlçe değişince mahalleyi sıfırla
-                      setFormData({ ...formData, district: e.target.value, neighborhood: '' })
-                    }
+                    onChange={(e) => setFormData({ ...formData, district: e.target.value, neighborhood: '' })}
                     disabled={!formData.city}
                     className={selectClass}
                   >
                     <option value="">{formData.city ? 'Seçiniz' : 'Önce il seçin'}</option>
-                    {ilceler.map((ilce) => (
-                      <option key={ilce} value={ilce}>{ilce}</option>
-                    ))}
+                    {ilceler.map((ilce) => <option key={ilce} value={ilce}>{ilce}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Mahalle / Köy
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mahalle / Köy</label>
                   <select
                     value={formData.neighborhood}
                     onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
@@ -360,66 +351,59 @@ export function Addresses() {
                     className={selectClass}
                   >
                     <option value="">{formData.district ? 'Seçiniz' : 'Önce ilçe seçin'}</option>
-                    {mahalleler.map((mah) => (
-                      <option key={mah} value={mah}>{mah}</option>
-                    ))}
+                    {mahalleler.map((mah) => <option key={mah} value={mah}>{mah}</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* Açık Adres + Posta Kodu */}
+              {/* Açık Adres */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Açık Adres (cadde, sokak, bina, daire no)
-                </label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Açık Adres (cadde, sokak, bina, daire no)</label>
+                <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={3} className={inputClass} />
               </div>
 
+              {/* Posta Kodu */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Posta Kodu
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="34200"
-                    value={formData.postalCode}
-                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Posta Kodu</label>
+                  <input type="text" placeholder="34200" value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} className={inputClass} />
                 </div>
               </div>
 
-              {/* Adres Türü */}
+              {/* Adres Türü — çoklu seçim */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Adres Türü
+                  Adres Türü <span className="text-xs text-gray-400 font-normal">(birden fazla seçilebilir)</span>
                 </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-3">
+                  <label className={`flex items-center gap-2.5 cursor-pointer px-4 py-2.5 rounded-lg border-2 transition-all select-none ${
+                    formData.isShipping
+                      ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                  }`}>
                     <input
-                      type="radio"
-                      value="SHIPPING"
-                      checked={formData.type === 'SHIPPING'}
-                      onChange={() => setFormData({ ...formData, type: 'SHIPPING' })}
+                      type="checkbox"
+                      checked={formData.isShipping}
+                      onChange={(e) => { setFormData({ ...formData, isShipping: e.target.checked }); setTypeError(''); }}
+                      className="h-4 w-4 accent-primary"
                     />
-                    <span className="text-gray-700 dark:text-gray-300">📦 Gönderim Adresi</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">📦 Gönderim Adresi</span>
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className={`flex items-center gap-2.5 cursor-pointer px-4 py-2.5 rounded-lg border-2 transition-all select-none ${
+                    formData.isBilling
+                      ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                  }`}>
                     <input
-                      type="radio"
-                      value="BILLING"
-                      checked={formData.type === 'BILLING'}
-                      onChange={() => setFormData({ ...formData, type: 'BILLING' })}
+                      type="checkbox"
+                      checked={formData.isBilling}
+                      onChange={(e) => { setFormData({ ...formData, isBilling: e.target.checked }); setTypeError(''); }}
+                      className="h-4 w-4 accent-primary"
                     />
-                    <span className="text-gray-700 dark:text-gray-300">💳 Fatura Adresi</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">💳 Fatura Adresi</span>
                   </label>
                 </div>
+                {typeError && <p className="text-xs text-red-500 mt-1.5">{typeError}</p>}
               </div>
 
               {/* Buttons */}
@@ -432,11 +416,7 @@ export function Addresses() {
                   {saving ? 'Kaydediliyor...' : editingId ? 'Güncelle' : 'Ekle'}
                 </button>
                 <button
-                  onClick={() => {
-                    setIsAdding(false);
-                    setEditingId(null);
-                    setFormData(EMPTY_FORM);
-                  }}
+                  onClick={() => { setIsAdding(false); setEditingId(null); setFormData(EMPTY_FORM); setTypeError(''); }}
                   className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   İptal
