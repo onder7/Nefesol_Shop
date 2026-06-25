@@ -122,7 +122,14 @@ export async function listCategories() {
     include: {
       children: {
         where: { isActive: true },
-        select: { id: true, name: true, slug: true, imageUrl: true, showInMenu: true },
+        select: {
+          id: true, name: true, slug: true, imageUrl: true, showInMenu: true,
+          children: {
+            where: { isActive: true },
+            select: { id: true, name: true, slug: true, imageUrl: true, showInMenu: true },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
         orderBy: { sortOrder: 'asc' },
       },
       _count: { select: { products: true } },

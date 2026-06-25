@@ -372,16 +372,29 @@ export function Header() {
                     {/* Alt Kategori Dropdown */}
                     {hasChildren && (
                       <div className="invisible opacity-0 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-150 absolute left-1/2 -translate-x-1/2 top-full pt-2 z-50">
-                        <div className="bg-white rounded-lg shadow-xl border border-neutral-100 py-2 min-w-[200px]">
-                          {children.map((child: any) => (
-                            <Link
-                              key={child.id}
-                              to={`/kategori/${child.slug}`}
-                              className="block px-4 py-2 text-sm text-neutral-700 hover:bg-orange-50 hover:text-primary transition-colors whitespace-nowrap"
-                            >
-                              {child.name}
-                            </Link>
-                          ))}
+                        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-100 dark:border-neutral-700 py-2 min-w-[200px]">
+                          {children.map((child: any) => {
+                            const grandChildren = (child.children ?? []).filter((g: any) => g.showInMenu !== false);
+                            return (
+                              <div key={child.id}>
+                                <Link
+                                  to={`/kategori/${child.slug}`}
+                                  className={`block px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-orange-50 dark:hover:bg-neutral-800 hover:text-primary transition-colors whitespace-nowrap ${grandChildren.length > 0 ? 'font-semibold' : ''}`}
+                                >
+                                  {child.name}
+                                </Link>
+                                {grandChildren.map((grand: any) => (
+                                  <Link
+                                    key={grand.id}
+                                    to={`/kategori/${grand.slug}`}
+                                    className="block pl-8 pr-4 py-1.5 text-xs text-neutral-500 dark:text-neutral-400 hover:bg-orange-50 dark:hover:bg-neutral-800 hover:text-primary transition-colors whitespace-nowrap"
+                                  >
+                                    ↳ {grand.name}
+                                  </Link>
+                                ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
