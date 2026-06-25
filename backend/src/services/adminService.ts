@@ -647,10 +647,20 @@ export async function adminToggleCustomerStatus(userId: string) {
 
 export async function adminListCategories() {
   return prisma.category.findMany({
-    orderBy: [{ parentId: 'asc' }, { sortOrder: 'asc' }],
+    where: { parentId: null },
+    orderBy: { sortOrder: 'asc' },
     include: {
       _count: { select: { products: true } },
-      children: { select: { id: true, name: true, slug: true } },
+      children: {
+        orderBy: { sortOrder: 'asc' },
+        include: {
+          _count: { select: { products: true } },
+          children: {
+            orderBy: { sortOrder: 'asc' },
+            include: { _count: { select: { products: true } } },
+          },
+        },
+      },
     },
   });
 }

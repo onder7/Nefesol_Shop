@@ -13,10 +13,9 @@ interface Category {
   isActive: boolean;
   showInMenu: boolean;
   sortOrder: number;
-  parentId?: string;
+  parentId?: string | null;
   imageUrl?: string;
-  parent?: { name: string };
-  children: { id: string; name: string; slug: string }[];
+  children: Category[];
   _count: { products: number };
 }
 
@@ -50,15 +49,16 @@ interface DraggableCategoryRowProps {
   cat: Category;
   isParent: boolean;
   depth?: number;
+  parentName?: string;
   onEdit: (cat: Category) => void;
   onDelete: (id: string) => void;
-  onToggleActive: (id: string) => Promise<void>;
-  onToggleMenu: (id: string) => Promise<void>;
+  onToggleActive: (id: string, current: boolean) => Promise<void>;
+  onToggleMenu: (id: string, current: boolean) => Promise<void>;
   togglingActive?: string | null;
   togglingMenu?: string | null;
 }
 
-function DraggableCategoryRow({ cat, isParent, depth = 0, onEdit, onDelete, onToggleActive, onToggleMenu, togglingActive, togglingMenu }: DraggableCategoryRowProps) {
+function DraggableCategoryRow({ cat, isParent, depth = 0, parentName, onEdit, onDelete, onToggleActive, onToggleMenu, togglingActive, togglingMenu }: DraggableCategoryRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -95,16 +95,16 @@ function DraggableCategoryRow({ cat, isParent, depth = 0, onEdit, onDelete, onTo
         </div>
       </td>
       <td className="px-5 py-4 text-gray-600">
-        {isParent ? <span className="text-gray-400 italic">Ana Kategori</span> : cat.parent?.name}
+        {isParent ? <span className="text-gray-400 italic">Ana Kategori</span> : (parentName ?? '—')}
       </td>
       <td className="px-5 py-4 text-center font-medium">{cat._count.products}</td>
-      <td className="px-5 py-4 text-center">{cat.children.length}</td>
+      <td className="px-5 py-4 text-center">{cat.children?.length ?? 0}</td>
       <td className="px-5 py-4 text-center text-gray-600">{cat.sortOrder}</td>
       <td className="px-5 py-4">
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onToggleActive(cat.id);
+            onToggleActive(cat.id, cat.isActive);
           }}
           disabled={togglingActive === cat.id}
           className={`px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition ${
@@ -121,7 +121,7 @@ function DraggableCategoryRow({ cat, isParent, depth = 0, onEdit, onDelete, onTo
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onToggleMenu(cat.id);
+            onToggleMenu(cat.id, cat.showInMenu);
           }}
           disabled={togglingMenu === cat.id}
           className={`px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition ${
@@ -306,15 +306,15 @@ export default function Categories() {
     }
   }
 
-  async function handleToggleActive(id: string) {
+  function flatAll(cats: Category[]): Category[] {
+    return cats.flatMap((c) => [c, ...flatAll(c.children ?? [])]);
+  }
+
+  async function handleToggleActive(id: string, currentValue: boolean) {
     setTogglingActive(id);
     try {
-      const cat = categories.find((c) => c.id === id);
-      if (!cat) return;
-      await api.patch(`/admin/categories/${id}`, { isActive: !cat.isActive });
-      setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c))
-      );
+      await api.patch(`/admin/categories/${id}`, { isActive: !currentValue });
+      load();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Durum güncellenirken hata oluştu');
     } finally {
@@ -322,15 +322,11 @@ export default function Categories() {
     }
   }
 
-  async function handleToggleMenu(id: string) {
+  async function handleToggleMenu(id: string, currentValue: boolean) {
     setTogglingMenu(id);
     try {
-      const cat = categories.find((c) => c.id === id);
-      if (!cat) return;
-      await api.patch(`/admin/categories/${id}`, { showInMenu: !cat.showInMenu });
-      setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, showInMenu: !c.showInMenu } : c))
-      );
+      await api.patch(`/admin/categories/${id}`, { showInMenu: !currentValue });
+      load();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Menü durumu güncellenirken hata oluştu');
     } finally {
@@ -338,8 +334,7 @@ export default function Categories() {
     }
   }
 
-  const topLevel = categories.filter((c) => !c.parentId);
-  const sortableIds = categories.filter((c) => !c.parentId).map((c) => c.id);
+  const sortableIds = categories.map((c) => c.id);
 
   return (
     <div>
@@ -419,10 +414,12 @@ export default function Categories() {
                   <label className="block text-sm font-medium text-black dark:text-white mb-1">Üst Kategori</label>
                   <select value={form.parentId} onChange={(e) => set('parentId', e.target.value)} className={inputCls}>
                     <option value="">Ana Kategori</option>
-                    {categories
+                    {flatAll(categories)
                       .filter((c) => c.id !== editingId)
                       .map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.parentId ? `↳ ${c.name}` : c.name}
+                        </option>
                       ))}
                   </select>
                 </div>
@@ -500,62 +497,50 @@ export default function Categories() {
                 </thead>
                 <tbody>
                   <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-                    {categories
-                      .filter((c) => !c.parentId)
-                      .sort((a, b) => a.sortOrder - b.sortOrder)
-                      .flatMap((parent) => {
-                        const subCategories = categories
-                          .filter((c) => c.parentId === parent.id)
-                          .sort((a, b) => a.sortOrder - b.sortOrder);
-
-                        return [
+                    {categories.flatMap((parent) => [
+                      <DraggableCategoryRow
+                        key={parent.id}
+                        cat={parent}
+                        isParent={true}
+                        depth={0}
+                        onEdit={openEdit}
+                        onDelete={(id) => setDeleteConfirm(id)}
+                        onToggleActive={handleToggleActive}
+                        onToggleMenu={handleToggleMenu}
+                        togglingActive={togglingActive}
+                        togglingMenu={togglingMenu}
+                      />,
+                      ...(parent.children ?? []).flatMap((sub) => [
+                        <DraggableCategoryRow
+                          key={sub.id}
+                          cat={sub}
+                          isParent={false}
+                          depth={1}
+                          parentName={parent.name}
+                          onEdit={openEdit}
+                          onDelete={(id) => setDeleteConfirm(id)}
+                          onToggleActive={handleToggleActive}
+                          onToggleMenu={handleToggleMenu}
+                          togglingActive={togglingActive}
+                          togglingMenu={togglingMenu}
+                        />,
+                        ...(sub.children ?? []).map((grand) => (
                           <DraggableCategoryRow
-                            key={parent.id}
-                            cat={parent}
-                            isParent={true}
-                            depth={0}
+                            key={grand.id}
+                            cat={grand}
+                            isParent={false}
+                            depth={2}
+                            parentName={sub.name}
                             onEdit={openEdit}
                             onDelete={(id) => setDeleteConfirm(id)}
                             onToggleActive={handleToggleActive}
                             onToggleMenu={handleToggleMenu}
                             togglingActive={togglingActive}
                             togglingMenu={togglingMenu}
-                          />,
-                          ...subCategories.flatMap((sub) => {
-                            const grandChildren = categories
-                              .filter((c) => c.parentId === sub.id)
-                              .sort((a, b) => a.sortOrder - b.sortOrder);
-                            return [
-                              <DraggableCategoryRow
-                                key={sub.id}
-                                cat={sub}
-                                isParent={false}
-                                depth={1}
-                                onEdit={openEdit}
-                                onDelete={(id) => setDeleteConfirm(id)}
-                                onToggleActive={handleToggleActive}
-                                onToggleMenu={handleToggleMenu}
-                                togglingActive={togglingActive}
-                                togglingMenu={togglingMenu}
-                              />,
-                              ...grandChildren.map((grand) => (
-                                <DraggableCategoryRow
-                                  key={grand.id}
-                                  cat={grand}
-                                  isParent={false}
-                                  depth={2}
-                                  onEdit={openEdit}
-                                  onDelete={(id) => setDeleteConfirm(id)}
-                                  onToggleActive={handleToggleActive}
-                                  onToggleMenu={handleToggleMenu}
-                                  togglingActive={togglingActive}
-                                  togglingMenu={togglingMenu}
-                                />
-                              )),
-                            ];
-                          }),
-                        ];
-                      })}
+                          />
+                        )),
+                      ]),
+                    ])}
                     {categories.length === 0 && (
                       <tr><td colSpan={8} className="py-12 text-center text-gray-400">Kategori bulunamadı.</td></tr>
                     )}
