@@ -213,9 +213,6 @@ export function Cart() {
                     >
                       {item.variant.product.name}
                     </Link>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(item.createdAt).toLocaleDateString('tr-TR')} {new Date(item.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
                   </div>
                   {attrValues.length > 0 && (
                     <p className="text-sm text-muted-foreground mt-0.5">
@@ -311,7 +308,7 @@ export function Cart() {
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span>Ara Toplam</span>
+                <span>Ara Toplam (KDV Hariç)</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
 
