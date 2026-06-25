@@ -159,6 +159,141 @@ export function OrderDetail() {
       setInvoiceSending(false);
     }
   }
+
+  async function handlePrintInvoice() {
+    if (!order) return;
+
+    let company: { name: string; legalName: string; address: string; city: string; phone: string; email: string; taxNumber: string; logoUrl: string; } =
+      { name: '', legalName: '', address: '', city: '', phone: '', email: '', taxNumber: '', logoUrl: '' };
+    try {
+      const r = await api.get<{ success: boolean; data: typeof company }>('/company-info');
+      company = (r as any)?.data ?? company;
+    } catch {/* devam */}
+
+    const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
+    const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const subtotalN = Number(order.subtotal);
+    const discountN = Number(order.discount);
+    const shippingN = Number(order.shippingFee);
+    const totalN    = Number(order.total);
+    const vatNet    = subtotalN - discountN;
+    const vatAmount = Math.max(0, Math.round((totalN - shippingN - vatNet) * 100) / 100);
+    const vatRate   = vatNet > 0 ? Math.round((vatAmount / vatNet) * 100) : 0;
+    const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
+
+    const addr = order.address as any;
+    const addrBlock = [
+      addr ? `${addr.firstName ?? ''} ${addr.lastName ?? ''}`.trim() : '',
+      addr?.phone ?? '',
+      addr?.address ?? '',
+      [addr?.neighborhood, addr?.district].filter(Boolean).join(', '),
+      [addr?.city, addr?.postalCode].filter(Boolean).join(' '),
+    ].filter(Boolean).join('<br>');
+
+    const companyBlock = [
+      company.address, company.city,
+      company.phone ? `Tel: ${company.phone}` : '',
+      company.email ? `E: ${company.email}` : '',
+      company.taxNumber ? `Vergi No: ${company.taxNumber}` : '',
+    ].filter(Boolean).join('<br>');
+
+    const logoHtml = company.logoUrl
+      ? `<img src="${company.logoUrl}" alt="logo" style="max-height:70px;max-width:160px;object-fit:contain;display:block;margin-bottom:6px">`
+      : '';
+
+    const itemRows = order.items.map((item: any, i: number) => {
+      const product = item.variant?.product ?? {};
+      const attrs = Object.entries(item.variant?.attributes ?? {}).map(([k, v]: any) => `${k}: ${v}`).join(' / ');
+      const lineTotal = Number(item.unitPrice) * item.quantity;
+      const bg = i % 2 === 1 ? 'background:#f9f9f9;' : '';
+      return `<tr style="${bg}">
+        <td style="padding:8px 10px;border-bottom:1px solid #ddd">
+          <strong>${product.name ?? '—'}</strong>
+          ${attrs ? `<br><small style="color:#666">${attrs}</small>` : ''}
+          ${item.variant?.sku ? `<br><small style="color:#aaa;font-family:monospace">${item.variant.sku}</small>` : ''}
+        </td>
+        <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:center">${item.quantity}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right">${fmtN(Number(item.unitPrice))}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right"><strong>${fmtN(lineTotal)}</strong></td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><title>Fatura ${orderRef}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;background:#fff}
+@page{size:A4;margin:12mm 15mm}
+.page{width:100%;max-width:780px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #111;margin-bottom:20px}
+.title{font-size:38px;font-weight:900;letter-spacing:3px;line-height:1}
+.header-right{text-align:right}
+.company-name{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.company-addr{font-size:11px;color:#444;line-height:1.7}
+.info-grid{display:flex;gap:0;margin-bottom:24px}
+.info-left{flex:1}
+.info-right{flex:1;border-left:2px solid #111;padding-left:20px}
+.info-row{display:flex;align-items:baseline;gap:8px;margin-bottom:5px}
+.lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#555;min-width:120px}
+.val{font-size:12px;font-weight:600;color:#111}
+table{width:100%;border-collapse:collapse}
+thead tr{background:#111;color:#fff}
+thead th{padding:9px 10px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
+thead th:nth-child(2){text-align:center}
+thead th:nth-child(3),thead th:nth-child(4){text-align:right}
+.totals-row{display:flex;justify-content:flex-end;border-top:2px solid #111}
+.totals-table{width:280px;border-collapse:collapse}
+.totals-table td{padding:6px 10px;font-size:12px;border-bottom:1px solid #eee}
+.totals-table .total-row td{font-size:14px;font-weight:700;border-bottom:none;border-top:2px solid #111;padding-top:8px}
+.footer{margin-top:30px;padding-top:14px;border-top:2px solid #111;display:flex;justify-content:space-between;font-size:10px;color:#666}
+.sign-line{width:140px;height:1px;background:#111;margin:30px 0 4px auto}
+</style></head><body>
+<div class="page">
+  <div class="header">
+    <div class="header-left"><div class="title">FATURA</div></div>
+    <div class="header-right">
+      ${logoHtml}
+      <div class="company-name">${company.legalName || company.name || 'Şirket Adı'}</div>
+      ${companyBlock ? `<div class="company-addr">${companyBlock}</div>` : ''}
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-left">
+      <div class="info-row"><span class="lbl">SAYIN</span><span class="val">${addr ? `${addr.firstName ?? ''} ${addr.lastName ?? ''}`.trim() : '—'}</span></div>
+      <div style="margin-top:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:5px">TESLİMAT ADRESİ</div>
+      <div style="font-size:11px;color:#333;line-height:1.8">${addrBlock}</div>
+    </div>
+    <div class="info-right">
+      <div class="info-row"><span class="lbl">FATURA NUMARASI</span><span class="val">${orderRef}</span></div>
+      <div class="info-row"><span class="lbl">FATURA TARİHİ</span><span class="val">${orderDate}</span></div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th style="width:50%">ÜRÜN</th><th style="width:12%">ADET</th><th style="width:19%">BİRİM FİYAT</th><th style="width:19%">ARA TOPLAM</th></tr></thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+  <div class="totals-row">
+    <table class="totals-table">
+      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
+      ${discountN > 0 ? `<tr><td style="color:#16a34a">İndirim</td><td style="text-align:right;color:#16a34a">−${fmtN(discountN)}</td></tr>` : ''}
+      ${vatAmount > 0 ? `<tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(vatAmount)}</td></tr>` : ''}
+      <tr><td>Kargo</td><td style="text-align:right">${shippingN === 0 ? 'Ücretsiz' : fmtN(shippingN)}</td></tr>
+      <tr class="total-row"><td><strong>GENEL TOPLAM</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
+    </table>
+  </div>
+  <div class="footer">
+    <div>${company.taxNumber ? `Vergi Kimlik No: ${company.taxNumber}<br>` : ''}${company.legalName || company.name || ''}<br>Bu belge bilgi amaçlıdır.</div>
+    <div style="text-align:right"><div class="sign-line"></div><div>Kaşe / İmza</div></div>
+  </div>
+</div>
+<script>window.onload=function(){window.print()}</script>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
+    if (!win) { alert('Lütfen tarayıcı popup engelini devre dışı bırakın.'); return; }
+    win.document.write(html);
+    win.document.close();
+  }
   const { data: order, isLoading, isError, refetch } = useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => (await checkoutApi.getOrder(orderId)).data.data,
@@ -405,7 +540,7 @@ export function OrderDetail() {
         <Button render={<Link to="/ara" />}>Alışverişe Devam</Button>
         <Button
           variant="outline"
-          onClick={() => window.print()}
+          onClick={handlePrintInvoice}
           className="flex items-center gap-2"
         >
           <Printer className="h-4 w-4" />
