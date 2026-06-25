@@ -86,10 +86,10 @@ export function Footer() {
   // Müşteri Hizmetleri menüsü — admin tarafından yönetilen sayfalar
   const { data: menuPagesData } = useQuery({
     queryKey: ['menu-pages'],
-    queryFn: () => api.get<{ success: boolean; data: Array<{ slug: string; title: string; isSystem: boolean }> }>('/pages'),
+    queryFn: () => api.get<{ success: boolean; data: Array<{ slug: string; title: string; isSystem: boolean; showInHeader: boolean; showInFooter: boolean }> }>('/pages'),
     staleTime: 5 * 60 * 1000,
   });
-  const menuPages = menuPagesData?.data?.data ?? [];
+  const menuPages = (menuPagesData?.data?.data ?? []).filter((p) => p.showInFooter);
 
   const { data: socialLinks } = useSocialLinks();
 

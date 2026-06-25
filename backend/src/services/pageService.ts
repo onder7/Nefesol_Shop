@@ -8,6 +8,8 @@ export interface PageDto {
   title: string;
   content: string;
   showInMenu: boolean;
+  showInHeader: boolean;
+  showInFooter: boolean;
   sortOrder: number;
   isActive: boolean;
   isSystem: boolean;
@@ -199,13 +201,12 @@ export async function seedDefaultPagesIfEmpty(): Promise<number> {
 }
 
 // ─── Public ──────────────────────────────────────────────────────────────────
-export async function listMenuPages(): Promise<Array<{ slug: string; title: string; isSystem: boolean }>> {
-  const pages = await prisma.page.findMany({
-    where: { isActive: true, showInMenu: true },
+export async function listMenuPages(): Promise<Array<{ slug: string; title: string; isSystem: boolean; showInHeader: boolean; showInFooter: boolean }>> {
+  return prisma.page.findMany({
+    where: { isActive: true },
     orderBy: { sortOrder: 'asc' },
-    select: { slug: true, title: true, isSystem: true },
+    select: { slug: true, title: true, isSystem: true, showInHeader: true, showInFooter: true },
   });
-  return pages;
 }
 
 export async function getPageBySlug(slug: string): Promise<PageDto | null> {
@@ -230,7 +231,7 @@ function slugify(input: string): string {
 }
 
 export async function createPage(data: {
-  title: string; content: string; slug?: string; showInMenu?: boolean; isActive?: boolean; sortOrder?: number;
+  title: string; content: string; slug?: string; showInMenu?: boolean; showInHeader?: boolean; showInFooter?: boolean; isActive?: boolean; sortOrder?: number;
 }): Promise<PageDto> {
   const title = (data.title || '').trim();
   if (!title) throw new AppError('Başlık gerekli', 400);
@@ -253,6 +254,8 @@ export async function createPage(data: {
       title,
       content: data.content ?? '',
       showInMenu: data.showInMenu ?? true,
+      showInHeader: data.showInHeader ?? true,
+      showInFooter: data.showInFooter ?? true,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? (max._max.sortOrder ?? 0) + 1,
       isSystem: false,
@@ -261,7 +264,7 @@ export async function createPage(data: {
 }
 
 export async function updatePage(id: string, data: {
-  title?: string; content?: string; showInMenu?: boolean; isActive?: boolean; sortOrder?: number; slug?: string;
+  title?: string; content?: string; showInMenu?: boolean; showInHeader?: boolean; showInFooter?: boolean; isActive?: boolean; sortOrder?: number; slug?: string;
 }): Promise<PageDto> {
   const page = await prisma.page.findUnique({ where: { id } });
   if (!page) throw new AppError('Sayfa bulunamadı', 404);
@@ -271,6 +274,8 @@ export async function updatePage(id: string, data: {
     ...(data.title !== undefined && { title: data.title.trim() }),
     ...(data.content !== undefined && { content: data.content }),
     ...(data.showInMenu !== undefined && { showInMenu: data.showInMenu }),
+    ...(data.showInHeader !== undefined && { showInHeader: data.showInHeader }),
+    ...(data.showInFooter !== undefined && { showInFooter: data.showInFooter }),
     ...(data.isActive !== undefined && { isActive: data.isActive }),
     ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
   };

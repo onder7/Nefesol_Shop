@@ -3,6 +3,23 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getToken } from '../../lib/api';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import MFATab from './mfa';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api';
 
@@ -1510,6 +1527,8 @@ interface AdminPage {
   title: string;
   content: string;
   showInMenu: boolean;
+  showInHeader: boolean;
+  showInFooter: boolean;
   sortOrder: number;
   isActive: boolean;
   isSystem: boolean;
@@ -1520,8 +1539,59 @@ interface PageDraft {
   slug: string;
   title: string;
   content: string;
-  showInMenu: boolean;
+  showInHeader: boolean;
+  showInFooter: boolean;
   isSystem: boolean;
+}
+
+function SortablePageRow({
+  page,
+  onToggle,
+  onEdit,
+  onRemove,
+}: {
+  page: AdminPage;
+  onToggle: (p: AdminPage, field: 'showInHeader' | 'showInFooter' | 'isActive') => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <tr ref={setNodeRef} style={style} className="border-b border-stroke dark:border-strokedark">
+      <td className="py-3 pl-1 pr-2 text-gray-400 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><circle cx="4" cy="3" r="1.2"/><circle cx="10" cy="3" r="1.2"/><circle cx="4" cy="7" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="4" cy="11" r="1.2"/><circle cx="10" cy="11" r="1.2"/></svg>
+      </td>
+      <td className="py-3 pr-4 font-medium text-black dark:text-white">
+        {page.title}
+        {page.isSystem && (
+          <span className="ml-2 rounded-full bg-gray-100 dark:bg-meta-4 px-2 py-0.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">Sistem</span>
+        )}
+      </td>
+      <td className="py-3 pr-4 font-mono text-xs text-gray-500">
+        /{page.isSystem ? page.slug : `sayfa/${page.slug}`}
+      </td>
+      <td className="py-3 pr-3 text-center">
+        <input type="checkbox" checked={page.showInHeader} onChange={() => onToggle(page, 'showInHeader')} className="h-4 w-4 cursor-pointer" />
+      </td>
+      <td className="py-3 pr-3 text-center">
+        <input type="checkbox" checked={page.showInFooter} onChange={() => onToggle(page, 'showInFooter')} className="h-4 w-4 cursor-pointer" />
+      </td>
+      <td className="py-3 pr-4 text-center">
+        <input type="checkbox" checked={page.isActive} onChange={() => onToggle(page, 'isActive')} className="h-4 w-4 cursor-pointer" />
+      </td>
+      <td className="py-3 pr-4 text-right whitespace-nowrap">
+        <button type="button" onClick={onEdit} className="text-primary hover:underline mr-3">Düzenle</button>
+        {!page.isSystem && (
+          <button type="button" onClick={onRemove} className="text-red-500 hover:underline">Sil</button>
+        )}
+      </td>
+    </tr>
+  );
 }
 
 function PagesTab() {
@@ -1544,7 +1614,12 @@ function PagesTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function toggle(p: AdminPage, field: 'showInMenu' | 'isActive') {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  async function toggle(p: AdminPage, field: 'showInHeader' | 'showInFooter' | 'isActive') {
     setPages((prev) => prev.map((x) => (x.id === p.id ? { ...x, [field]: !x[field] } : x)));
     try {
       await api.put(`/admin/pages/${p.id}`, { [field]: !p[field] });
@@ -1564,6 +1639,21 @@ function PagesTab() {
     }
   }
 
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = pages.findIndex((p) => p.id === active.id);
+    const newIndex = pages.findIndex((p) => p.id === over.id);
+    const reordered = arrayMove(pages, oldIndex, newIndex);
+    setPages(reordered);
+    try {
+      await api.put('/admin/pages/reorder', { ids: reordered.map((p) => p.id) });
+    } catch (e: any) {
+      setError(e.message);
+      load();
+    }
+  }
+
   async function saveDraft() {
     if (!draft) return;
     if (!draft.title.trim()) { setError('Başlık gerekli'); return; }
@@ -1574,14 +1664,16 @@ function PagesTab() {
         await api.put(`/admin/pages/${draft.id}`, {
           title: draft.title,
           content: draft.content,
-          showInMenu: draft.showInMenu,
+          showInHeader: draft.showInHeader,
+          showInFooter: draft.showInFooter,
           ...(draft.isSystem ? {} : { slug: draft.slug }),
         });
       } else {
         await api.post('/admin/pages', {
           title: draft.title,
           content: draft.content,
-          showInMenu: draft.showInMenu,
+          showInHeader: draft.showInHeader,
+          showInFooter: draft.showInFooter,
           slug: draft.slug || undefined,
         });
       }
@@ -1600,7 +1692,7 @@ function PagesTab() {
     <div>
       <SectionCard
         title="Müşteri Hizmetleri Sayfaları"
-        subtitle="Sayfaları düzenleyin, yeni özel sayfa ekleyin ve menüde gösterilecekleri seçin"
+        subtitle="Sıralamak için sürükleyin · Header/Footer gösterimini satır üzerinden açın/kapatın"
       >
         {error && (
           <div className="mb-4 rounded bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -1612,57 +1704,37 @@ function PagesTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-stroke dark:border-strokedark text-left text-xs uppercase text-gray-500">
+                <th className="py-2 w-6"></th>
                 <th className="py-2 pr-4">Başlık</th>
                 <th className="py-2 pr-4">Bağlantı</th>
-                <th className="py-2 pr-4 text-center">Menüde</th>
+                <th className="py-2 pr-3 text-center">Header</th>
+                <th className="py-2 pr-3 text-center">Footer</th>
                 <th className="py-2 pr-4 text-center">Aktif</th>
                 <th className="py-2 pr-4 text-right">İşlem</th>
               </tr>
             </thead>
-            <tbody>
-              {pages.map((p) => (
-                <tr key={p.id} className="border-b border-stroke dark:border-strokedark">
-                  <td className="py-3 pr-4 font-medium text-black dark:text-white">
-                    {p.title}
-                    {p.isSystem && (
-                      <span className="ml-2 rounded-full bg-gray-100 dark:bg-meta-4 px-2 py-0.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                        Sistem
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 pr-4 font-mono text-xs text-gray-500">
-                    /{p.isSystem ? p.slug : `sayfa/${p.slug}`}
-                  </td>
-                  <td className="py-3 pr-4 text-center">
-                    <input type="checkbox" checked={p.showInMenu} onChange={() => toggle(p, 'showInMenu')} className="h-4 w-4 cursor-pointer" />
-                  </td>
-                  <td className="py-3 pr-4 text-center">
-                    <input type="checkbox" checked={p.isActive} onChange={() => toggle(p, 'isActive')} className="h-4 w-4 cursor-pointer" />
-                  </td>
-                  <td className="py-3 pr-4 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => setDraft({ id: p.id, slug: p.slug, title: p.title, content: p.content, showInMenu: p.showInMenu, isSystem: p.isSystem })}
-                      className="text-primary hover:underline mr-3"
-                    >
-                      Düzenle
-                    </button>
-                    {!p.isSystem && (
-                      <button type="button" onClick={() => remove(p)} className="text-red-500 hover:underline">
-                        Sil
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={pages.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                <tbody>
+                  {pages.map((p) => (
+                    <SortablePageRow
+                      key={p.id}
+                      page={p}
+                      onToggle={toggle}
+                      onEdit={() => setDraft({ id: p.id, slug: p.slug, title: p.title, content: p.content, showInHeader: p.showInHeader, showInFooter: p.showInFooter, isSystem: p.isSystem })}
+                      onRemove={() => remove(p)}
+                    />
+                  ))}
+                </tbody>
+              </SortableContext>
+            </DndContext>
           </table>
         </div>
 
         <div className="mt-4">
           <button
             type="button"
-            onClick={() => setDraft({ id: '', slug: '', title: '', content: '', showInMenu: true, isSystem: false })}
+            onClick={() => setDraft({ id: '', slug: '', title: '', content: '', showInHeader: true, showInFooter: true, isSystem: false })}
             className="rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90"
           >
             + Yeni Sayfa Ekle
@@ -1774,15 +1846,26 @@ function PagesTab() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-black dark:text-white cursor-pointer mb-4">
-            <input
-              type="checkbox"
-              checked={draft.showInMenu}
-              onChange={(e) => setDraft({ ...draft, showInMenu: e.target.checked })}
-              className="h-4 w-4"
-            />
-            Müşteri Hizmetleri menüsünde göster
-          </label>
+          <div className="flex gap-6 mb-4">
+            <label className="flex items-center gap-2 text-sm text-black dark:text-white cursor-pointer">
+              <input
+                type="checkbox"
+                checked={draft.showInHeader}
+                onChange={(e) => setDraft({ ...draft, showInHeader: e.target.checked })}
+                className="h-4 w-4"
+              />
+              Üst menüde (Header) göster
+            </label>
+            <label className="flex items-center gap-2 text-sm text-black dark:text-white cursor-pointer">
+              <input
+                type="checkbox"
+                checked={draft.showInFooter}
+                onChange={(e) => setDraft({ ...draft, showInFooter: e.target.checked })}
+                className="h-4 w-4"
+              />
+              Altbilgide (Footer) göster
+            </label>
+          </div>
 
           <div className="flex gap-2">
             <button
