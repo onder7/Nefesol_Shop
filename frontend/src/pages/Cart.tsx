@@ -179,9 +179,9 @@ export function Cart() {
 
   const subtotalAfterDiscount = subtotal - discountAmount;
   const shipping = subtotalAfterDiscount >= FREE_THRESHOLD ? 0 : SHIPPING_FEE;
-  const subtotalWithShipping = subtotalAfterDiscount + shipping;
-  const tax = (subtotalWithShipping * TAX_RATE) / 100;
-  const total = subtotalWithShipping + tax;
+  // KDV yalnızca ürün tutarına uygulanır; kargo KDV dahil gösterilir (backend ile tutarlı)
+  const tax = Math.round(subtotalAfterDiscount * TAX_RATE) / 100;
+  const total = subtotalAfterDiscount + tax + shipping;
   const remaining = FREE_THRESHOLD - subtotalAfterDiscount;
   const isPending = updateMut.isPending || removeMut.isPending;
 

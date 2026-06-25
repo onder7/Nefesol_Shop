@@ -635,9 +635,8 @@ export function AccountDashboard() {
                       const freeThreshold = shippingConfig?.freeShippingThreshold ?? 500;
                       const taxRate = taxConfig?.taxRate ?? 20;
                       const shipping = subtotal >= freeThreshold ? 0 : shippingFee;
-                      const taxBase = subtotal + shipping;
-                      const tax = (taxBase * taxRate) / 100;
-                      const total = taxBase + tax;
+                      const tax = Math.round(subtotal * taxRate) / 100;
+                      const total = subtotal + tax + shipping;
                       return (
                         <div className="space-y-2 text-sm mb-6">
                           <div className="flex justify-between">
