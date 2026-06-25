@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
@@ -24,7 +24,6 @@ import { Cart } from '@/pages/Cart';
 import { Checkout } from '@/pages/Checkout';
 import { OrderSuccess } from '@/pages/OrderSuccess';
 import { OrderDetail } from '@/pages/Orders';
-import { Profile } from '@/pages/Profile';
 import { Favorites } from '@/pages/Favorites';
 import { Addresses } from '@/pages/Addresses';
 import { NotFound } from '@/pages/NotFound';
@@ -89,7 +88,7 @@ function AppContent() {
             <Route path="/hesabim" element={<AccountDashboard />} />
             <Route path="/hesabim/siparisler" element={<AccountDashboard />} />
             <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
-            <Route path="/hesabim/profil" element={<Profile />} />
+            <Route path="/hesabim/profil" element={<Navigate to="/hesabim" replace />} />
             <Route path="/hesabim/favoriler" element={<Favorites />} />
             <Route path="/hesabim/adresler" element={<Addresses />} />
           </Route>

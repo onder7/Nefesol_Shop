@@ -4,12 +4,15 @@ import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
 import { useQuery } from '@tanstack/react-query';
 import { checkoutApi } from '@/services/checkoutApi';
+import { authApi } from '@/services/authApi';
+import { toast } from 'sonner';
 import {
   ShoppingBag,
   Heart,
   Star,
   Gift,
   User,
+  Lock,
   LogOut,
   ChevronRight,
   Edit2,
@@ -53,6 +56,8 @@ export function AccountDashboard() {
     phone: user?.profile?.phone || '',
   });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<any>(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
   const [appliedCoupons, setAppliedCoupons] = useState<any[]>([]);
@@ -109,6 +114,31 @@ export function AccountDashboard() {
       alert(err.message || 'Bir hata oluştu');
     } finally {
       setIsSavingProfile(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Tüm alanları doldurun');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('Yeni şifreler eşleşmiyor');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      toast.error('Yeni şifre en az 8 karakter olmalı');
+      return;
+    }
+    setIsSavingPassword(true);
+    try {
+      await authApi.changePassword({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
+      toast.success('Şifre başarıyla değiştirildi');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Şifre değiştirilemedi');
+    } finally {
+      setIsSavingPassword(false);
     }
   }
 
@@ -1214,6 +1244,39 @@ export function AccountDashboard() {
                     </button>
                   </div>
                 )}
+
+                {/* Şifre Değiştir */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-2">
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <Lock size={18} /> Şifre Değiştir
+                  </h3>
+                  <div className="space-y-4 max-w-md">
+                    {[
+                      { key: 'currentPassword', label: 'Mevcut Şifre', placeholder: '••••••••' },
+                      { key: 'newPassword', label: 'Yeni Şifre', placeholder: 'En az 8 karakter' },
+                      { key: 'confirmPassword', label: 'Yeni Şifre (Tekrar)', placeholder: '••••••••' },
+                    ].map(({ key, label, placeholder }) => (
+                      <div key={key}>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+                        <input
+                          type="password"
+                          placeholder={placeholder}
+                          value={passwordForm[key as keyof typeof passwordForm]}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, [key]: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary outline-none transition-colors"
+                        />
+                      </div>
+                    ))}
+                    <button
+                      onClick={handleChangePassword}
+                      disabled={isSavingPassword}
+                      className="px-6 py-2 bg-primary text-white font-medium rounded-lg hover:bg-opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
+                    >
+                      <Lock size={16} />
+                      {isSavingPassword ? 'Değiştiriliyor...' : 'Şifreyi Değiştir'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
