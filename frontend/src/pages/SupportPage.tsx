@@ -202,8 +202,8 @@ export function SupportPage() {
               ) : (
                 <div className="space-y-8">
                   {/* Rich HTML Content from Database */}
-                  <div 
-                    className="prose dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed font-sans"
+                  <div
+                    className="page-content max-w-none text-neutral-700 dark:text-neutral-300 font-sans"
                     dangerouslySetInnerHTML={{ __html: content }}
                   />
 

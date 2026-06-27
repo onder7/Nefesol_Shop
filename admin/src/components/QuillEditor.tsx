@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import { api } from '../lib/api';
@@ -31,6 +31,18 @@ export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: P
 
   const isInternalChange = useRef(false);
   const lastExternalValue = useRef(value);
+
+  // HTML kaynak kodu görünümü
+  const [sourceMode, setSourceMode] = useState(false);
+
+  const toggleSource = () => {
+    // Kaynak → Editör: textarea'daki güncel HTML'i editöre yükle
+    if (sourceMode && quillRef.current) {
+      quillRef.current.root.innerHTML = value || '';
+      lastExternalValue.current = value || '';
+    }
+    setSourceMode((p) => !p);
+  };
 
   useEffect(() => {
     if (!containerRef.current || quillRef.current) return;
@@ -210,8 +222,29 @@ export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: P
   }, [value]);
 
   return (
-    <div className="quill-wrapper rounded border border-stroke dark:border-strokedark overflow-hidden">
+    <div className={`quill-wrapper rounded border border-stroke dark:border-strokedark overflow-hidden${sourceMode ? ' source-mode' : ''}`}>
       <style>{`
+        .quill-wrapper .qe-bar {
+          display: flex; justify-content: flex-end; align-items: center;
+          padding: 4px 6px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+        }
+        .dark .quill-wrapper .qe-bar { background: #16202e; border-bottom-color: #2d3d52; }
+        .quill-wrapper .qe-source-btn {
+          font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px;
+          border: 1px solid #cbd5e1; background: #fff; color: #475569; cursor: pointer;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .quill-wrapper .qe-source-btn:hover { background: #3C50E0; color: #fff; border-color: #3C50E0; }
+        .dark .quill-wrapper .qe-source-btn { background: #1e2a3a; color: #94a3b8; border-color: #2d3d52; }
+        .quill-wrapper.source-mode .ql-toolbar,
+        .quill-wrapper.source-mode .ql-container { display: none; }
+        .quill-wrapper .qe-source {
+          width: 100%; border: none; outline: none; padding: 12px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 12.5px; line-height: 1.6; color: #0f172a; background: #fff;
+          resize: vertical; white-space: pre-wrap; word-break: break-word;
+        }
+        .dark .quill-wrapper .qe-source { background: #1a2535; color: #e2e8f0; }
         .quill-wrapper .ql-toolbar {
           border: none;
           border-bottom: 1px solid #e2e8f0;
@@ -251,7 +284,22 @@ export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: P
         .quill-wrapper .ql-editor blockquote { border-left: 3px solid #3C50E0; padding-left: 1rem; margin: 0 0 .75rem; color: #64748b; font-style: italic; }
         .quill-wrapper .ql-editor pre.ql-syntax { background: #1e293b; color: #e2e8f0; padding: .75rem 1rem; border-radius: .375rem; font-size: .8rem; overflow-x: auto; }
       `}</style>
+      <div className="qe-bar">
+        <button type="button" onClick={toggleSource} className="qe-source-btn">
+          {sourceMode ? '◀ Editöre Dön' : '</> HTML Kaynağı'}
+        </button>
+      </div>
       <div ref={containerRef} />
+      {sourceMode && (
+        <textarea
+          className="qe-source"
+          value={value}
+          spellCheck={false}
+          style={{ minHeight }}
+          onChange={(e) => onChangeRef.current(e.target.value)}
+          placeholder="<p>HTML kaynak kodu…</p>"
+        />
+      )}
     </div>
   );
 }
