@@ -360,7 +360,7 @@ export function Header() {
       {/* ─── Kategori Navigasyon Barı ────────────────────────────────── */}
       <nav className="hidden lg:block bg-white dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between gap-1 py-2.5">
+          <div className="flex items-center justify-center gap-0.5 py-2.5 flex-wrap">
             {/* Tüm Ürünler */}
             <div className="flex items-center">
               <Link
@@ -375,7 +375,7 @@ export function Header() {
               const children = (cat.children ?? []).filter((c: any) => c.showInMenu !== false);
               const hasChildren = children.length > 0;
               return (
-                <div key={cat.id} className="flex-1 flex items-center justify-center">
+                <div key={cat.id} className="flex items-center">
                   <div className="group relative">
                     <Link
                       to={`/kategori/${cat.slug}`}
