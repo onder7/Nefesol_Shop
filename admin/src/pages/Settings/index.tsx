@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getToken } from '../../lib/api';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import MFATab from './mfa';
+import { QuillEditor } from '../../components/QuillEditor';
 import {
   DndContext,
   closestCenter,
@@ -1648,7 +1649,6 @@ function PagesTab() {
   const [draft, setDraft] = useState<PageDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState<'code' | 'split' | 'preview'>('split');
 
   const load = () =>
     api
@@ -1815,83 +1815,15 @@ function PagesTab() {
             </Field>
           )}
 
-          {/* HTML Editör + Önizleme */}
+          {/* İçerik Editörü */}
           <div className="mb-4.5">
             <label className={labelCls}>İçerik</label>
-
-            {/* Görünüm seçici toolbar */}
-            <div className="flex items-center gap-1 mb-2 pb-2 border-b border-stroke dark:border-strokedark">
-              <span className="text-xs text-body mr-1">Görünüm:</span>
-              {(['code', 'split', 'preview'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setViewMode(mode)}
-                  className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                    viewMode === mode
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-100 dark:bg-meta-4 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-meta-4'
-                  }`}
-                >
-                  {mode === 'code' ? '<> Kod' : mode === 'split' ? '⫿ Yandana' : '👁 Önizleme'}
-                </button>
-              ))}
-            </div>
-
-            {/* Editör + Önizleme alanı */}
-            <div className={`flex gap-3 ${viewMode === 'split' ? 'flex-row' : 'flex-col'}`}>
-              {/* Kod editörü */}
-              {viewMode !== 'preview' && (
-                <div className={viewMode === 'split' ? 'w-1/2' : 'w-full'}>
-                  <textarea
-                    className={inputCls + ' min-h-[420px] font-mono text-xs resize-y w-full'}
-                    value={draft.content}
-                    onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-                    placeholder={'<h2>Başlık</h2>\n<p>Paragraf metni buraya...</p>\n<ul>\n  <li>Madde 1</li>\n  <li>Madde 2</li>\n</ul>'}
-                  />
-                  <p className="mt-1 text-xs text-body">h1–h3, p, ul, ol, li, strong, em, table, hr etiketleri desteklenir</p>
-                </div>
-              )}
-
-              {/* Önizleme paneli */}
-              {viewMode !== 'code' && (
-                <div className={`${viewMode === 'split' ? 'w-1/2' : 'w-full'} flex flex-col`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-body uppercase tracking-wide">Önizleme</span>
-                    <span className="text-[10px] text-body italic">Frontend görünümü</span>
-                  </div>
-                  <div className="min-h-[420px] border border-stroke dark:border-strokedark rounded overflow-y-auto bg-white dark:bg-boxdark p-5">
-                    <style>{`
-                      .page-preview h1{font-size:1.5rem;font-weight:700;margin:0 0 .75rem;line-height:1.25}
-                      .page-preview h2{font-size:1.2rem;font-weight:700;margin:.75rem 0 .5rem;line-height:1.3}
-                      .page-preview h3{font-size:1rem;font-weight:600;margin:.75rem 0 .4rem}
-                      .page-preview p{margin:0 0 .75rem;line-height:1.75}
-                      .page-preview ul{list-style:disc;margin:.25rem 0 .75rem 1.5rem}
-                      .page-preview ol{list-style:decimal;margin:.25rem 0 .75rem 1.5rem}
-                      .page-preview li{margin-bottom:.3rem;line-height:1.6}
-                      .page-preview strong,.page-preview b{font-weight:700}
-                      .page-preview em,.page-preview i{font-style:italic}
-                      .page-preview a{color:#3C50E0;text-decoration:underline}
-                      .page-preview hr{border:none;border-top:1px solid #e2e8f0;margin:1rem 0}
-                      .page-preview blockquote{border-left:3px solid #3C50E0;padding-left:1rem;margin:0 0 .75rem;color:#64748b;font-style:italic}
-                      .page-preview table{width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:.875rem}
-                      .page-preview th,.page-preview td{border:1px solid #e2e8f0;padding:.5rem .75rem;text-align:left}
-                      .page-preview th{background:#f8fafc;font-weight:600}
-                      .page-preview img{max-width:100%;border-radius:.375rem;margin:.5rem 0}
-                      .page-preview code{background:#f1f5f9;padding:.1rem .3rem;border-radius:.25rem;font-size:.8rem;font-family:monospace}
-                    `}</style>
-                    {draft.content ? (
-                      <div
-                        className="page-preview text-sm text-black dark:text-white"
-                        dangerouslySetInnerHTML={{ __html: draft.content }}
-                      />
-                    ) : (
-                      <p className="text-sm text-body italic">İçerik yazıldıkça burada görünür...</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <QuillEditor
+              value={draft.content}
+              onChange={(html) => setDraft({ ...draft, content: html })}
+              placeholder="Sayfa içeriğini yazın... Resim eklemek için araç çubuğundaki 🖼 simgesine tıklayın."
+              minHeight={360}
+            />
           </div>
 
           <div className="flex gap-6 mb-4">
