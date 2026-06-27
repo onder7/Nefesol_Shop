@@ -383,7 +383,7 @@ export default function ProductDetailPage() {
     setError('');
     const results = await Promise.allSettled(
       imageFiles.map((file) =>
-        api.upload<{ success: boolean; data: { url: string } }>('/admin/upload', file)
+        api.upload<{ success: boolean; data: { url: string } }>('/admin/upload/product', file)
       )
     );
     const succeeded: ImageInput[] = results

@@ -1570,6 +1570,246 @@ function MaintenanceTab() {
   );
 }
 
+// ─── Watermark (Filigran) Tab ────────────────────────────────────────────────
+
+type WmPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' | 'tiled';
+
+interface WatermarkConfig {
+  enabled: boolean;
+  url: string;
+  position: WmPosition;
+  opacity: number;
+  size: number;
+  margin: number;
+}
+
+const WM_POSITIONS: { value: WmPosition; label: string }[] = [
+  { value: 'bottom-right', label: 'Sağ Alt' },
+  { value: 'bottom-left', label: 'Sol Alt' },
+  { value: 'top-right', label: 'Sağ Üst' },
+  { value: 'top-left', label: 'Sol Üst' },
+  { value: 'center', label: 'Orta' },
+  { value: 'tiled', label: 'Döşeli (Tekrarlı)' },
+];
+
+function WatermarkTab() {
+  const [loading, setLoading] = useState(true);
+  const [cfg, setCfg] = useState<WatermarkConfig>({
+    enabled: false,
+    url: '',
+    position: 'bottom-right',
+    opacity: 70,
+    size: 22,
+    margin: 16,
+  });
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = () => {
+    setLoading(true);
+    api.get<{ success: boolean; data: WatermarkConfig }>('/admin/settings/watermark')
+      .then((r) => { if (r.success) setCfg(r.data); })
+      .catch((err) => console.error('Filigran ayarları yüklenemedi:', err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setError('Dosya 5 MB\'dan küçük olmalıdır'); return; }
+    setUploading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = getToken();
+      // Filigran görselinin kendisine filigran basılmaz → ham /admin/upload
+      const response = await fetch(`${API_BASE}/admin/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!response.ok) throw new Error('Yükleme başarısız');
+      const data = await response.json();
+      setCfg((c) => ({ ...c, url: data.data.url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yükleme hatası');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setSaved(false);
+    try {
+      if (cfg.enabled && !cfg.url) {
+        throw new Error('Filigran açıkken bir filigran görseli yüklemelisiniz.');
+      }
+      const res = await api.put<{ success: boolean; data: WatermarkConfig }>('/admin/settings/watermark', cfg);
+      if (res.success) {
+        setCfg(res.data);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Filigran ayarları kaydedilemedi.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Önizleme için filigran konumunu CSS'e çevir
+  const previewStyle = (): React.CSSProperties => {
+    const w = `${cfg.size}%`;
+    const m = `${Math.round(cfg.margin / 2)}px`;
+    const base: React.CSSProperties = { position: 'absolute', width: w, height: 'auto', opacity: cfg.opacity / 100 };
+    switch (cfg.position) {
+      case 'top-left': return { ...base, top: m, left: m };
+      case 'top-right': return { ...base, top: m, right: m };
+      case 'bottom-left': return { ...base, bottom: m, left: m };
+      case 'center': return { ...base, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' };
+      case 'tiled': return {}; // aşağıda ayrı ele alınır
+      case 'bottom-right':
+      default: return { ...base, bottom: m, right: m };
+    }
+  };
+
+  if (loading) return <Loader />;
+
+  return (
+    <div>
+      <SectionCard
+        title="Ürün Görseli Filigranı (Watermark)"
+        subtitle="Yüklenen ürün görsellerine otomatik olarak logonuzu/filigranınızı basın"
+      >
+        <div className="flex items-start justify-between border-b border-stroke dark:border-strokedark pb-5 mb-5">
+          <div className="max-w-[80%]">
+            <p className="text-sm font-semibold text-black dark:text-white">Filigranı Aktifleştir</p>
+            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+              Açıkken, bundan sonra yüklenen <strong>ürün görsellerine</strong> filigran basılır. Daha önce
+              yüklenmiş görseller etkilenmez. Editör/kategori/logo görselleri filigranlanmaz.
+            </p>
+          </div>
+          <Toggle checked={cfg.enabled} onChange={(v) => setCfg((c) => ({ ...c, enabled: v }))} />
+        </div>
+
+        <Field label="Filigran Görseli" hint="Saydam arka planlı PNG önerilir (ör. beyaz logo)">
+          <div className="flex items-center gap-4">
+            <div
+              className="h-24 w-24 flex-shrink-0 rounded border border-stroke dark:border-strokedark flex items-center justify-center overflow-hidden"
+              style={{
+                backgroundImage:
+                  'linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%)',
+                backgroundSize: '12px 12px',
+                backgroundPosition: '0 0,0 6px,6px -6px,-6px 0px',
+              }}
+            >
+              {cfg.url ? (
+                <img src={cfg.url} alt="Filigran" className="max-h-full max-w-full object-contain" />
+              ) : (
+                <span className="text-[10px] text-gray-400 text-center px-1">Görsel yok</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <input type="file" accept="image/png,image/webp,image/*" onChange={handleUpload} disabled={uploading} className="hidden" id="wm-input" />
+              <label
+                htmlFor="wm-input"
+                className={`inline-flex cursor-pointer items-center gap-2 rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+              >
+                {uploading ? 'Yükleniyor…' : cfg.url ? 'Görseli Değiştir' : 'Görsel Yükle'}
+              </label>
+              {cfg.url && (
+                <button
+                  type="button"
+                  onClick={() => setCfg((c) => ({ ...c, url: '' }))}
+                  className="block text-xs text-red-500 hover:underline"
+                >
+                  Görseli kaldır
+                </button>
+              )}
+            </div>
+          </div>
+        </Field>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">
+          <Field label="Konum">
+            <select
+              className={inputCls}
+              value={cfg.position}
+              onChange={(e) => setCfg((c) => ({ ...c, position: e.target.value as WmPosition }))}
+            >
+              {WM_POSITIONS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={`Boyut — görsel genişliğinin %${cfg.size}'i`} hint="Filigranın ürün görseline göre büyüklüğü">
+            <input
+              type="range" min={5} max={100} step={1}
+              value={cfg.size}
+              onChange={(e) => setCfg((c) => ({ ...c, size: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </Field>
+
+          <Field label={`Opaklık — %${cfg.opacity}`} hint="0 saydam, 100 tam görünür">
+            <input
+              type="range" min={0} max={100} step={1}
+              value={cfg.opacity}
+              onChange={(e) => setCfg((c) => ({ ...c, opacity: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </Field>
+
+          <Field label="Kenar Boşluğu (px)" hint="Köşe konumlarında kenardan uzaklık">
+            <input
+              type="number" min={0} max={200}
+              value={cfg.margin}
+              onChange={(e) => setCfg((c) => ({ ...c, margin: Number(e.target.value) }))}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
+        {/* Önizleme */}
+        <div className="mt-6">
+          <p className="text-sm font-medium text-black dark:text-white mb-2">Önizleme</p>
+          <div className="relative w-full max-w-xs aspect-square rounded border border-stroke dark:border-strokedark overflow-hidden bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+            <span className="text-gray-400 dark:text-gray-500 text-sm select-none">Ürün Görseli</span>
+            {cfg.url && cfg.position === 'tiled' && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${cfg.url})`,
+                  backgroundRepeat: 'repeat',
+                  backgroundSize: `${cfg.size}%`,
+                  opacity: cfg.opacity / 100,
+                }}
+              />
+            )}
+            {cfg.url && cfg.position !== 'tiled' && (
+              <img src={cfg.url} alt="Filigran önizleme" style={previewStyle()} />
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Önizleme yaklaşıktır; gerçek sonuç sunucuda görsele basılır.
+          </p>
+        </div>
+      </SectionCard>
+
+      <SaveBar saving={saving} saved={saved} error={error} onSave={handleSave} onReset={load} />
+    </div>
+  );
+}
+
 interface AdminPage {
   id: string;
   slug: string;
@@ -3657,7 +3897,7 @@ function PopupTab() {
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
-type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'navlinks' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
+type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'watermark' | 'pages' | 'navlinks' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
 
 // ─── Tab: Menü Linkleri ───────────────────────────────────────────────────────
 
@@ -4148,6 +4388,17 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    key: 'watermark',
+    label: 'Filigran',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    ),
+  },
+  {
     key: 'pages',
     label: 'Sayfa Yönetimi',
     icon: (
@@ -4286,6 +4537,7 @@ export default function Settings() {
     notifications: <NotificationsTab />,
     social:        <SocialMediaTab />,
     maintenance:   <MaintenanceTab />,
+    watermark:     <WatermarkTab />,
     pages:         <PagesTab />,
     navlinks:      <NavLinksTab />,
     slider:        <SliderTab />,

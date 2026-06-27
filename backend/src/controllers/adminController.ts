@@ -9,6 +9,7 @@ import { importProductsFromBuffer } from '../services/importService';
 import { getSystemStats } from '../services/systemService';
 import * as reviewService from '../services/reviewService';
 import * as qaService from '../services/qaService';
+import * as watermarkService from '../services/watermarkService';
 import { prisma } from '../config/database';
 
 export async function getStats(req: AuthRequest, res: Response, next: NextFunction) {
@@ -354,6 +355,36 @@ export async function updateMaintenanceSettings(req: AuthRequest, res: Response,
       return res.status(400).json({ success: false, error: 'Geçersiz parametreler' });
     }
     const data = await settingsService.updateMaintenanceConfig(isActive, message);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// Watermark (Filigran) Settings
+export async function getWatermarkSettings(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await watermarkService.getWatermarkConfig();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function updateWatermarkSettings(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { enabled, url, position, opacity, size, margin } = req.body ?? {};
+    const positions = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center', 'tiled'];
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'enabled boolean olmalıdır' });
+    }
+    if (position !== undefined && !positions.includes(position)) {
+      return res.status(400).json({ success: false, error: 'Geçersiz konum' });
+    }
+    const data = await watermarkService.updateWatermarkConfig({
+      enabled,
+      url: typeof url === 'string' ? url : '',
+      position: position ?? 'bottom-right',
+      opacity: Number(opacity),
+      size: Number(size),
+      margin: Number(margin),
+    });
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }

@@ -7,7 +7,7 @@ import * as popupCtrl from '../controllers/popupController';
 import * as campaignCtrl from '../controllers/discountCampaignController';
 import * as attrCtrl from '../controllers/attributeController';
 import { uploadImage } from '../middlewares/upload';
-import { uploadProductImage } from '../controllers/uploadController';
+import { uploadProductImage, uploadProductImageWatermarked } from '../controllers/uploadController';
 
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -23,6 +23,8 @@ router.get('/analytics/traffic', ctrl.getTrafficAnalytics);
 
 // Upload
 router.post('/upload', uploadImage.single('file'), uploadProductImage);
+// Ürün görseli — filigran ayarı açıksa dosyaya basar
+router.post('/upload/product', uploadImage.single('file'), uploadProductImageWatermarked);
 
 // Products
 router.get('/products', ctrl.listProducts);
@@ -97,6 +99,10 @@ router.put('/tax-config', ctrl.updateTaxConfigAdmin);
 // Maintenance Settings
 router.get('/settings/maintenance', ctrl.getMaintenanceSettings);
 router.put('/settings/maintenance', ctrl.updateMaintenanceSettings);
+
+// Watermark (Filigran)
+router.get('/settings/watermark', ctrl.getWatermarkSettings);
+router.put('/settings/watermark', ctrl.updateWatermarkSettings);
 
 // Email
 router.get('/email-status', ctrl.getEmailStatus);
