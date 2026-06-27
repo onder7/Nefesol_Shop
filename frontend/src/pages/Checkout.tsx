@@ -545,7 +545,7 @@ export function Checkout() {
           </div>
         )}
         <div className="flex justify-between text-sm">
-          <span>Kargo (KDV Dahil)</span>
+          <span>Kargo</span>
           <span>{shippingFee === 0 ? 'Ücretsiz' : formatPrice(shippingFee)}</span>
         </div>
         {payMethod === 'cod' && methods.cod.fee > 0 && (

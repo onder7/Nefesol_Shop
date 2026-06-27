@@ -26,6 +26,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
+import { useTaxConfig } from '@/hooks/useTaxConfig';
 
 function formatPrice(price: number) {
   return price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
@@ -46,6 +47,7 @@ export function AccountDashboard() {
   const setUser = useAuthStore((s) => s.setUser);
   const accessToken = useAuthStore((s) => s.accessToken);
   const { name: storeName } = useStoreInfo();
+  const { taxRate } = useTaxConfig();
   const { hasWarning: profileHasWarning, missingAddress, missingPhone, message: profileWarningMessage } = useProfileCompleteness();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -808,21 +810,21 @@ export function AccountDashboard() {
                             <div className="flex justify-between">
                               <span className="text-gray-600 dark:text-gray-400">Ara Toplam (KDV Hariç)</span>
                               <span className="text-gray-900 dark:text-white">
-                                {order.subtotal ? formatPrice(Number(order.subtotal)) : '-'}
+                                {order.subtotal ? formatPrice(Number(order.subtotal) / (1 + taxRate / 100)) : '-'}
                               </span>
                             </div>
                             {order.discount !== undefined && Number(order.discount) > 0 && (
                               <div className="flex justify-between text-green-600">
-                                <span className="text-gray-600 dark:text-gray-400">İndirim</span>
+                                <span className="text-gray-600 dark:text-gray-400">İndirim (KDV Hariç)</span>
                                 <span className="font-medium">
-                                  −{formatPrice(Number(order.discount))}
+                                  −{formatPrice(Number(order.discount) / (1 + taxRate / 100))}
                                 </span>
                               </div>
                             )}
                             <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">KDV</span>
+                              <span className="text-gray-600 dark:text-gray-400">KDV (%{taxRate})</span>
                               <span className="text-gray-900 dark:text-white">
-                                {formatPrice(Math.max(0, Math.round((Number(order.total) - Number(order.shippingFee || 0) - (Number(order.subtotal) - Number(order.discount || 0))) * 100) / 100))}
+                                {formatPrice(Math.max(0, Number(order.total) - Number(order.total) / (1 + taxRate / 100)))}
                               </span>
                             </div>
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold">

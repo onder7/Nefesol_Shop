@@ -9,6 +9,7 @@ import { checkoutApi } from '@/services/checkoutApi';
 import { api } from '@/services/api';
 import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
+import { useTaxConfig } from '@/hooks/useTaxConfig';
 import type { Order } from '@/types';
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
@@ -177,15 +178,23 @@ export function OrderDetail() {
       company.logoUrl = `${window.location.origin}${company.logoUrl}`;
     }
 
+    // KDV oranı (global) — fiyatlar KDV dahil, orandan net/KDV ayrıştırılır
+    let vatRate = 20;
+    try {
+      const tr = await api.get<{ success: boolean; data: { taxRate: number } }>('/tax-config');
+      const rate = Number((tr as any)?.data?.data?.taxRate);
+      if (Number.isFinite(rate) && rate >= 0) vatRate = rate;
+    } catch (e) { console.warn('tax-config', e); }
+
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const subtotalN = Number(order.subtotal);
-    const discountN = Number(order.discount);
-    const shippingN = Number(order.shippingFee);
-    const totalN    = Number(order.total);
-    const vatNet    = subtotalN - discountN;
-    const vatAmount = Math.max(0, Math.round((totalN - shippingN - vatNet) * 100) / 100);
-    const vatRate   = vatNet > 0 ? Math.round((vatAmount / vatNet) * 100) : 0;
+    const subtotalN = Number(order.subtotal);   // KDV dahil
+    const discountN = Number(order.discount);   // KDV dahil
+    const totalN    = Number(order.total);      // KDV dahil
+    const div       = 1 + vatRate / 100;
+    const netSubtotalN = subtotalN / div;       // KDV hariç ara toplam
+    const netDiscountN = discountN / div;       // KDV hariç indirim
+    const vatAmount    = Math.max(0, Math.round((totalN - totalN / div) * 100) / 100); // toplam KDV
     const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
     const addr = order.address as any;
@@ -281,8 +290,8 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </table>
   <div class="totals-row">
     <table class="totals-table">
-      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
-      ${discountN > 0 ? `<tr><td style="color:#16a34a">İndirim</td><td style="text-align:right;color:#16a34a">−${fmtN(discountN)}</td></tr>` : ''}
+      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(netSubtotalN)}</td></tr>
+      ${discountN > 0 ? `<tr><td style="color:#16a34a">İndirim (KDV Hariç)</td><td style="text-align:right;color:#16a34a">−${fmtN(netDiscountN)}</td></tr>` : ''}
       <tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(vatAmount)}</td></tr>
       <tr class="total-row"><td><strong>GENEL TOPLAM</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
@@ -319,6 +328,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
     },
     enabled: !!orderId,
   });
+  const { taxRate } = useTaxConfig();
 
   if (isLoading) {
     return (
@@ -342,12 +352,12 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
 
   const addr = order.address as { firstName: string; lastName: string; address: string; district: string; city: string } | undefined;
 
-  // Fiyatlar KDV hariç (net). KDV = Toplam − Kargo − (Ara Toplam − İndirim)
-  const netSubtotal = Number(order.subtotal);
-  const orderDiscount = Number(order.discount);
-  const orderShipping = Number(order.shippingFee);
-  const orderTotal = Number(order.total);
-  const orderKdv = Math.max(0, Math.round((orderTotal - orderShipping - (netSubtotal - orderDiscount)) * 100) / 100);
+  // Fiyatlar KDV dahil. Net = gross / (1 + oran/100); KDV = toplam − net toplam
+  const div = 1 + taxRate / 100;
+  const orderDiscount = Number(order.discount) / div;       // KDV hariç indirim
+  const orderTotal = Number(order.total);                   // KDV dahil
+  const netSubtotal = Number(order.subtotal) / div;         // KDV hariç ara toplam
+  const orderKdv = Math.max(0, Math.round((orderTotal - orderTotal / div) * 100) / 100);
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-7xl">
@@ -399,12 +409,12 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
             </div>
             {orderDiscount > 0 && (
               <div className="flex justify-between text-green-600">
-                <span className="text-muted-foreground">İndirim</span>
+                <span className="text-muted-foreground">İndirim (KDV Hariç)</span>
                 <span className="font-medium">−{formatPrice(orderDiscount)}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-muted-foreground">KDV</span>
+              <span className="text-muted-foreground">KDV (%{taxRate})</span>
               <span className="font-medium">{formatPrice(orderKdv)}</span>
             </div>
             <div className="flex justify-between border-t pt-3 font-semibold">
