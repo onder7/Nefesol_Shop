@@ -246,6 +246,7 @@ export async function getMe(userId: string): Promise<object> {
     id: user.id,
     email: user.email,
     role: user.role,
+    hasPassword: !!user.passwordHash, // sosyal girişli hesapta false → "Şifre Belirle"
     profile: user.profile
       ? {
           firstName: user.profile.firstName,
@@ -255,6 +256,21 @@ export async function getMe(userId: string): Promise<object> {
         }
       : null,
   };
+}
+
+/**
+ * Sosyal girişle oluşmuş (şifresiz) hesap için ilk şifreyi belirler.
+ * Hesabın zaten şifresi varsa reddeder (o durumda changePassword kullanılmalı).
+ */
+export async function setPassword(userId: string, newPassword: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('Kullanıcı bulunamadı', 404);
+  if (user.passwordHash) {
+    throw new AppError('Hesabınızda zaten şifre var. Şifre değiştirmeyi kullanın.', 400);
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash: hashed } });
 }
 
 export async function updateProfile(

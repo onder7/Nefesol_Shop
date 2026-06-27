@@ -32,6 +32,14 @@ const changePasswordSchema = z.object({
     .regex(/[0-9]/),
 });
 
+const setPasswordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, 'Şifre en az 8 karakter olmalı')
+    .regex(/[A-Z]/, 'En az bir büyük harf içermeli')
+    .regex(/[0-9]/, 'En az bir rakam içermeli'),
+});
+
 const forgotPasswordSchema = z.object({
   email: z.email('Geçerli bir e-posta giriniz'),
 });
@@ -66,6 +74,7 @@ router.post('/refresh-token', ctrl.refreshToken);
 router.get('/me', authenticate, ctrl.getMe);
 router.put('/profile', authenticate, validate(profileUpdateSchema), ctrl.updateProfile);
 router.put('/change-password', authenticate, validate(changePasswordSchema), ctrl.changePassword);
+router.post('/set-password', authenticate, validate(setPasswordSchema), ctrl.setPassword);
 router.post('/forgot-password', validate(forgotPasswordSchema), ctrl.forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), ctrl.resetPassword);
 

@@ -144,6 +144,19 @@ export async function changePassword(
   }
 }
 
+export async function setPassword(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    await authService.setPassword(req.user!.id, req.body.newPassword);
+    res.json({ success: true, message: 'Şifre belirlendi' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await authService.forgotPassword(req.body.email);
