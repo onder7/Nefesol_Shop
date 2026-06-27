@@ -55,8 +55,20 @@ export function Register() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Şifre kuralları (backend ile aynı): en az 8 karakter, 1 büyük harf, 1 rakam
+    const pw = form.password;
+    const eksik: string[] = [];
+    if (pw.length < 8) eksik.push('en az 8 karakter');
+    if (!/[A-Z]/.test(pw)) eksik.push('bir büyük harf');
+    if (!/[0-9]/.test(pw)) eksik.push('bir rakam');
+    if (eksik.length > 0) {
+      toast.error(`Şifreniz uygun değil. Şifre ${eksik.join(', ')} içermelidir.`);
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
-      toast.error('Şifreler eşleşmiyor');
+      toast.error('Şifreler eşleşmiyor. Lütfen iki alana da aynı şifreyi girin.');
       return;
     }
     setLoading(true);
@@ -174,6 +186,9 @@ export function Register() {
                     )}
                   </button>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  En az 8 karakter, 1 büyük harf ve 1 rakam içermelidir.
+                </p>
               </div>
 
               {/* Şifre Tekrar */}
