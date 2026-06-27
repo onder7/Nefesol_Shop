@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { authApi } from '@/services/authApi';
+import { api } from '@/services/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
@@ -30,6 +31,13 @@ export function BottomNav() {
     queryFn: () => productApi.categories(),
   });
   const categories = (categoriesData?.data?.data ?? []).filter((cat: any) => cat.showInMenu !== false);
+
+  const { data: menuPagesData } = useQuery({
+    queryKey: ['menu-pages'],
+    queryFn: () => api.get<{ success: boolean; data: Array<{ slug: string; title: string; isSystem: boolean; showInHeader: boolean }> }>('/pages'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const menuPages = (menuPagesData?.data?.data ?? []).filter((p) => p.showInHeader);
 
   async function handleLogout() {
     try {
@@ -133,169 +141,111 @@ export function BottomNav() {
             <Menu className="h-6 w-6" />
             <span className="text-[9px] font-medium">Menü</span>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[85vw] sm:w-[300px] md:w-[350px] p-0 z-[50]">
-            <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 py-4 sm:py-6 px-4 sm:px-6 h-full overflow-y-auto">
-              <SheetClose render={<Link to="/" className="text-xl font-bold text-primary px-2" />}>
+          <SheetContent side="right" className="w-[85vw] sm:w-[300px] md:w-[350px] p-0 z-[50] flex flex-col">
+            {/* Kaydırılabilir içerik alanı */}
+            <div className="flex-1 min-h-0 overflow-y-auto py-4 px-4 space-y-1">
+              <SheetClose render={<Link to="/" className="text-lg font-bold text-primary px-2 py-2 block mb-2" />}>
                 {storeName}
               </SheetClose>
 
               {/* Kategoriler */}
-              <div className="flex flex-col gap-4">
-                <p className="font-semibold text-sm text-muted-foreground px-2">Kategoriler</p>
-                <div className="flex flex-col gap-2">
-                  {categories.map((cat) => (
+              <div className="pb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wide">Kategoriler</p>
+                {categories.map((cat) => (
+                  <SheetClose
+                    key={cat.id}
+                    render={
+                      <Link
+                        to={`/kategori/${cat.slug}`}
+                        className="block px-2 py-2 text-sm font-medium rounded-md hover:bg-muted hover:text-primary transition-colors"
+                      />
+                    }
+                  >
+                    {cat.name}
+                  </SheetClose>
+                ))}
+              </div>
+
+              {/* Sayfalar — admin'den gelen, showInHeader aktif olanlar */}
+              {menuPages.length > 0 && (
+                <div className="border-t pt-3 pb-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wide">Sayfalar</p>
+                  {menuPages.map((p) => (
                     <SheetClose
-                      key={cat.id}
+                      key={p.slug}
                       render={
                         <Link
-                          to={`/kategori/${cat.slug}`}
-                          className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
+                          to={p.isSystem ? `/${p.slug}` : `/sayfa/${p.slug}`}
+                          className="block px-2 py-2 text-sm font-medium rounded-md hover:bg-muted hover:text-primary transition-colors"
                         />
                       }
                     >
-                      {cat.name}
+                      {p.title}
                     </SheetClose>
                   ))}
                 </div>
-              </div>
+              )}
 
-              {/* Hesabım / Hesap Özeti */}
-              <div className="border-t pt-4 mt-auto">
-                <div className="flex flex-col gap-2">
-                  <ThemeToggle showLabel className="px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted justify-start w-full" />
-                  <SheetClose
-                    render={
-                      <Link
-                        to="/ara"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                      />
-                    }
-                  >
-                    Tüm Ürünler
-                  </SheetClose>
-                  {isAuthenticated ? (
-                    <>
-                      <SheetClose
-                        render={
-                          <Link
-                            to="/hesabim"
-                            className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                          />
-                        }
-                      >
-                        Hesap Özeti
-                      </SheetClose>
-                      <SheetClose
-                        render={
-                          <Link
-                            to="/hesabim/siparisler"
-                            className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                          />
-                        }
-                      >
-                        Siparişlerim
-                      </SheetClose>
-                      <SheetClose
-                        render={
-                          <button
-                            onClick={handleLogout}
-                            className="w-full text-left px-2 py-1.5 text-sm text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors font-medium rounded-md"
-                          >
-                            <LogOut className="h-4 w-4 mr-2 inline" />
-                            Çıkış Yap
-                          </button>
-                        }
-                      />
-                    </>
-                  ) : (
+              {/* Hesabım */}
+              <div className="border-t pt-3 pb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wide">Hesabım</p>
+                <ThemeToggle showLabel className="px-2 py-2 text-sm font-medium rounded-md hover:bg-muted justify-start w-full" />
+                <SheetClose
+                  render={
+                    <Link
+                      to="/ara"
+                      className="block px-2 py-2 text-sm font-medium rounded-md hover:bg-muted hover:text-primary transition-colors"
+                    />
+                  }
+                >
+                  Tüm Ürünler
+                </SheetClose>
+                {isAuthenticated ? (
+                  <>
                     <SheetClose
                       render={
                         <Link
-                          to="/giris"
-                          className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted w-full text-center"
+                          to="/hesabim"
+                          className="block px-2 py-2 text-sm font-medium rounded-md hover:bg-muted hover:text-primary transition-colors"
                         />
                       }
                     >
-                      Giriş Yap
+                      Hesap Özeti
                     </SheetClose>
-                  )}
-                </div>
-              </div>
-
-              {/* Müşteri Hizmetleri */}
-              <div className="border-t pt-4">
-                <div className="flex flex-col gap-2">
+                    <SheetClose
+                      render={
+                        <Link
+                          to="/hesabim/siparisler"
+                          className="block px-2 py-2 text-sm font-medium rounded-md hover:bg-muted hover:text-primary transition-colors"
+                        />
+                      }
+                    >
+                      Siparişlerim
+                    </SheetClose>
+                    <SheetClose
+                      render={
+                        <button
+                          onClick={handleLogout}
+                          className="w-full text-left px-2 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors font-medium rounded-md"
+                        >
+                          <LogOut className="h-4 w-4 mr-2 inline" />
+                          Çıkış Yap
+                        </button>
+                      }
+                    />
+                  </>
+                ) : (
                   <SheetClose
                     render={
                       <Link
-                        to="/iletisim"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
+                        to="/giris"
+                        className="block px-2 py-2 text-sm font-medium rounded-md hover:bg-muted hover:text-primary transition-colors"
                       />
                     }
                   >
-                    İletişim & Destek
+                    Giriş Yap
                   </SheetClose>
-                  <SheetClose
-                    render={
-                      <Link
-                        to="/iade"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                      />
-                    }
-                  >
-                    Kolay İade & Değişim
-                  </SheetClose>
-                  <SheetClose
-                    render={
-                      <Link
-                        to="/sss"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                      />
-                    }
-                  >
-                    Sıkça Sorulan Sorular
-                  </SheetClose>
-                  <SheetClose
-                    render={
-                      <Link
-                        to="/sozlesmeler"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                      />
-                    }
-                  >
-                    Şartlar & Politikalar
-                  </SheetClose>
-                  <SheetClose
-                    render={
-                      <Link
-                        to="/hakkimizda"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                      />
-                    }
-                  >
-                    Hakkımızda
-                  </SheetClose>
-                  <SheetClose
-                    render={
-                      <Link
-                        to="/kvkk"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                      />
-                    }
-                  >
-                    KVKK Sözleşmesi
-                  </SheetClose>
-                  <SheetClose
-                    render={
-                      <Link
-                        to="/uyelik"
-                        className="px-2 py-1.5 text-sm hover:text-primary transition-colors font-medium rounded-md hover:bg-muted"
-                      />
-                    }
-                  >
-                    Üyelik Sözleşmesi
-                  </SheetClose>
-                </div>
+                )}
               </div>
             </div>
           </SheetContent>
