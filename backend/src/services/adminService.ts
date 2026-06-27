@@ -555,6 +555,19 @@ export async function adminUpdateOrderShipping(
   });
 }
 
+export async function adminUpdatePaymentStatus(orderId: string, status: string) {
+  const allowed = ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'];
+  if (!allowed.includes(status)) throw new AppError('Geçersiz ödeme durumu', 400);
+
+  const existing = await prisma.payment.findUnique({ where: { orderId } });
+  if (!existing) throw new AppError('Ödeme kaydı bulunamadı', 404);
+
+  return prisma.payment.update({
+    where: { orderId },
+    data: { status: status as Prisma.PaymentUpdateInput['status'] },
+  });
+}
+
 export async function adminGetOrderDetail(orderId: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },

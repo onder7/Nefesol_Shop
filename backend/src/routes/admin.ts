@@ -38,6 +38,7 @@ router.get('/orders', ctrl.listOrders);
 router.get('/orders/:id', ctrl.getOrderDetail);
 router.put('/orders/:id/status', ctrl.updateOrderStatus);
 router.put('/orders/:id/shipping', ctrl.updateOrderShipping);
+router.put('/orders/:id/payment-status', ctrl.updatePaymentStatus);
 router.post('/orders/:id/send-invoice', ctrl.sendOrderInvoiceEmail);
 
 // Reviews (moderasyon — onaylanmadan müşteri tarafında görünmez)

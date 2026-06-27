@@ -78,7 +78,11 @@ const PROVIDER_LABEL: Record<string, string> = {
   stripe: 'Stripe',
   cod:    'Kapıda Ödeme',
   bank:   'Havale/EFT',
+  havale: 'Havale/EFT',
 };
+
+// Manuel onay gerektiren ödeme yöntemleri (online tahsilat değil)
+const MANUAL_PAYMENT_PROVIDERS = ['havale', 'bank', 'cod'];
 
 const STEPPER_STEPS = [
   { key: 'PENDING',    label: 'Sipariş Alındı' },
@@ -491,6 +495,20 @@ export default function OrderDetailPage() {
 
   useEffect(() => { if (orderId) loadOrder(); }, [orderId]);
 
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  async function updatePaymentStatus(status: 'SUCCESS' | 'PENDING') {
+    if (!order) return;
+    setPaymentSaving(true);
+    try {
+      await api.put(`/admin/orders/${orderId}/payment-status`, { status });
+      loadOrder();
+    } catch (e: any) {
+      setError(e?.message ?? 'Ödeme durumu güncellenemedi.');
+    } finally {
+      setPaymentSaving(false);
+    }
+  }
+
   async function handleUpdateStatus() {
     if (!order) return;
 
@@ -697,6 +715,24 @@ export default function OrderDetailPage() {
                     <Badge status={order.payment.status} map={PAYMENT_META} />
                     {order.payment.transactionId && (
                       <span className="text-[10px] text-gray-400 font-mono">{order.payment.transactionId}</span>
+                    )}
+                    {MANUAL_PAYMENT_PROVIDERS.includes(order.payment.provider) && order.payment.status === 'PENDING' && (
+                      <button
+                        onClick={() => updatePaymentStatus('SUCCESS')}
+                        disabled={paymentSaving}
+                        className="mt-1 inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      >
+                        {paymentSaving ? 'Onaylanıyor…' : '✓ Havale Geldi — Ödemeyi Onayla'}
+                      </button>
+                    )}
+                    {MANUAL_PAYMENT_PROVIDERS.includes(order.payment.provider) && order.payment.status === 'SUCCESS' && (
+                      <button
+                        onClick={() => updatePaymentStatus('PENDING')}
+                        disabled={paymentSaving}
+                        className="mt-0.5 text-[10px] text-gray-400 hover:text-red-500 underline-offset-2 hover:underline disabled:opacity-50"
+                      >
+                        {paymentSaving ? '…' : 'Onayı geri al'}
+                      </button>
                     )}
                   </span>
                 ) : (

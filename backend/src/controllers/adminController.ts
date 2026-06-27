@@ -118,6 +118,16 @@ export async function updateOrderShipping(req: AuthRequest, res: Response, next:
   }
 }
 
+export async function updatePaymentStatus(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { status } = req.body as { status: string };
+    const data = await adminService.adminUpdatePaymentStatus(String(req.params.id), status);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function sendOrderInvoiceEmail(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const order = await adminService.adminGetOrderDetail(String(req.params.id));
