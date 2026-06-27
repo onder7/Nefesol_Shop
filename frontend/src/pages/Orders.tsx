@@ -163,11 +163,13 @@ export function OrderDetail() {
   async function handlePrintInvoice() {
     if (!order) return;
 
+    const esc = (s: unknown) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
     let company: { name: string; legalName: string; address: string; city: string; phone: string; email: string; taxOffice: string; taxNumber: string; logoUrl: string; } =
       { name: '', legalName: '', address: '', city: '', phone: '', email: '', taxOffice: '', taxNumber: '', logoUrl: '' };
     try {
       const r = await api.get<{ success: boolean; data: typeof company }>('/company-info');
-      company = (r as any)?.data ?? company;
+      company = (r as any)?.data?.data ?? company;
     } catch (e) { console.warn('company-info', e); }
 
     // Göreceli logo URL'sini absolute yap (print penceresi about:blank'tan açılıyor)
@@ -188,35 +190,35 @@ export function OrderDetail() {
 
     const addr = order.address as any;
     const addrBlock = [
-      addr ? `${addr.firstName ?? ''} ${addr.lastName ?? ''}`.trim() : '',
-      addr?.phone ?? '',
-      addr?.address ?? '',
-      [addr?.neighborhood, addr?.district].filter(Boolean).join(', '),
-      [addr?.city, addr?.postalCode].filter(Boolean).join(' '),
+      addr ? esc(`${addr.firstName ?? ''} ${addr.lastName ?? ''}`.trim()) : '',
+      esc(addr?.phone ?? ''),
+      esc(addr?.address ?? ''),
+      [esc(addr?.neighborhood ?? ''), esc(addr?.district ?? '')].filter(Boolean).join(', '),
+      [esc(addr?.city ?? ''), esc(addr?.postalCode ?? '')].filter(Boolean).join(' '),
     ].filter(Boolean).join('<br>');
 
     const companyBlock = [
-      company.address, company.city,
-      company.phone ? `Tel: ${company.phone}` : '',
-      company.email ? `E: ${company.email}` : '',
-      company.taxOffice ? `Vergi Dairesi: ${company.taxOffice}` : '',
-      company.taxNumber ? `Vergi No: ${company.taxNumber}` : '',
+      esc(company.address), esc(company.city),
+      company.phone ? `Tel: ${esc(company.phone)}` : '',
+      company.email ? `E: ${esc(company.email)}` : '',
+      company.taxOffice ? `Vergi Dairesi: ${esc(company.taxOffice)}` : '',
+      company.taxNumber ? `Vergi No: ${esc(company.taxNumber)}` : '',
     ].filter(Boolean).join('<br>');
 
     const logoHtml = company.logoUrl
-      ? `<img src="${company.logoUrl}" alt="logo" style="max-height:70px;max-width:160px;object-fit:contain;display:block;margin-bottom:6px">`
+      ? `<img src="${esc(company.logoUrl)}" alt="logo" style="max-height:70px;max-width:160px;object-fit:contain;display:block;margin-bottom:6px">`
       : '';
 
     const itemRows = order.items.map((item: any, i: number) => {
       const product = item.variant?.product ?? {};
-      const attrs = Object.entries(item.variant?.attributes ?? {}).map(([k, v]: any) => `${k}: ${v}`).join(' / ');
+      const attrs = Object.entries(item.variant?.attributes ?? {}).map(([k, v]: any) => `${esc(k)}: ${esc(v)}`).join(' / ');
       const lineTotal = Number(item.unitPrice) * item.quantity;
       const bg = i % 2 === 1 ? 'background:#f9f9f9;' : '';
       return `<tr style="${bg}">
         <td style="padding:8px 10px;border-bottom:1px solid #ddd">
-          <strong>${product.name ?? '—'}</strong>
+          <strong>${esc(product.name ?? '—')}</strong>
           ${attrs ? `<br><small style="color:#666">${attrs}</small>` : ''}
-          ${item.variant?.sku ? `<br><small style="color:#aaa;font-family:monospace">${item.variant.sku}</small>` : ''}
+          ${item.variant?.sku ? `<br><small style="color:#aaa;font-family:monospace">${esc(item.variant.sku)}</small>` : ''}
         </td>
         <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:center">${item.quantity}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right">${fmtN(Number(item.unitPrice))}</td>
@@ -265,7 +267,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </div>
   <div class="info-grid">
     <div class="info-left">
-      <div class="info-row"><span class="lbl">SAYIN</span><span class="val">${addr ? `${addr.firstName ?? ''} ${addr.lastName ?? ''}`.trim() : '—'}</span></div>
+      <div class="info-row"><span class="lbl">SAYIN</span><span class="val">${addr ? esc(`${addr.firstName ?? ''} ${addr.lastName ?? ''}`.trim()) : '—'}</span></div>
       <div style="margin-top:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:5px">TESLİMAT ADRESİ</div>
       <div style="font-size:11px;color:#333;line-height:1.8">${addrBlock}</div>
     </div>
@@ -288,7 +290,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
     </table>
   </div>
   <div class="footer">
-    <div>${company.legalName || company.name || ''}${company.taxOffice ? `<br>Vergi Dairesi: ${company.taxOffice}` : ''}${company.taxNumber ? `<br>Vergi No: ${company.taxNumber}` : ''}<br>Bu belge bilgi amaçlıdır.</div>
+    <div>${esc(company.legalName || company.name || 'Şirket Adı')}${company.taxOffice ? `<br>Vergi Dairesi: ${esc(company.taxOffice)}` : ''}${company.taxNumber ? `<br>Vergi No: ${esc(company.taxNumber)}` : ''}<br>Bu belge bilgi amaçlıdır.</div>
     <div style="text-align:right"><div class="sign-line"></div><div>Kaşe / İmza</div></div>
   </div>
 </div>

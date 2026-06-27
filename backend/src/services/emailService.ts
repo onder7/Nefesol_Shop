@@ -622,7 +622,7 @@ export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> 
       try {
         const { prisma } = await import('../config/database');
         const rows = await prisma.siteSettings.findMany({
-          where: { key: { in: ['general_address', 'general_city', 'general_email', 'general_phone', 'general_legal_name'] } },
+          where: { key: { in: ['general_address', 'general_city', 'general_email', 'general_phone', 'general_legal_name', 'general_tax_office', 'general_tax_number'] } },
         });
         return Object.fromEntries(rows.map((r) => [r.key.replace('general_', ''), r.value]));
       } catch { return {}; }
@@ -633,6 +633,8 @@ export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> 
   const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   const legalName = companyData['legal_name'] || storeName;
   const companyAddress = [companyData['address'], companyData['city']].filter(Boolean).join(', ');
+  const taxOffice = companyData['tax_office'] || '';
+  const taxNumber = companyData['tax_number'] || '';
 
   const subtotal = Number(order.subtotal);
   const discount = Number(order.discount);
@@ -759,6 +761,7 @@ export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> 
   <!-- Footer -->
   <div style="background:#f8f9fa;padding:16px 32px;text-align:center;border-top:1px solid #eee">
     <p style="margin:0;font-size:12px;color:#888">${escapeHtml(legalName)} — Bizi tercih ettiğiniz için teşekkürler.</p>
+    ${taxOffice ? `<p style="margin:4px 0 0;font-size:11px;color:#aaa">Vergi Dairesi: ${escapeHtml(taxOffice)}${taxNumber ? ` | Vergi No: ${escapeHtml(taxNumber)}` : ''}</p>` : ''}
     <p style="margin:4px 0 0;font-size:12px;color:#aaa">Bu e-posta bilgilendirme amaçlıdır.</p>
   </div>
 

@@ -250,6 +250,8 @@ export default function OrderDetailPage() {
   async function printInvoice() {
     if (!order) return;
 
+    const esc = (s: unknown) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
     // Şirket bilgilerini API'den çek
     let company: {
       name: string; legalName: string; address: string; city: string;
@@ -262,7 +264,7 @@ export default function OrderDetailPage() {
     } catch (e) { console.warn('company-info yüklenemedi', e); }
 
     // Göreceli logo URL'sini absolute yap (print penceresi about:blank'tan açılıyor)
-    const apiOrigin = API_BASE.replace(/\/api$/, '');
+    const apiOrigin = API_BASE.replace(/\/api\/?$/, '');
     if (company.logoUrl && company.logoUrl.startsWith('/')) {
       company.logoUrl = `${apiOrigin}${company.logoUrl}`;
     }
@@ -279,15 +281,15 @@ export default function OrderDetailPage() {
     const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
     const itemRows = order.items.map((item, i) => {
-      const attrs = Object.entries(item.variant.attributes ?? {}).map(([k, v]) => `${k}: ${v}`).join(' / ');
+      const attrs = Object.entries(item.variant.attributes ?? {}).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(' / ');
       const lineTotal = Number(item.unitPrice) * item.quantity;
       const bg = i % 2 === 1 ? 'background:#f9f9f9;' : '';
       return `
         <tr style="${bg}">
           <td style="padding:8px 10px;border-bottom:1px solid #ddd">
-            <strong>${item.variant.product.name}</strong>
+            <strong>${esc(item.variant.product.name)}</strong>
             ${attrs ? `<br><small style="color:#666">${attrs}</small>` : ''}
-            <br><small style="color:#aaa;font-family:monospace">${item.variant.sku}</small>
+            <br><small style="color:#aaa;font-family:monospace">${esc(item.variant.sku)}</small>
           </td>
           <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:center">${item.quantity}</td>
           <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right">${fmtN(Number(item.unitPrice))}</td>
@@ -296,28 +298,28 @@ export default function OrderDetailPage() {
     }).join('');
 
     const customerName = order.user.profile?.firstName
-      ? `${order.user.profile.firstName} ${order.user.profile.lastName ?? ''}`.trim()
-      : order.user.email;
+      ? esc(`${order.user.profile.firstName} ${order.user.profile.lastName ?? ''}`.trim())
+      : esc(order.user.email);
 
     const addrBlock = [
-      `${order.address.firstName} ${order.address.lastName}`,
-      order.address.phone,
-      order.address.address,
-      [order.address.neighborhood, order.address.district].filter(Boolean).join(', '),
-      [order.address.city, order.address.postalCode].filter(Boolean).join(' '),
+      esc(`${order.address.firstName} ${order.address.lastName}`),
+      esc(order.address.phone),
+      esc(order.address.address),
+      [esc(order.address.neighborhood ?? ''), esc(order.address.district)].filter(Boolean).join(', '),
+      [esc(order.address.city), esc(order.address.postalCode ?? '')].filter(Boolean).join(' '),
     ].filter(Boolean).join('<br>');
 
     const companyBlock = [
-      company.address,
-      company.city,
-      company.phone ? `Tel: ${company.phone}` : '',
-      company.email ? `E: ${company.email}` : '',
-      company.taxOffice ? `Vergi Dairesi: ${company.taxOffice}` : '',
-      company.taxNumber ? `Vergi No: ${company.taxNumber}` : '',
+      esc(company.address),
+      esc(company.city),
+      company.phone ? `Tel: ${esc(company.phone)}` : '',
+      company.email ? `E: ${esc(company.email)}` : '',
+      company.taxOffice ? `Vergi Dairesi: ${esc(company.taxOffice)}` : '',
+      company.taxNumber ? `Vergi No: ${esc(company.taxNumber)}` : '',
     ].filter(Boolean).join('<br>');
 
     const logoHtml = company.logoUrl
-      ? `<img src="${company.logoUrl}" alt="logo" style="max-height:70px;max-width:160px;object-fit:contain;display:block;margin-bottom:6px">`
+      ? `<img src="${esc(company.logoUrl)}" alt="logo" style="max-height:70px;max-width:160px;object-fit:contain;display:block;margin-bottom:6px">`
       : '';
 
     const PROVIDER_LABELS: Record<string, string> = { iyzico: 'İyzico', stripe: 'Stripe', cod: 'Kapıda Ödeme', bank: 'Havale/EFT' };
@@ -384,7 +386,7 @@ export default function OrderDetailPage() {
     </div>
     <div class="header-right">
       ${logoHtml}
-      <div class="company-name">${company.legalName || company.name || 'Şirket Adı'}</div>
+      <div class="company-name">${esc(company.legalName || company.name || 'Şirket Adı')}</div>
       ${companyBlock ? `<div class="company-addr">${companyBlock}</div>` : ''}
     </div>
   </div>
@@ -393,7 +395,7 @@ export default function OrderDetailPage() {
   <div class="info-grid">
     <div class="info-left">
       <div class="info-row"><span class="lbl">SAYIN</span><span class="val">${customerName}</span></div>
-      <div class="info-row"><span class="lbl">E-POSTA</span><span class="val">${order.user.email}</span></div>
+      <div class="info-row"><span class="lbl">E-POSTA</span><span class="val">${esc(order.user.email)}</span></div>
       <div class="info-row" style="margin-top:12px"><span class="lbl">TESLİMAT ADRESİ</span></div>
       <div style="font-size:11px;color:#333;line-height:1.8;padding-left:0">${addrBlock}</div>
     </div>
@@ -437,9 +439,9 @@ export default function OrderDetailPage() {
   <div class="footer">
     <div class="footer-note">
       Bu belge bilgi amaçlıdır.<br>
-      ${company.legalName || company.name}
-      ${company.taxOffice ? `<br>Vergi Dairesi: ${company.taxOffice}` : ''}
-      ${company.taxNumber ? `<br>Vergi No: ${company.taxNumber}` : ''}
+      ${esc(company.legalName || company.name || 'Şirket Adı')}
+      ${company.taxOffice ? `<br>Vergi Dairesi: ${esc(company.taxOffice)}` : ''}
+      ${company.taxNumber ? `<br>Vergi No: ${esc(company.taxNumber)}` : ''}
     </div>
     <div class="footer-sign">
       <div class="sign-line"></div>

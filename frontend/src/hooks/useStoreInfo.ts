@@ -11,6 +11,9 @@ export interface StoreInfo {
   phone: string;
   address: string;
   city: string;
+  taxOffice: string;
+  taxNumber: string;
+  logoUrl: string;
 }
 
 const FALLBACK: StoreInfo = {
@@ -21,6 +24,9 @@ const FALLBACK: StoreInfo = {
   phone: '',
   address: '',
   city: '',
+  taxOffice: '',
+  taxNumber: '',
+  logoUrl: '',
 };
 
 async function fetchStoreInfo(): Promise<StoreInfo> {
@@ -36,6 +42,9 @@ async function fetchStoreInfo(): Promise<StoreInfo> {
     phone: d.phone || '',
     address: d.address || '',
     city: d.city || '',
+    taxOffice: d.taxOffice || '',
+    taxNumber: d.taxNumber || '',
+    logoUrl: d.logoUrl || '',
   };
 }
 
