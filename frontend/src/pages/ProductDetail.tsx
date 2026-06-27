@@ -441,7 +441,9 @@ export function ProductDetail() {
             </div>
           )}
 
-          {/* Varyantlar */}
+          {/* Varyantlar — gruplar yan yana */}
+          {attributeKeys.length > 0 && (
+          <div className="flex flex-wrap gap-x-8 gap-y-4">
           {attributeKeys.map((attr) => {
             const uniqueValues = [
               ...new Map(
@@ -496,6 +498,8 @@ export function ProductDetail() {
               </div>
             );
           })}
+          </div>
+          )}
 
           {/* Stok */}
           {variant && (
