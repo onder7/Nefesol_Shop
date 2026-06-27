@@ -62,6 +62,15 @@ export function AccountDashboard() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+
+  // Sosyal girişli (şifresiz) hesap → "Şifre Belirle" göster. hasPassword'ı mount'ta tazele.
+  const noPassword = user?.hasPassword === false;
+  useEffect(() => {
+    authApi.me()
+      .then((res) => setUser(res.data.data as any, accessToken ?? ''))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<any>(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
   const [appliedCoupons, setAppliedCoupons] = useState<any[]>([]);
@@ -137,19 +146,49 @@ export function AccountDashboard() {
     }
   }
 
+  function validateNewPassword(): boolean {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('Yeni şifreler eşleşmiyor');
+      return false;
+    }
+    const pw = passwordForm.newPassword;
+    if (pw.length < 8 || !/[A-Z]/.test(pw) || !/[0-9]/.test(pw)) {
+      toast.error('Yeni şifre en az 8 karakter, 1 büyük harf ve 1 rakam içermelidir');
+      return false;
+    }
+    return true;
+  }
+
   async function handleChangePassword() {
+    // Sosyal girişli (şifresiz) hesap → mevcut şifre istemeden belirle
+    if (noPassword) {
+      if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+        toast.error('Yeni şifre alanlarını doldurun');
+        return;
+      }
+      if (!validateNewPassword()) return;
+      setIsSavingPassword(true);
+      try {
+        await authApi.setPassword(passwordForm.newPassword);
+        toast.success('Şifre belirlendi. Artık e-posta ve şifrenizle de giriş yapabilirsiniz.');
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        authApi.me().then((res) => setUser(res.data.data as any, accessToken ?? '')).catch(() => {});
+      } catch (err: any) {
+        const resp = err?.response?.data;
+        const detail = resp?.details ? Object.values(resp.details).flat()[0] : undefined;
+        toast.error((detail as string) ?? resp?.message ?? resp?.error ?? 'Şifre belirlenemedi');
+      } finally {
+        setIsSavingPassword(false);
+      }
+      return;
+    }
+
+    // Şifresi olan hesap → mevcut şifre gerekli
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       toast.error('Tüm alanları doldurun');
       return;
     }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('Yeni şifreler eşleşmiyor');
-      return;
-    }
-    if (passwordForm.newPassword.length < 8) {
-      toast.error('Yeni şifre en az 8 karakter olmalı');
-      return;
-    }
+    if (!validateNewPassword()) return;
     setIsSavingPassword(true);
     try {
       await authApi.changePassword({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
@@ -1261,15 +1300,21 @@ export function AccountDashboard() {
                   </div>
                 )}
 
-                {/* Şifre Değiştir */}
+                {/* Şifre Değiştir / Belirle */}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-2">
                   <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <Lock size={18} /> Şifre Değiştir
+                    <Lock size={18} /> {noPassword ? 'Şifre Belirle' : 'Şifre Değiştir'}
                   </h3>
+                  {noPassword && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-md">
+                      Hesabınız sosyal giriş (Google) ile oluşturulmuş ve henüz bir şifreniz yok. Şifre belirleyerek
+                      bundan sonra e-posta ve şifrenizle de giriş yapabilirsiniz.
+                    </p>
+                  )}
                   <div className="space-y-4 max-w-md">
                     {[
-                      { key: 'currentPassword', label: 'Mevcut Şifre', placeholder: '••••••••' },
-                      { key: 'newPassword', label: 'Yeni Şifre', placeholder: 'En az 8 karakter' },
+                      ...(noPassword ? [] : [{ key: 'currentPassword', label: 'Mevcut Şifre', placeholder: '••••••••' }]),
+                      { key: 'newPassword', label: 'Yeni Şifre', placeholder: 'En az 8 karakter, 1 büyük harf, 1 rakam' },
                       { key: 'confirmPassword', label: 'Yeni Şifre (Tekrar)', placeholder: '••••••••' },
                     ].map(({ key, label, placeholder }) => (
                       <div key={key}>
@@ -1289,7 +1334,9 @@ export function AccountDashboard() {
                       className="px-6 py-2 bg-primary text-white font-medium rounded-lg hover:bg-opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
                     >
                       <Lock size={16} />
-                      {isSavingPassword ? 'Değiştiriliyor...' : 'Şifreyi Değiştir'}
+                      {isSavingPassword
+                        ? (noPassword ? 'Belirleniyor...' : 'Değiştiriliyor...')
+                        : (noPassword ? 'Şifre Belirle' : 'Şifreyi Değiştir')}
                     </button>
                   </div>
                 </div>
