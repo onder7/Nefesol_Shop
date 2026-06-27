@@ -316,7 +316,7 @@ export function Cart() {
               )}
 
               <div className="flex justify-between">
-                <span>Kargo (KDV Dahil)</span>
+                <span>Kargo</span>
                 <span>{shipping === 0 ? 'Ücretsiz' : formatPrice(shipping)}</span>
               </div>
 
