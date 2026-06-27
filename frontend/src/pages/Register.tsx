@@ -81,9 +81,12 @@ export function Register() {
       toast.success('Kayıt başarılı! Hoş geldiniz.');
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
-        'Kayıt yapılamadı';
+      const resp = (err as {
+        response?: { data?: { message?: string; error?: string; details?: Record<string, string[]> } };
+      }).response?.data;
+      // Zod doğrulama hatası: details.<alan>[0] en açıklayıcı mesajı verir
+      const detailMsg = resp?.details ? Object.values(resp.details).flat()[0] : undefined;
+      const msg = detailMsg ?? resp?.message ?? resp?.error ?? 'Kayıt yapılamadı';
       toast.error(msg);
     } finally {
       setLoading(false);
