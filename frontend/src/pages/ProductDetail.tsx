@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, ShoppingCart, Star, Minus, Plus, Heart } from 'lucide-react';
+import { ChevronRight, ShoppingCart, Star, Minus, Plus, Heart, X, ZoomIn, ChevronLeft } from 'lucide-react';
 import { productApi } from '@/services/productApi';
 import { cartApi } from '@/services/cartApi';
 import { useCartStore } from '@/store/cartStore';
@@ -182,6 +182,8 @@ export function ProductDetail() {
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState<'reviews' | 'qa'>('reviews');
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const lightboxRef = useRef<HTMLDivElement>(null);
   const { setCart } = useCartStore();
   const qc = useQueryClient();
   const { isFavorite, toggleFavorite } = useWishlistStore();
@@ -228,6 +230,21 @@ export function ProductDetail() {
       setActiveImageIdx(idx >= 0 ? idx : 0);
     }
   }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxOpen(false);
+      if (e.key === 'ArrowRight') setActiveImageIdx((i) => Math.min(i + 1, (product?.images?.length ?? 1) - 1));
+      if (e.key === 'ArrowLeft') setActiveImageIdx((i) => Math.max(i - 1, 0));
+    };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [lightboxOpen, product?.images?.length]);
 
   const fav = product ? isFavorite(product.id) : false;
   const variant = selectedVariant ?? product?.variants?.[0] ?? null;
@@ -320,13 +337,23 @@ export function ProductDetail() {
         {/* Görsel Galerisi */}
         <div className="space-y-3">
           <div className="relative">
-            <div className="aspect-square rounded-xl overflow-hidden bg-gray-50">
+            <div
+              className="aspect-square rounded-xl overflow-hidden bg-gray-50 dark:bg-neutral-900 cursor-zoom-in group/img"
+              onClick={() => activeImage && setLightboxOpen(true)}
+            >
               {activeImage ? (
-                <img
-                  src={activeImage.url}
-                  alt={activeImage.altText ?? product.name}
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img
+                    src={activeImage.url}
+                    alt={activeImage.altText ?? product.name}
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute inset-0 flex items-end justify-end p-3 opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none">
+                    <div className="bg-black/40 backdrop-blur-sm rounded-full p-1.5">
+                      <ZoomIn className="h-4 w-4 text-white" />
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">Görsel yok</div>
               )}
@@ -369,7 +396,7 @@ export function ProductDetail() {
                   <img
                     src={img.url}
                     alt={img.altText ?? `Görsel ${i + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </button>
               ))}
@@ -579,6 +606,73 @@ export function ProductDetail() {
       <div className="mt-12">
         <RecentlyViewed excludeId={product.id} />
       </div>
+
+      {/* Lightbox */}
+      {lightboxOpen && product.images.length > 0 && (
+        <div
+          ref={lightboxRef}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
+          onClick={(e) => { if (e.target === lightboxRef.current) setLightboxOpen(false); }}
+        >
+          {/* Kapat */}
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            aria-label="Kapat"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Önceki */}
+          {product.images.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setActiveImageIdx((i) => Math.max(i - 1, 0))}
+              disabled={activeImageIdx === 0}
+              className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-30"
+              aria-label="Önceki"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* Ana Resim */}
+          <img
+            src={product.images[activeImageIdx]?.url ?? ''}
+            alt={product.images[activeImageIdx]?.altText ?? product.name}
+            className="max-h-[90vh] max-w-[90vw] object-contain select-none"
+            draggable={false}
+          />
+
+          {/* Sonraki */}
+          {product.images.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setActiveImageIdx((i) => Math.min(i + 1, product.images.length - 1))}
+              disabled={activeImageIdx === product.images.length - 1}
+              className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-30"
+              aria-label="Sonraki"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* Sayaç */}
+          {product.images.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+              {product.images.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActiveImageIdx(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === activeImageIdx ? 'w-5 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/70'}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 }
