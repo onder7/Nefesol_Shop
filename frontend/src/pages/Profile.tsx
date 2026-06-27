@@ -41,7 +41,7 @@ type PasswordValues = z.infer<typeof passwordSchema>;
 // ─── Profile Form ─────────────────────────────────────────────────────────────
 
 function ProfileForm({ user, onSaved }: { user: UserType; onSaved: (u: UserType) => void }) {
-  const { register, handleSubmit, formState: { errors, isDirty } } = useForm<ProfileValues>({
+  const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       firstName: user.profile?.firstName ?? '',
@@ -56,7 +56,13 @@ function ProfileForm({ user, onSaved }: { user: UserType; onSaved: (u: UserType)
     setSaving(true);
     try {
       const res = await api.put<{ success: boolean; data: UserType }>('/auth/profile', data);
-      onSaved(res.data.data);
+      const updated = res.data.data;
+      reset({
+        firstName: updated.profile?.firstName ?? '',
+        lastName: updated.profile?.lastName ?? '',
+        phone: updated.profile?.phone ?? '',
+      });
+      onSaved(updated);
       toast.success('Profil güncellendi');
     } catch {
       toast.error('Profil güncellenemedi');

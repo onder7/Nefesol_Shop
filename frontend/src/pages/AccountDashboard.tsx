@@ -43,6 +43,8 @@ const ORDER_STATUS_MAP: Record<string, { label: string; color: string }> = {
 export function AccountDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const setUser = useAuthStore((s) => s.setUser);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const { name: storeName } = useStoreInfo();
   const { hasWarning: profileHasWarning, missingAddress, missingPhone, message: profileWarningMessage } = useProfileCompleteness();
   const navigate = useNavigate();
@@ -108,8 +110,24 @@ export function AccountDashboard() {
         throw new Error(err.error || 'Profil güncellenemedi');
       }
 
+      const data = await res.json();
+      const raw = data.data?.profile;
+      setUser(
+        {
+          ...user!,
+          profile: raw
+            ? {
+                firstName: raw.firstName ?? undefined,
+                lastName: raw.lastName ?? undefined,
+                phone: raw.phone ?? undefined,
+                avatarUrl: raw.avatarUrl ?? undefined,
+              }
+            : user!.profile,
+        },
+        accessToken ?? '',
+      );
       setIsEditingProfile(false);
-      window.location.reload();
+      toast.success('Profil güncellendi');
     } catch (err: any) {
       alert(err.message || 'Bir hata oluştu');
     } finally {
