@@ -8,7 +8,7 @@ import * as orderSvc from '../services/orderService';
 import * as paymentSvc from '../services/paymentService';
 import * as emailSvc from '../services/emailService';
 import { validateCoupon } from '../services/discountService';
-import { getShippingConfig, computeShipping, getPaymentMethods, getStoreName, getTaxConfig } from '../services/settingsService';
+import { getShippingConfig, computeShipping, getPaymentMethods, getStoreName } from '../services/settingsService';
 
 // Pending checkout data stored in Redis with 30-min TTL
 const PENDING_TTL = 1800;
@@ -66,11 +66,10 @@ export async function initialize(req: AuthRequest, res: Response, next: NextFunc
       discount = result.discountAmount;
     }
 
-    // Fiyatlar KDV hariç (net). KDV indirim sonrası net tutar üzerinden hesaplanır.
-    const { taxRate } = await getTaxConfig();
-    const taxableBase = subtotal - discount;
-    const tax = Math.round(taxableBase * taxRate) / 100;
-    const total = taxableBase + tax + shippingFee;
+    // Ürün fiyatları KDV dahil (vatIncluded=true). Kargo da KDV dahil.
+    // Ekstra KDV eklenmez — toplam = (subtotal - indirim) + kargo.
+    const tax = 0;
+    const total = subtotal - discount + shippingFee;
 
     const conversationId = `${userId.slice(-6)}-${Date.now()}`;
     await setPending(conversationId, { userId, addressId, couponCode });
@@ -309,11 +308,15 @@ export async function placeOrder(req: AuthRequest, res: Response, next: NextFunc
     const responseData: Record<string, unknown> = { orderId: order.id };
     if (method === 'havale') {
       const storeName = await getStoreName();
+      const orderNum = order.id.slice(-8).toUpperCase();
       responseData['havale'] = {
         bankName:    methods.havale.bankName,
         iban:        methods.havale.iban,
         accountName: methods.havale.accountName,
-        description: methods.havale.description || `${storeName}-${order.id.slice(-8).toUpperCase()}`,
+        orderNumber: orderNum,
+        description: methods.havale.description
+          ? `${methods.havale.description} #${orderNum}`
+          : `${storeName}-${orderNum}`,
       };
     }
 

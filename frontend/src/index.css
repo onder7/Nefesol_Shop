@@ -189,3 +189,47 @@ body {
 .product-description strong { font-weight: 600; }
 .product-description em { font-style: italic; }
 .product-description a  { color: var(--color-primary); text-decoration: underline; }
+/* Editor HTML — mobil taşma önleme */
+.product-description {
+  overflow-x: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.product-description img {
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  display: block;
+  border-radius: 0.375rem;
+}
+.product-description table {
+  width: 100% !important;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+}
+.product-description td,
+.product-description th {
+  min-width: 80px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  word-break: break-word;
+}
+.product-description iframe,
+.product-description video,
+.product-description embed {
+  max-width: 100% !important;
+  width: 100% !important;
+  height: auto !important;
+}
+.product-description pre,
+.product-description code {
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+.product-description * {
+  max-width: 100%;
+}

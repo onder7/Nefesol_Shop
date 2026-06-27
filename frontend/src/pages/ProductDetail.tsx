@@ -90,9 +90,9 @@ function ProductShareBar({ name, url }: { name: string; url: string }) {
   ] as const;
 
   return (
-    <div className="flex items-center gap-2 pt-1">
+    <div className="flex flex-wrap items-center gap-2 pt-1">
       <span className="text-xs text-muted-foreground shrink-0">Paylaş:</span>
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {shares.map((s) => (
           <a
             key={s.label}
@@ -272,7 +272,7 @@ export function ProductDetail() {
     product.images?.find((img) => img.isPrimary) ?? product.images?.[0];
 
   return (
-    <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
       <SeoHead
         title={product.name}
         description={
@@ -306,7 +306,7 @@ export function ProductDetail() {
         ]}
       />
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-6">
+      <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground mb-6">
         <Link to="/" className="hover:text-foreground">Ana Sayfa</Link>
         <ChevronRight className="h-4 w-4" />
         <Link to={`/kategori/${product.category.slug}`} className="hover:text-foreground">
@@ -316,7 +316,7 @@ export function ProductDetail() {
         <span className="text-foreground font-medium line-clamp-1">{product.name}</span>
       </nav>
 
-      <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid md:grid-cols-2 gap-4 sm:gap-8 lg:gap-12">
         {/* Görsel Galerisi */}
         <div className="space-y-3">
           <div className="relative">
@@ -380,7 +380,7 @@ export function ProductDetail() {
         {/* Bilgi */}
         <div className="space-y-4">
           {product.brand && <p className="text-sm text-muted-foreground">{product.brand.name}</p>}
-          <h1 className="text-2xl md:text-3xl font-bold">{product.name}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{product.name}</h1>
 
           {avgRating !== null && (
             <div className="flex items-center gap-2 text-sm">

@@ -1,5 +1,5 @@
 import { prisma } from '../config/database';
-import { getShippingConfig, computeShipping, getTaxConfig } from './settingsService';
+import { getShippingConfig, computeShipping } from './settingsService';
 import { logger } from '../config/logger';
 import * as emailSvc from './emailService';
 import { validateCoupon, redeemCoupon } from './discountService';
@@ -69,11 +69,9 @@ export async function createOrder(userId: string, addressId: string, couponCode?
     discountId = result.discount.id;
   }
 
-  // Fiyatlar KDV hariç (net). İndirim net tutara uygulanır, KDV indirim sonrası net üzerinden hesaplanır.
-  const { taxRate } = await getTaxConfig();
-  const taxableBase = subtotal - discount;
-  const tax = Math.round(taxableBase * taxRate) / 100;
-  const total = taxableBase + tax + shippingFee;
+  // Ürün fiyatları KDV dahil (vatIncluded=true). Kargo da KDV dahil gösterilir.
+  // Ekstra KDV eklenmez — toplam = (subtotal - indirim) + kargo.
+  const total = subtotal - discount + shippingFee;
 
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({

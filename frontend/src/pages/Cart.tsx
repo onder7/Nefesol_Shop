@@ -36,19 +36,10 @@ export function Cart() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: taxConfig } = useQuery({
-    queryKey: ['tax-config'],
-    queryFn: async () => {
-      const res = await fetch('/api/tax-config');
-      const data = await res.json();
-      return data.data;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  // tax-config sorgusu kaldırıldı — fiyatlar KDV dahil
 
   const SHIPPING_FEE = shippingConfig?.shippingFee ?? 49.9;
   const FREE_THRESHOLD = shippingConfig?.freeShippingThreshold ?? 500;
-  const TAX_RATE = taxConfig?.taxRate ?? 20;
 
   useEffect(() => {
     if (cart !== undefined) setCart(cart);
@@ -179,9 +170,8 @@ export function Cart() {
 
   const subtotalAfterDiscount = subtotal - discountAmount;
   const shipping = subtotalAfterDiscount >= FREE_THRESHOLD ? 0 : SHIPPING_FEE;
-  // KDV yalnızca ürün tutarına uygulanır; kargo KDV dahil gösterilir (backend ile tutarlı)
-  const tax = Math.round(subtotalAfterDiscount * TAX_RATE) / 100;
-  const total = subtotalAfterDiscount + tax + shipping;
+  // Ürün fiyatları KDV dahil (vatIncluded=true). Ayrıca KDV hesaplanmaz.
+  const total = subtotalAfterDiscount + shipping;
   const remaining = FREE_THRESHOLD - subtotalAfterDiscount;
   const isPending = updateMut.isPending || removeMut.isPending;
 
@@ -308,7 +298,7 @@ export function Cart() {
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span>Ara Toplam (KDV Hariç)</span>
+                <span>Ara Toplam (KDV Dahil)</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
 
@@ -326,13 +316,8 @@ export function Cart() {
               )}
 
               <div className="flex justify-between">
-                <span>Kargo</span>
+                <span>Kargo (KDV Dahil)</span>
                 <span>{shipping === 0 ? 'Ücretsiz' : formatPrice(shipping)}</span>
-              </div>
-
-              <div className="flex justify-between border-t pt-2">
-                <span className="font-medium">KDV (%{TAX_RATE})</span>
-                <span className="font-medium">{formatPrice(tax)}</span>
               </div>
 
               {shipping > 0 && remaining > 0 && (

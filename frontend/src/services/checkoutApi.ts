@@ -25,6 +25,7 @@ export interface PlaceOrderResponse {
     iban: string;
     accountName: string;
     description: string;
+    orderNumber?: string;
   };
 }
 

@@ -163,7 +163,7 @@ function PayMethodCard({
 
 // ─── Havale Info ──────────────────────────────────────────────────────────────
 
-function HavaleInfo({ info }: { info: NonNullable<{ bankName: string; iban: string; accountName: string; description: string }> }) {
+function HavaleInfo({ info }: { info: NonNullable<{ bankName: string; iban: string; accountName: string; description: string; orderNumber?: string }> }) {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} kopyalandı`)).catch(() => {
       const el = document.createElement('textarea');
@@ -183,6 +183,22 @@ function HavaleInfo({ info }: { info: NonNullable<{ bankName: string; iban: stri
         Havale / EFT Bilgileri
       </p>
       <div className="space-y-2 text-sm">
+        {info.orderNumber && (
+          <div className="flex justify-between items-center rounded-md bg-blue-100 dark:bg-blue-900/30 px-3 py-2 -mx-1">
+            <span className="text-blue-800 dark:text-blue-200 font-semibold">Sipariş No</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-bold text-blue-900 dark:text-blue-100">#{info.orderNumber}</span>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(info.orderNumber!, 'Sipariş numarası')}
+                className="p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                title="Sipariş numarasını kopyala"
+              >
+                <Copy className="h-3.5 w-3.5 text-blue-600" />
+              </button>
+            </div>
+          </div>
+        )}
         {info.bankName && (
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Banka</span>
@@ -306,7 +322,7 @@ export function Checkout() {
       if (payMethod === 'havale' && res.data.data.havale) {
         // Pass havale info via state to success page
         navigate(`/siparis-tamamlandi?orderId=${orderId}`, {
-          state: { havale: res.data.data.havale },
+          state: { havale: res.data.data.havale, orderNumber: res.data.data.havale?.orderNumber },
         });
       } else {
         navigate(`/siparis-tamamlandi?orderId=${orderId}`);
@@ -342,19 +358,8 @@ export function Checkout() {
       )
     : 0);
 
-  // KDV oranı (public ayar) — fiyatlar KDV hariç (net), KDV net üzerinden eklenir
-  const { data: taxConfig } = useQuery({
-    queryKey: ['tax-config'],
-    queryFn: async () => {
-      const res = await fetch('/api/tax-config');
-      const json = await res.json();
-      return json.data as { taxRate: number };
-    },
-    staleTime: 1000 * 60 * 10,
-  });
-  const taxRate = taxConfig?.taxRate ?? 20;
-  const tax = initData?.tax ?? Math.round((subtotal - discount) * taxRate) / 100;
-  const total = initData?.total ?? (subtotal - discount + tax + shippingFee + codFee);
+  // Fiyatlar KDV dahil — ekstra KDV eklenmez
+  const total = initData?.total ?? (subtotal - discount + shippingFee + codFee);
 
   const handleProceed = () => {
     if (!selectedAddress) return;
@@ -530,7 +535,7 @@ export function Checkout() {
       {/* Price breakdown */}
       <div className="border rounded-lg p-4 space-y-2">
         <div className="flex justify-between text-sm">
-          <span>Ara Toplam (KDV Hariç)</span>
+          <span>Ara Toplam (KDV Dahil)</span>
           <span>{formatPrice(subtotal)}</span>
         </div>
         {discount > 0 && (
@@ -540,11 +545,7 @@ export function Checkout() {
           </div>
         )}
         <div className="flex justify-between text-sm">
-          <span>KDV (%{taxRate})</span>
-          <span>{formatPrice(tax)}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span>Kargo</span>
+          <span>Kargo (KDV Dahil)</span>
           <span>{shippingFee === 0 ? 'Ücretsiz' : formatPrice(shippingFee)}</span>
         </div>
         {payMethod === 'cod' && methods.cod.fee > 0 && (
