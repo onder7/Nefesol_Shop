@@ -336,7 +336,7 @@ export function ProductDetail() {
       <div className="grid md:grid-cols-2 gap-4 sm:gap-8 lg:gap-12">
         {/* Görsel Galerisi */}
         <div className="space-y-3">
-          <div className="relative">
+          <div className="relative mx-auto w-[62%] max-w-[16rem] sm:w-full sm:max-w-none">
             <div
               className="aspect-square rounded-xl overflow-hidden bg-gray-50 dark:bg-neutral-900 cursor-zoom-in group/img"
               onClick={() => activeImage && setLightboxOpen(true)}
@@ -381,7 +381,7 @@ export function ProductDetail() {
             </button>
           </div>
           {product.images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin justify-center sm:justify-start">
               {product.images.map((img, i) => (
                 <button
                   key={i}
