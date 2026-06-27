@@ -36,7 +36,7 @@ export function ProductGrid({ products, loading = false, cols = 4 }: Props) {
   if (!products.length) {
     return (
       <div className="text-center py-16 text-muted-foreground">
-        <p className="text-lg">Ürün bulunamadı</p>
+        <p className="text-lg">Bu kategori için hazırlıklarımız devam ediyor</p>
       </div>
     );
   }
