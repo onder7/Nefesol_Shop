@@ -234,7 +234,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;background
 @page{size:A4;margin:12mm 15mm}
 .page{width:100%;max-width:780px;margin:0 auto;padding:20px}
 .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #111;margin-bottom:20px}
-.title{font-size:38px;font-weight:900;letter-spacing:3px;line-height:1}
+.title{font-size:28px;font-weight:900;letter-spacing:1px;line-height:1.1;margin-top:2px}
 .header-right{text-align:right}
 .company-name{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
 .company-addr{font-size:11px;color:#444;line-height:1.7}
@@ -258,9 +258,8 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
 </style></head><body>
 <div class="page">
   <div class="header">
-    <div class="header-left"><div class="title">FATURA</div></div>
+    <div class="header-left">${logoHtml}<div class="title">İrsaliye Fatura</div></div>
     <div class="header-right">
-      ${logoHtml}
       <div class="company-name">${company.legalName || company.name || 'Şirket Adı'}</div>
       ${companyBlock ? `<div class="company-addr">${companyBlock}</div>` : ''}
     </div>
@@ -284,8 +283,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
     <table class="totals-table">
       <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
       ${discountN > 0 ? `<tr><td style="color:#16a34a">İndirim</td><td style="text-align:right;color:#16a34a">−${fmtN(discountN)}</td></tr>` : ''}
-      ${vatAmount > 0 ? `<tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(vatAmount)}</td></tr>` : ''}
-      <tr><td>Kargo</td><td style="text-align:right">${shippingN === 0 ? 'Ücretsiz' : fmtN(shippingN)}</td></tr>
+      <tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(vatAmount)}</td></tr>
       <tr class="total-row"><td><strong>GENEL TOPLAM</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
   </div>
@@ -408,10 +406,6 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
             <div className="flex justify-between">
               <span className="text-muted-foreground">KDV</span>
               <span className="font-medium">{formatPrice(orderKdv)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Kargo</span>
-              <span className="font-medium">{orderShipping === 0 ? 'Ücretsiz' : formatPrice(orderShipping)}</span>
             </div>
             <div className="flex justify-between border-t pt-3 font-semibold">
               <span>Toplam</span>

@@ -825,14 +825,6 @@ export function AccountDashboard() {
                                 {formatPrice(Math.max(0, Math.round((Number(order.total) - Number(order.shippingFee || 0) - (Number(order.subtotal) - Number(order.discount || 0))) * 100) / 100))}
                               </span>
                             </div>
-                            {order.shippingFee !== undefined && (
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Kargo</span>
-                                <span className="text-gray-900 dark:text-white">
-                                  {Number(order.shippingFee) === 0 ? 'Ücretsiz' : formatPrice(Number(order.shippingFee))}
-                                </span>
-                              </div>
-                            )}
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold">
                               <span>Toplam Tutar</span>
                               <span className="text-primary text-lg">
