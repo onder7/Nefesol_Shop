@@ -86,7 +86,7 @@ export function CategoryPage() {
           )}
           <Select value={sort} onValueChange={(v) => { setSort(v as Sort); setPage(1); }}>
             <SelectTrigger className="w-52">
-              <SelectValue />
+              <SelectValue>{SORTS.find(s => s.value === sort)?.label}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {SORTS.map((s) => (

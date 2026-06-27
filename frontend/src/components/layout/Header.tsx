@@ -353,6 +353,16 @@ export function Header() {
       <nav className="hidden lg:block bg-white dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between gap-1 py-2.5">
+            {/* Tüm Ürünler */}
+            <div className="flex items-center">
+              <Link
+                to="/ara"
+                className="inline-flex items-center justify-center gap-1 text-center px-2 py-1.5 rounded-md text-[13px] leading-tight font-semibold text-neutral-700 dark:text-neutral-200 hover:text-primary dark:hover:bg-neutral-800 hover:bg-orange-50 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap"
+              >
+                Tüm Ürünler
+              </Link>
+              <span className="text-neutral-200 select-none" aria-hidden="true">|</span>
+            </div>
             {categories.slice(0, 9).map((cat, idx) => {
               const children = (cat.children ?? []).filter((c: any) => c.showInMenu !== false);
               const hasChildren = children.length > 0;

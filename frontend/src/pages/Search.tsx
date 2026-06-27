@@ -269,7 +269,7 @@ export function Search() {
                 <span className="text-xs text-neutral-500 font-medium whitespace-nowrap">Sırala:</span>
                 <Select value={sort} onValueChange={(v) => updateFilters({ sort: v })}>
                   <SelectTrigger className="w-40 h-9 text-xs border border-neutral-200 bg-white">
-                    <SelectValue />
+                    <SelectValue>{SORTS.find(s => s.value === sort)?.label}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {SORTS.map((s) => (
