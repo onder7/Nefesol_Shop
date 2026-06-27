@@ -20,6 +20,7 @@ import discountsRouter from './discounts';
 import locationsRouter from './locations';
 import pagesRouter from './pages';
 import navLinksRouter from './navLinks';
+import featureCardsRouter from './featureCards';
 import { getActiveRules } from '../controllers/chatbotController';
 import { getSetupStatus, postSetup } from '../controllers/setupController';
 import { getActivePopup } from '../controllers/popupController';
@@ -68,6 +69,7 @@ router.use('/wishlist', wishlistRouter);
 router.use('/reviews', reviewsRouter);
 router.use('/', pagesRouter);
 router.use('/', navLinksRouter);
+router.use('/', featureCardsRouter);
 
 // GET /api/questions/my-questions — kullanıcının sorduğu sorular (hesabım sayfası)
 import { authenticate as authMw } from '../middlewares/auth';

@@ -14,8 +14,44 @@ import {
   Headphones,
   ShieldCheck,
   Flame,
-  ArrowRight
+  ArrowRight,
+  CreditCard,
+  Gift,
+  Clock,
+  Award,
+  Lock,
+  BadgeCheck,
+  Package,
+  Phone,
+  Heart,
+  Star,
+  type LucideIcon,
 } from 'lucide-react';
+
+// Ana sayfa avantaj kartları — admin'den seçilebilen ikon anahtarları
+const FEATURE_ICONS: Record<string, LucideIcon> = {
+  truck: Truck,
+  'rotate-ccw': RotateCcw,
+  headphones: Headphones,
+  'shield-check': ShieldCheck,
+  'credit-card': CreditCard,
+  gift: Gift,
+  clock: Clock,
+  award: Award,
+  lock: Lock,
+  'badge-check': BadgeCheck,
+  package: Package,
+  phone: Phone,
+  heart: Heart,
+  star: Star,
+};
+
+interface FeatureCard {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+}
 import { SeoHead } from '@/components/seo/SeoHead';
 import { organizationSchema, websiteSchema } from '@/lib/schemas';
 import { CampaignBanner } from '@/components/common/CampaignDisplay';
@@ -151,6 +187,13 @@ export function Home() {
     queryFn: () => productApi.list({ sort: 'newest', limit: 4 }),
   });
 
+  const { data: featureCardsData } = useQuery({
+    queryKey: ['feature-cards'],
+    queryFn: async () => (await api.get<{ success: boolean; data: FeatureCard[] }>('/feature-cards')).data.data,
+    staleTime: 1000 * 60 * 10,
+  });
+  const featureCards = featureCardsData ?? [];
+
   const featured = featuredData?.data?.data ?? [];
   const newArrivals = newArrivalsData?.data?.items ?? [];
 
@@ -222,47 +265,27 @@ export function Home() {
       </section>
       )}
 
-      {/* Avantajlar / Hizmet Kutuları */}
-      <section className="container mx-auto px-4 py-8 mt-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-xs border border-neutral-100 dark:border-neutral-800">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="flex items-center gap-4 px-2">
-            <div className="p-3.5 bg-primary/10 rounded-xl text-primary shrink-0">
-              <Truck className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">Ücretsiz & Hızlı Kargo</h4>
-              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">750₺ üzeri alışverişlerinizde kargo bedava.</p>
-            </div>
+      {/* Avantajlar / Hizmet Kutuları — admin'den yönetilir */}
+      {featureCards.length > 0 && (
+        <section className="container mx-auto px-4 py-8 mt-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-xs border border-neutral-100 dark:border-neutral-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {featureCards.map((card) => {
+              const Icon = FEATURE_ICONS[card.icon] ?? Truck;
+              return (
+                <div key={card.id} className="flex items-center gap-4 px-2">
+                  <div className="p-3.5 bg-primary/10 rounded-xl text-primary shrink-0">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">{card.title}</h4>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">{card.description}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="flex items-center gap-4 px-2">
-            <div className="p-3.5 bg-primary/10 rounded-xl text-primary shrink-0">
-              <RotateCcw className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">14 Gün Kolay İade</h4>
-              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">Koşulsuz iade ve kolay değişim garantisi.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 px-2">
-            <div className="p-3.5 bg-primary/10 rounded-xl text-primary shrink-0">
-              <Headphones className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">7/24 Canlı Destek</h4>
-              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">Sorularınız için her an yardıma hazırız.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 px-2">
-            <div className="p-3.5 bg-primary/10 rounded-xl text-primary shrink-0">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-neutral-800 dark:text-neutral-100 text-sm">Güvenli Ödeme Altyapısı</h4>
-              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">256-bit SSL ve İyzico güvencesiyle ödeyin.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Campaign Banner */}
       {bannerCampaign && (

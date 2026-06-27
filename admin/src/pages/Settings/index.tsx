@@ -3897,7 +3897,7 @@ function PopupTab() {
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
-type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'watermark' | 'pages' | 'navlinks' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
+type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'watermark' | 'pages' | 'navlinks' | 'features' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
 
 // ─── Tab: Menü Linkleri ───────────────────────────────────────────────────────
 
@@ -4153,6 +4153,267 @@ function NavLinksTab() {
         <strong>İpucu:</strong> Bu linkler, desktop kategori nav barında kategorilerin ardından ve mobil menüde "Bağlantılar" başlığı altında görünür.
         Dahili linkler için <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/</code> ile başlayan yol kullanın (ör. <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/kampanyalar</code>).
         Harici linkler için tam URL girin ve "Yeni Sekmede Aç" seçeneğini etkinleştirin.
+      </div>
+    </div>
+  );
+}
+
+// ─── Ana Sayfa Avantaj Kartları ──────────────────────────────────────────────
+
+const FEATURE_ICON_OPTIONS: { value: string; label: string }[] = [
+  { value: 'truck', label: '🚚 Kargo (kamyon)' },
+  { value: 'rotate-ccw', label: '↩️ İade (geri ok)' },
+  { value: 'headphones', label: '🎧 Destek (kulaklık)' },
+  { value: 'shield-check', label: '🛡️ Güvenlik (kalkan)' },
+  { value: 'credit-card', label: '💳 Kredi Kartı' },
+  { value: 'gift', label: '🎁 Hediye' },
+  { value: 'clock', label: '⏰ Saat' },
+  { value: 'award', label: '🏅 Ödül' },
+  { value: 'lock', label: '🔒 Kilit' },
+  { value: 'badge-check', label: '✅ Onay Rozeti' },
+  { value: 'package', label: '📦 Paket' },
+  { value: 'phone', label: '📞 Telefon' },
+  { value: 'heart', label: '❤️ Kalp' },
+  { value: 'star', label: '⭐ Yıldız' },
+];
+
+const iconLabel = (v: string) => FEATURE_ICON_OPTIONS.find((o) => o.value === v)?.label ?? v;
+
+interface FeatureCard {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+interface FeatureCardDraft {
+  id?: string;
+  icon: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+function FeatureCardsTab() {
+  const [cards, setCards] = useState<FeatureCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState<FeatureCardDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = () =>
+    api
+      .get<{ success: boolean; data: FeatureCard[] }>('/admin/feature-cards')
+      .then((r) => setCards(r.data ?? []))
+      .catch((e: any) => setError(e.message))
+      .finally(() => setLoading(false));
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleActive(card: FeatureCard) {
+    setCards((prev) => prev.map((x) => (x.id === card.id ? { ...x, isActive: !x.isActive } : x)));
+    try {
+      await api.put(`/admin/feature-cards/${card.id}`, { isActive: !card.isActive });
+    } catch (e: any) {
+      setError(e.message);
+      load();
+    }
+  }
+
+  async function remove(card: FeatureCard) {
+    if (!confirm(`"${card.title}" kartını silmek istediğinize emin misiniz?`)) return;
+    try {
+      await api.delete(`/admin/feature-cards/${card.id}`);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function saveDraft() {
+    if (!draft) return;
+    if (!draft.title.trim()) { setError('Başlık gerekli'); return; }
+    if (!draft.description.trim()) { setError('Açıklama gerekli'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      const payload = {
+        icon: draft.icon,
+        title: draft.title,
+        description: draft.description,
+        sortOrder: draft.sortOrder,
+        isActive: draft.isActive,
+      };
+      if (draft.id) {
+        await api.put(`/admin/feature-cards/${draft.id}`, payload);
+      } else {
+        await api.post('/admin/feature-cards', payload);
+      }
+      setDraft(null);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const emptyDraft = (): FeatureCardDraft => ({
+    icon: 'truck',
+    title: '',
+    description: '',
+    sortOrder: cards.length > 0 ? Math.max(...cards.map((c) => c.sortOrder)) + 1 : 0,
+    isActive: true,
+  });
+
+  if (loading) return <Loader />;
+
+  return (
+    <div>
+      <SectionCard
+        title="Ana Sayfa Avantaj Kartları"
+        subtitle="Ana sayfadaki kargo / iade / destek / güvenlik kartlarını yönetin"
+      >
+        {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+
+        {cards.length === 0 ? (
+          <p className="text-sm text-body py-4 text-center">Henüz kart eklenmemiş.</p>
+        ) : (
+          <div className="overflow-x-auto mb-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-stroke dark:border-strokedark text-left">
+                  <th className="pb-2 font-medium text-black dark:text-white">İkon</th>
+                  <th className="pb-2 font-medium text-black dark:text-white">Başlık</th>
+                  <th className="pb-2 font-medium text-black dark:text-white">Açıklama</th>
+                  <th className="pb-2 font-medium text-black dark:text-white text-center">Sıra</th>
+                  <th className="pb-2 font-medium text-black dark:text-white text-center">Aktif</th>
+                  <th className="pb-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {cards.map((card) => (
+                  <tr key={card.id} className="border-b border-stroke/50 dark:border-strokedark/50">
+                    <td className="py-2.5 pr-3 text-body whitespace-nowrap">{iconLabel(card.icon)}</td>
+                    <td className="py-2.5 pr-3 font-medium text-black dark:text-white">{card.title}</td>
+                    <td className="py-2.5 pr-3 text-body max-w-[260px] truncate">{card.description}</td>
+                    <td className="py-2.5 pr-3 text-center text-body">{card.sortOrder}</td>
+                    <td className="py-2.5 pr-3 text-center">
+                      <Toggle checked={card.isActive} onChange={() => toggleActive(card)} />
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setDraft({ id: card.id, icon: card.icon, title: card.title, description: card.description, sortOrder: card.sortOrder, isActive: card.isActive })}
+                          className="px-3 py-1 text-xs rounded border border-stroke dark:border-strokedark hover:border-primary hover:text-primary transition-colors"
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          onClick={() => remove(card)}
+                          className="px-3 py-1 text-xs rounded border border-stroke dark:border-strokedark hover:border-red-400 hover:text-red-500 transition-colors"
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!draft && (
+          <button
+            onClick={() => setDraft(emptyDraft())}
+            className="mt-2 flex items-center gap-2 px-4 py-2 rounded border border-stroke dark:border-strokedark hover:border-primary hover:text-primary text-sm transition-colors"
+          >
+            <span className="text-lg leading-none">+</span> Yeni Kart Ekle
+          </button>
+        )}
+
+        {draft && (
+          <div className="mt-4 border border-stroke dark:border-strokedark rounded-lg p-4 space-y-4 bg-gray-50/50 dark:bg-meta-4/20">
+            <h4 className="font-medium text-black dark:text-white">{draft.id ? 'Kartı Düzenle' : 'Yeni Kart'}</h4>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="İkon">
+                <select
+                  className={inputCls}
+                  value={draft.icon}
+                  onChange={(e) => setDraft((d) => d && ({ ...d, icon: e.target.value }))}
+                >
+                  {FEATURE_ICON_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Başlık">
+                <input
+                  className={inputCls}
+                  value={draft.title}
+                  onChange={(e) => setDraft((d) => d && ({ ...d, title: e.target.value }))}
+                  placeholder="Ör: Ücretsiz & Hızlı Kargo"
+                />
+              </Field>
+            </div>
+
+            <Field label="Açıklama">
+              <input
+                className={inputCls}
+                value={draft.description}
+                onChange={(e) => setDraft((d) => d && ({ ...d, description: e.target.value }))}
+                placeholder="Ör: 750₺ üzeri alışverişlerinizde kargo bedava."
+              />
+            </Field>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Sıra Numarası" hint="Küçük sayı = önce">
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={draft.sortOrder}
+                  onChange={(e) => setDraft((d) => d && ({ ...d, sortOrder: Number(e.target.value) }))}
+                />
+              </Field>
+              <Field label="Aktif">
+                <div className="flex items-center gap-3 pt-2">
+                  <Toggle
+                    checked={draft.isActive}
+                    onChange={(v) => setDraft((d) => d && ({ ...d, isActive: v }))}
+                  />
+                  <span className="text-sm text-body">{draft.isActive ? 'Ana sayfada görünür' : 'Gizli'}</span>
+                </div>
+              </Field>
+            </div>
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={saveDraft}
+                disabled={saving}
+                className="px-5 py-2 text-sm font-medium rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              </button>
+              <button
+                onClick={() => { setDraft(null); setError(''); }}
+                className="px-4 py-2 text-sm rounded border border-stroke dark:border-strokedark hover:border-primary hover:text-primary transition-colors"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <div className="mt-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4 text-sm text-blue-800 dark:text-blue-300">
+        <strong>İpucu:</strong> Bu kartlar ana sayfada ürünlerin üstündeki avantaj şeridinde görünür. Sırayı "Sıra Numarası" ile, görünürlüğü "Aktif" ile yönetebilirsiniz.
       </div>
     </div>
   );
@@ -4422,6 +4683,17 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    key: 'features',
+    label: 'Avantaj Kartları',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="7" rx="1.5" />
+        <rect x="3" y="13" width="18" height="7" rx="1.5" />
+        <path d="M7 7.5h2M7 16.5h2" />
+      </svg>
+    ),
+  },
+  {
     key: 'slider',
     label: 'Slider Yönetimi',
     icon: (
@@ -4540,6 +4812,7 @@ export default function Settings() {
     watermark:     <WatermarkTab />,
     pages:         <PagesTab />,
     navlinks:      <NavLinksTab />,
+    features:      <FeatureCardsTab />,
     slider:        <SliderTab />,
     messages:      <MessagesTab />,
     tools:         <ToolsTab />,

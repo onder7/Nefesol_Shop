@@ -643,6 +643,21 @@ model NavLink {
   @@map("nav_links")
 }
 
+// ─── Ana Sayfa Avantaj Kartları ───────────────────────────────────────────────
+
+model FeatureCard {
+  id          String   @id @default(cuid())
+  icon        String   @default("truck")            // lucide ikon anahtarı
+  title       String
+  description String
+  sortOrder   Int      @default(0)    @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  @@map("feature_cards")
+}
+
 // ─── Chatbot Kuralları ────────────────────────────────────────────────────────
 
 model ChatbotRule {
