@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 
+interface DiscountUsage {
+  name: string;
+  email: string;
+  orderRef: string;
+  usedAt: string;
+}
+
 interface Discount {
   id: string;
   code: string;
@@ -12,6 +19,9 @@ interface Discount {
   isActive: boolean;
   expiresAt?: string;
   createdAt: string;
+  description?: string | null;
+  owner?: { id: string; email: string; name: string } | null;
+  usages?: DiscountUsage[];
 }
 
 interface FormState {
@@ -266,6 +276,7 @@ export default function DiscountsPage() {
                   <th className="px-5 py-4 text-center font-medium">Tip</th>
                   <th className="px-5 py-4 text-center font-medium">Değer</th>
                   <th className="px-5 py-4 text-center font-medium">Kullanılmış</th>
+                  <th className="px-5 py-4 text-left font-medium">Kullanan / Sahip</th>
                   <th className="px-5 py-4 text-center font-medium">Durum</th>
                   <th className="px-5 py-4 text-left font-medium">İşlem</th>
                 </tr>
@@ -292,6 +303,33 @@ export default function DiscountsPage() {
                     </td>
                     <td className="px-5 py-4 text-center">
                       {discount.maxUses ? `${discount.usedCount}/${discount.maxUses}` : discount.usedCount}
+                    </td>
+                    <td className="px-5 py-4 align-top min-w-[200px]">
+                      {discount.owner && (
+                        <div className="mb-1">
+                          <span
+                            title={discount.owner.email}
+                            className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded"
+                          >
+                            Kişiye özel: {discount.owner.name}
+                          </span>
+                        </div>
+                      )}
+                      {discount.usages && discount.usages.length > 0 ? (
+                        <div className="space-y-0.5 max-h-24 overflow-y-auto pr-1">
+                          {discount.usages.map((u, i) => (
+                            <div key={i} className="text-xs text-gray-600 dark:text-gray-300" title={u.email}>
+                              <span className="font-medium">{u.name}</span>
+                              {u.orderRef && <span className="text-gray-400"> · {u.orderRef}</span>}
+                              {u.usedAt && (
+                                <span className="text-gray-400"> · {new Date(u.usedAt).toLocaleDateString('tr-TR')}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        !discount.owner && <span className="text-xs text-gray-400">Henüz kullanılmadı</span>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-center">
                       <span
@@ -322,7 +360,7 @@ export default function DiscountsPage() {
                 ))}
                 {discounts.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <td colSpan={7} className="py-12 text-center text-gray-400">
                       İndirim bulunamadı
                     </td>
                   </tr>

@@ -31,14 +31,38 @@ router.post('/validate', authenticate, async (req: AuthRequest, res: Response) =
 router.get('/', authenticate, requireAdmin, async (req: Request, res: Response) => {
   try {
     const discounts = await prisma.discount.findMany({
-      include: { usages: { select: { id: true } } },
+      include: {
+        // Kişiye özel kuponun sahibi
+        user: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true } } } },
+        // Kuponu kullanan (sipariş veren) kişiler
+        usages: {
+          orderBy: { usedAt: 'desc' },
+          select: {
+            usedAt: true,
+            orderId: true,
+            user: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true } } } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
+
+    const fullName = (p?: { firstName?: string | null; lastName?: string | null } | null) =>
+      p ? `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() : '';
 
     const data = discounts.map((d: any) => ({
       ...d,
       usageCount: d.usages.length,
-      usages: undefined,
+      owner: d.user
+        ? { id: d.user.id, email: d.user.email, name: fullName(d.user.profile) || d.user.email }
+        : null,
+      user: undefined,
+      usages: d.usages.map((u: any) => ({
+        name: fullName(u.user?.profile) || u.user?.email || '—',
+        email: u.user?.email ?? '',
+        orderRef: u.orderId ? `TR-${String(u.orderId).slice(-8).toUpperCase()}` : '',
+        usedAt: u.usedAt,
+      })),
     }));
 
     res.json({ success: true, data });
