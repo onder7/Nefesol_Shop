@@ -231,6 +231,16 @@ export default function OrderDetailPage() {
   const [invoiceSending, setInvoiceSending] = useState(false);
   const [invoiceOk, setInvoiceOk]           = useState(false);
   const [invoiceErr, setInvoiceErr]         = useState('');
+  const [taxRate, setTaxRate]               = useState(20);
+
+  useEffect(() => {
+    api.get('/tax-config')
+      .then((r) => {
+        const rate = Number((r as any)?.data?.taxRate);
+        if (Number.isFinite(rate) && rate >= 0) setTaxRate(rate);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSendInvoice() {
     setInvoiceSending(true);
@@ -269,15 +279,23 @@ export default function OrderDetailPage() {
       company.logoUrl = `${apiOrigin}${company.logoUrl}`;
     }
 
+    // KDV oranı (global) — fiyatlar KDV dahil, orandan net/KDV ayrıştırılır
+    let vatRate = 20;
+    try {
+      const tr = await api.get('/tax-config');
+      const rate = Number((tr as any)?.data?.taxRate);
+      if (Number.isFinite(rate) && rate >= 0) vatRate = rate;
+    } catch (e) { console.warn('tax-config yüklenemedi', e); }
+
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const subtotalN = Number(order.subtotal);
-    const discountN = Number(order.discount);
-    const shippingN = Number(order.shippingFee);
-    const totalN    = Number(order.total);
-    const vatNet    = subtotalN - discountN;
-    const vatAmount = Math.max(0, Math.round((totalN - shippingN - vatNet) * 100) / 100);
-    const vatRate   = vatNet > 0 ? Math.round((vatAmount / vatNet) * 100) : 0;
+    const subtotalN = Number(order.subtotal);   // KDV dahil
+    const discountN = Number(order.discount);   // KDV dahil
+    const totalN    = Number(order.total);      // KDV dahil
+    const div       = 1 + vatRate / 100;
+    const netSubtotalN = subtotalN / div;       // KDV hariç ara toplam
+    const netDiscountN = discountN / div;       // KDV hariç indirim
+    const vatAmount    = Math.max(0, Math.round((totalN - totalN / div) * 100) / 100); // toplam KDV
     const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
     const itemRows = order.items.map((item, i) => {
@@ -340,7 +358,7 @@ export default function OrderDetailPage() {
 
   /* ─── Header ─── */
   .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 3px solid #111; margin-bottom: 20px; }
-  .header-left .title { font-size: 38px; font-weight: 900; letter-spacing: 3px; color: #111; line-height: 1; }
+  .header-left .title { font-size: 28px; font-weight: 900; letter-spacing: 1px; color: #111; line-height: 1.1; margin-top: 2px; }
   .header-right { text-align: right; }
   .header-right .company-name { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
   .header-right .company-addr { font-size: 11px; color: #444; line-height: 1.7; }
@@ -382,10 +400,9 @@ export default function OrderDetailPage() {
   <!-- Header -->
   <div class="header">
     <div class="header-left">
-      <div class="title">FATURA</div>
+      ${logoHtml}<div class="title">İrsaliye Fatura</div>
     </div>
     <div class="header-right">
-      ${logoHtml}
       <div class="company-name">${esc(company.legalName || company.name || 'Şirket Adı')}</div>
       ${companyBlock ? `<div class="company-addr">${companyBlock}</div>` : ''}
     </div>
@@ -427,10 +444,9 @@ export default function OrderDetailPage() {
   <!-- Totals -->
   <div class="totals-row">
     <table class="totals-table">
-      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
-      ${discountN > 0 ? `<tr><td style="color:#16a34a">İndirim</td><td style="text-align:right;color:#16a34a">−${fmtN(discountN)}</td></tr>` : ''}
-      ${vatAmount > 0 ? `<tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(vatAmount)}</td></tr>` : ''}
-      <tr><td>Kargo</td><td style="text-align:right">${shippingN === 0 ? 'Ücretsiz' : fmtN(shippingN)}</td></tr>
+      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(netSubtotalN)}</td></tr>
+      ${discountN > 0 ? `<tr><td style="color:#16a34a">İndirim (KDV Hariç)</td><td style="text-align:right;color:#16a34a">−${fmtN(netDiscountN)}</td></tr>` : ''}
+      <tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(vatAmount)}</td></tr>
       <tr class="total-row"><td><strong>GENEL TOPLAM</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
   </div>
@@ -545,13 +561,12 @@ export default function OrderDetailPage() {
 
   if (!order) return null;
 
-  const subtotal = Number(order.subtotal);
-  const shipping = Number(order.shippingFee);
-  const discount = Number(order.discount);
-  const total    = Number(order.total);
-  const vatNet   = subtotal - discount;
-  const vat      = Math.max(0, Math.round((total - shipping - vatNet) * 100) / 100);
-  const vatRate  = vatNet > 0 ? Math.round((vat / vatNet) * 100) : 0;
+  // Fiyatlar KDV dahil. Net = gross / (1 + oran/100); KDV = toplam − net toplam
+  const taxDiv  = 1 + taxRate / 100;
+  const subtotal = Number(order.subtotal) / taxDiv;        // KDV hariç ara toplam
+  const discount = Number(order.discount) / taxDiv;        // KDV hariç indirim
+  const total    = Number(order.total);                    // KDV dahil
+  const vat      = Math.max(0, Math.round((Number(order.total) - Number(order.total) / taxDiv) * 100) / 100);
 
   const customerName = order.user.profile?.firstName
     ? `${order.user.profile.firstName} ${order.user.profile.lastName ?? ''}`.trim()
@@ -825,21 +840,13 @@ export default function OrderDetailPage() {
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
-                  <span>İndirim</span>
+                  <span>İndirim (KDV Hariç)</span>
                   <span>−{fmt(discount)}</span>
                 </div>
               )}
-              {vat > 0 && (
-                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                  <span>KDV{vatRate > 0 ? ` (%${vatRate})` : ''}</span>
-                  <span>{fmt(vat)}</span>
-                </div>
-              )}
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Kargo (KDV Dahil)</span>
-                <span className={shipping === 0 ? 'text-green-600 font-medium' : ''}>
-                  {shipping === 0 ? 'Ücretsiz' : fmt(shipping)}
-                </span>
+                <span>KDV{taxRate > 0 ? ` (%${taxRate})` : ''}</span>
+                <span>{fmt(vat)}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-black dark:text-white border-t border-stroke dark:border-strokedark pt-2 mt-1">
                 <span>Genel Toplam</span>
