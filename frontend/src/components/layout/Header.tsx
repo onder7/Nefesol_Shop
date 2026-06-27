@@ -216,7 +216,7 @@ export function Header() {
                           <p className="text-[9px] text-neutral-400 truncate">{prod.category?.name}</p>
                         </div>
                         {price && (
-                          <div className="text-[11px] font-bold text-neutral-900 shrink-0">
+                          <div className="hidden sm:block text-[11px] font-bold text-neutral-900 shrink-0">
                             {price}
                           </div>
                         )}
