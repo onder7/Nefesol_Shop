@@ -99,6 +99,14 @@ export function Header() {
   });
   const categories = (categoriesData?.data?.data ?? []).filter((cat: any) => cat.showInMenu !== false);
 
+  // Özel navigasyon linkleri — admin panelinden yönetilen kategori menüsü ekleri
+  const { data: navLinksData } = useQuery({
+    queryKey: ['nav-links'],
+    queryFn: () => api.get<{ success: boolean; data: Array<{ id: string; label: string; url: string; openInNewTab: boolean }> }>('/nav-links'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const navLinks = navLinksData?.data?.data ?? [];
+
   // Üst şerit menüsü — admin tarafından yönetilen Müşteri Hizmetleri sayfaları
   const { data: menuPagesData } = useQuery({
     queryKey: ['menu-pages'],
@@ -415,6 +423,22 @@ export function Header() {
                 </div>
               );
             })}
+            {/* Özel navigasyon linkleri */}
+            {navLinks.map((link, idx) => (
+              <div key={link.id} className="flex items-center">
+                {(categories.slice(0, 9).length > 0 || idx > 0) && (
+                  <span className="text-neutral-200 select-none" aria-hidden="true">|</span>
+                )}
+                <a
+                  href={link.url}
+                  target={link.openInNewTab ? '_blank' : undefined}
+                  rel={link.openInNewTab ? 'noopener noreferrer' : undefined}
+                  className="inline-flex items-center justify-center px-2 py-1.5 rounded-md text-[13px] leading-tight font-semibold text-neutral-700 dark:text-neutral-200 hover:text-primary dark:hover:bg-neutral-800 hover:bg-orange-50 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap"
+                >
+                  {link.label}
+                </a>
+              </div>
+            ))}
             {categories.length > 9 && (
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-1 px-2 text-[13px] font-semibold text-neutral-700 hover:text-primary transition-colors cursor-pointer outline-none whitespace-nowrap">

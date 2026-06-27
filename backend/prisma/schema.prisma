@@ -628,6 +628,21 @@ model Page {
   @@map("pages")
 }
 
+// ─── Navigasyon Özel Linkleri ─────────────────────────────────────────────────
+
+model NavLink {
+  id           String   @id @default(cuid())
+  label        String
+  url          String
+  openInNewTab Boolean  @default(false) @map("open_in_new_tab")
+  sortOrder    Int      @default(0)     @map("sort_order")
+  isActive     Boolean  @default(true)  @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  @@map("nav_links")
+}
+
 // ─── Chatbot Kuralları ────────────────────────────────────────────────────────
 
 model ChatbotRule {

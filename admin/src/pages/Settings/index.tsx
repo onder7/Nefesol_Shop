@@ -3725,7 +3725,266 @@ function PopupTab() {
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
-type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
+type TabKey = 'general' | 'payment' | 'shipping' | 'team' | 'notifications' | 'social' | 'maintenance' | 'pages' | 'navlinks' | 'slider' | 'messages' | 'tools' | 'chatbot' | 'popup' | 'campaign' | 'oauth' | 'mfa' | 'analytics';
+
+// ─── Tab: Menü Linkleri ───────────────────────────────────────────────────────
+
+interface NavLink {
+  id: string;
+  label: string;
+  url: string;
+  openInNewTab: boolean;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+interface NavLinkDraft {
+  id?: string;
+  label: string;
+  url: string;
+  openInNewTab: boolean;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+function NavLinksTab() {
+  const [links, setLinks] = useState<NavLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState<NavLinkDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = () =>
+    api
+      .get<{ success: boolean; data: NavLink[] }>('/admin/nav-links')
+      .then((r) => setLinks(r.data ?? []))
+      .catch((e: any) => setError(e.message))
+      .finally(() => setLoading(false));
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleActive(link: NavLink) {
+    setLinks((prev) => prev.map((x) => (x.id === link.id ? { ...x, isActive: !x.isActive } : x)));
+    try {
+      await api.put(`/admin/nav-links/${link.id}`, { isActive: !link.isActive });
+    } catch (e: any) {
+      setError(e.message);
+      load();
+    }
+  }
+
+  async function remove(link: NavLink) {
+    if (!confirm(`"${link.label}" linkini silmek istediğinize emin misiniz?`)) return;
+    try {
+      await api.delete(`/admin/nav-links/${link.id}`);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function saveDraft() {
+    if (!draft) return;
+    if (!draft.label.trim()) { setError('Etiket gerekli'); return; }
+    if (!draft.url.trim()) { setError('URL gerekli'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      if (draft.id) {
+        await api.put(`/admin/nav-links/${draft.id}`, {
+          label: draft.label,
+          url: draft.url,
+          openInNewTab: draft.openInNewTab,
+          sortOrder: draft.sortOrder,
+          isActive: draft.isActive,
+        });
+      } else {
+        await api.post('/admin/nav-links', {
+          label: draft.label,
+          url: draft.url,
+          openInNewTab: draft.openInNewTab,
+          sortOrder: draft.sortOrder,
+          isActive: draft.isActive,
+        });
+      }
+      setDraft(null);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const emptyDraft = (): NavLinkDraft => ({
+    label: '',
+    url: '',
+    openInNewTab: false,
+    sortOrder: links.length > 0 ? Math.max(...links.map((l) => l.sortOrder)) + 10 : 0,
+    isActive: true,
+  });
+
+  if (loading) return <Loader />;
+
+  return (
+    <div>
+      <SectionCard
+        title="Menü Linkleri"
+        subtitle="Kategori nav barında ve mobil menüde görünecek özel linkler"
+      >
+        {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+
+        {/* Link Listesi */}
+        {links.length === 0 ? (
+          <p className="text-sm text-body py-4 text-center">Henüz özel link eklenmemiş.</p>
+        ) : (
+          <div className="overflow-x-auto mb-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-stroke dark:border-strokedark text-left">
+                  <th className="pb-2 font-medium text-black dark:text-white">Etiket</th>
+                  <th className="pb-2 font-medium text-black dark:text-white">URL</th>
+                  <th className="pb-2 font-medium text-black dark:text-white text-center">Yeni Sekme</th>
+                  <th className="pb-2 font-medium text-black dark:text-white text-center">Sıra</th>
+                  <th className="pb-2 font-medium text-black dark:text-white text-center">Aktif</th>
+                  <th className="pb-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {links.map((link) => (
+                  <tr key={link.id} className="border-b border-stroke/50 dark:border-strokedark/50">
+                    <td className="py-2.5 pr-3 font-medium text-black dark:text-white">{link.label}</td>
+                    <td className="py-2.5 pr-3 text-body max-w-[200px] truncate">
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline-offset-2 hover:underline">
+                        {link.url}
+                      </a>
+                    </td>
+                    <td className="py-2.5 pr-3 text-center">
+                      {link.openInNewTab ? (
+                        <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full">Evet</span>
+                      ) : (
+                        <span className="text-xs text-body">—</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-3 text-center text-body">{link.sortOrder}</td>
+                    <td className="py-2.5 pr-3 text-center">
+                      <Toggle checked={link.isActive} onChange={() => toggleActive(link)} />
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setDraft({ id: link.id, label: link.label, url: link.url, openInNewTab: link.openInNewTab, sortOrder: link.sortOrder, isActive: link.isActive })}
+                          className="px-3 py-1 text-xs rounded border border-stroke dark:border-strokedark hover:border-primary hover:text-primary transition-colors"
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          onClick={() => remove(link)}
+                          className="px-3 py-1 text-xs rounded border border-stroke dark:border-strokedark hover:border-red-400 hover:text-red-500 transition-colors"
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Yeni Link Butonu */}
+        {!draft && (
+          <button
+            onClick={() => setDraft(emptyDraft())}
+            className="mt-2 flex items-center gap-2 px-4 py-2 rounded border border-stroke dark:border-strokedark hover:border-primary hover:text-primary text-sm transition-colors"
+          >
+            <span className="text-lg leading-none">+</span> Yeni Link Ekle
+          </button>
+        )}
+
+        {/* Form */}
+        {draft && (
+          <div className="mt-4 border border-stroke dark:border-strokedark rounded-lg p-4 space-y-4 bg-gray-50/50 dark:bg-meta-4/20">
+            <h4 className="font-medium text-black dark:text-white">{draft.id ? 'Linki Düzenle' : 'Yeni Link'}</h4>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Etiket (menüde görünen metin)">
+                <input
+                  className={inputCls}
+                  value={draft.label}
+                  onChange={(e) => setDraft((d) => d && ({ ...d, label: e.target.value }))}
+                  placeholder="Ör: Kampanyalar, Blog, Hakkımızda"
+                />
+              </Field>
+              <Field label="URL" hint="Dahili: /kampanyalar — Harici: https://...">
+                <input
+                  className={inputCls}
+                  value={draft.url}
+                  onChange={(e) => setDraft((d) => d && ({ ...d, url: e.target.value }))}
+                  placeholder="/kampanyalar veya https://example.com"
+                />
+              </Field>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-4">
+              <Field label="Sıra Numarası" hint="Küçük sayı = önce">
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={draft.sortOrder}
+                  onChange={(e) => setDraft((d) => d && ({ ...d, sortOrder: Number(e.target.value) }))}
+                />
+              </Field>
+              <Field label="Yeni Sekmede Aç">
+                <div className="flex items-center gap-3 pt-2">
+                  <Toggle
+                    checked={draft.openInNewTab}
+                    onChange={(v) => setDraft((d) => d && ({ ...d, openInNewTab: v }))}
+                  />
+                  <span className="text-sm text-body">{draft.openInNewTab ? 'Evet (harici link)' : 'Hayır (aynı sekme)'}</span>
+                </div>
+              </Field>
+              <Field label="Aktif">
+                <div className="flex items-center gap-3 pt-2">
+                  <Toggle
+                    checked={draft.isActive}
+                    onChange={(v) => setDraft((d) => d && ({ ...d, isActive: v }))}
+                  />
+                  <span className="text-sm text-body">{draft.isActive ? 'Menüde görünür' : 'Gizli'}</span>
+                </div>
+              </Field>
+            </div>
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={saveDraft}
+                disabled={saving}
+                className="px-5 py-2 text-sm font-medium rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              </button>
+              <button
+                onClick={() => { setDraft(null); setError(''); }}
+                className="px-4 py-2 text-sm rounded border border-stroke dark:border-strokedark hover:border-primary hover:text-primary transition-colors"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <div className="mt-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4 text-sm text-blue-800 dark:text-blue-300">
+        <strong>İpucu:</strong> Bu linkler, desktop kategori nav barında kategorilerin ardından ve mobil menüde "Bağlantılar" başlığı altında görünür.
+        Dahili linkler için <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/</code> ile başlayan yol kullanın (ör. <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/kampanyalar</code>).
+        Harici linkler için tam URL girin ve "Yeni Sekmede Aç" seçeneğini etkinleştirin.
+      </div>
+    </div>
+  );
+}
 
 function AnalyticsTab() {
   const [loading, setLoading] = useState(true);
@@ -3970,6 +4229,16 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    key: 'navlinks',
+    label: 'Menü Linkleri',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+    ),
+  },
+  {
     key: 'slider',
     label: 'Slider Yönetimi',
     icon: (
@@ -4086,6 +4355,7 @@ export default function Settings() {
     social:        <SocialMediaTab />,
     maintenance:   <MaintenanceTab />,
     pages:         <PagesTab />,
+    navlinks:      <NavLinksTab />,
     slider:        <SliderTab />,
     messages:      <MessagesTab />,
     tools:         <ToolsTab />,

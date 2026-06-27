@@ -39,6 +39,13 @@ export function BottomNav() {
   });
   const menuPages = (menuPagesData?.data?.data ?? []).filter((p) => p.showInHeader);
 
+  const { data: navLinksData } = useQuery({
+    queryKey: ['nav-links'],
+    queryFn: () => api.get<{ success: boolean; data: Array<{ id: string; label: string; url: string; openInNewTab: boolean }> }>('/nav-links'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const navLinks = navLinksData?.data?.data ?? [];
+
   async function handleLogout() {
     try {
       await authApi.logout();
@@ -165,6 +172,28 @@ export function BottomNav() {
                   </SheetClose>
                 ))}
               </div>
+
+              {/* Özel Linkler — admin'den yönetilen navigasyon linkleri */}
+              {navLinks.length > 0 && (
+                <div className="border-t pt-3 pb-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wide">Bağlantılar</p>
+                  {navLinks.map((link) => (
+                    <SheetClose
+                      key={link.id}
+                      render={
+                        <a
+                          href={link.url}
+                          target={link.openInNewTab ? '_blank' : undefined}
+                          rel={link.openInNewTab ? 'noopener noreferrer' : undefined}
+                          className="block px-2 py-2 text-sm font-medium rounded-md hover:bg-muted hover:text-primary transition-colors"
+                        />
+                      }
+                    >
+                      {link.label}
+                    </SheetClose>
+                  ))}
+                </div>
+              )}
 
               {/* Sayfalar — admin'den gelen, showInHeader aktif olanlar */}
               {menuPages.length > 0 && (
