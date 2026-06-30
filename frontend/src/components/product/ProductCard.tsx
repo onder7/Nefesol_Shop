@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Product } from '@/types';
 import { Heart, Star, ShoppingCart } from 'lucide-react';
@@ -18,7 +19,32 @@ function formatPrice(price: number | string): string {
 }
 
 export function ProductCard({ product }: Props) {
-  const primaryImage = product.images?.find((img) => img.isPrimary) ?? product.images?.[0];
+  // Görseller: birincil önce, ardından diğerleri — hover'da sırayla döner
+  const images = (product.images ?? [])
+    .slice()
+    .sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+  const primaryImage = images[0];
+
+  const [imgIdx, setImgIdx] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCycle = () => {
+    if (images.length < 2 || intervalRef.current) return;
+    intervalRef.current = setInterval(() => {
+      setImgIdx((i) => (i + 1) % images.length);
+    }, 900);
+  };
+  const stopCycle = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setImgIdx(0);
+  };
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  const activeImage = images[imgIdx] ?? primaryImage;
+
   const cheapestVariant = product.variants?.reduce((min, v) =>
     Number(v.price) < Number(min.price) ? v : min, product.variants[0]);
   const inStock = product.variants?.some((v) => v.stockQty > 0);
@@ -75,11 +101,15 @@ export function ProductCard({ product }: Props) {
       className="group flex flex-col rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden text-left hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-700 transition-all duration-200"
     >
       {/* Görsel Kutusu */}
-      <div className="relative aspect-[4/5] bg-[#F4F4F4] dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
-        {primaryImage ? (
+      <div
+        className="relative aspect-[4/5] bg-[#F4F4F4] dark:bg-neutral-800 flex items-center justify-center overflow-hidden"
+        onMouseEnter={startCycle}
+        onMouseLeave={stopCycle}
+      >
+        {activeImage ? (
           <img
-            src={primaryImage.url}
-            alt={primaryImage.altText ?? product.name}
+            src={activeImage.url}
+            alt={activeImage.altText ?? product.name}
             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
           />
