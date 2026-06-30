@@ -36,6 +36,14 @@ export function OrderSuccess() {
   const [params] = useSearchParams();
   const location = useLocation();
   const havale = (location.state as { havale?: HavaleState } | null)?.havale;
+  // Havale açıklamasında sipariş numarası garanti olsun (yoksa ekle)
+  const havaleAciklama = (() => {
+    if (!havale) return '';
+    const base = havale.description ?? '';
+    const tag = havale.orderNumber ? `#${havale.orderNumber}` : '';
+    if (!tag) return base;
+    return base.includes(tag) ? base : `${base} ${tag}`.trim();
+  })();
   const orderId = params.get('orderId');
   const { setCart, setAppliedCoupon } = useCartStore();
 
@@ -107,12 +115,12 @@ export function OrderSuccess() {
                 </div>
               </div>
             )}
-            {havale.description && (
+            {havaleAciklama && (
               <div className="flex justify-between items-center gap-2">
                 <span className="text-muted-foreground flex-shrink-0">Açıklama</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-semibold">{havale.description}</span>
-                  <button type="button" onClick={() => copyToClipboard(havale.description!, 'Açıklama')} className="p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+                  <span className="font-mono text-xs font-semibold">{havaleAciklama}</span>
+                  <button type="button" onClick={() => copyToClipboard(havaleAciklama, 'Açıklama')} className="p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
                     <Copy className="h-3.5 w-3.5 text-blue-600" />
                   </button>
                 </div>

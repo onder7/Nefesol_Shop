@@ -245,8 +245,8 @@ function HavaleInfo({ info }: { info: NonNullable<{ bankName: string; iban: stri
         )}
       </div>
       <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed border-t border-blue-200 dark:border-blue-700 pt-3">
-        Ödemeniz tarafımıza ulaştıktan sonra siparişiniz hazırlanmaya başlanacaktır.
-        Açıklama kısmına sipariş numaranızı yazmayı unutmayın.
+        Siparişi tamamladığınızda size bir <strong>sipariş numarası</strong> verilir; havale/EFT
+        açıklamasına bu numarayı yazın. Ödemeniz tarafımıza ulaştıktan sonra siparişiniz hazırlanmaya başlar.
       </p>
     </div>
   );
@@ -535,7 +535,7 @@ export function Checkout() {
       {/* Price breakdown */}
       <div className="border rounded-lg p-4 space-y-2">
         <div className="flex justify-between text-sm">
-          <span>Ara Toplam (KDV Dahil)</span>
+          <span>Ara Toplam</span>
           <span>{formatPrice(subtotal)}</span>
         </div>
         {discount > 0 && (
@@ -555,7 +555,7 @@ export function Checkout() {
           </div>
         )}
         <div className="flex justify-between font-semibold border-t pt-2">
-          <span>Toplam</span>
+          <span>Toplam (KDV Dahil)</span>
           <span>{formatPrice(total)}</span>
         </div>
       </div>
