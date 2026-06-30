@@ -286,7 +286,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </table>
   <div class="totals-row">
     <table class="totals-table">
-      <tr><td>Ara Toplam (KDV Dahil)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
+      <tr><td>Ara Toplam</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
       <tr class="total-row"><td><strong>GENEL TOPLAM${vatRate > 0 ? ` (%${vatRate} KDV Dahil)` : ''}</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
   </div>
