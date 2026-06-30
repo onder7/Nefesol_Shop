@@ -282,12 +282,11 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </div>
   <table>
     <thead><tr><th style="width:50%">ÜRÜN</th><th style="width:12%">ADET</th><th style="width:19%">BİRİM FİYAT</th><th style="width:19%">ARA TOPLAM</th></tr></thead>
-    <tbody>${itemRows}</tbody>
+    <tbody>${itemRows}${discountN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;color:#16a34a;font-weight:bold">İskonto</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;color:#16a34a;font-weight:bold">−${fmtN(discountN)}</td></tr>` : ''}</tbody>
   </table>
   <div class="totals-row">
     <table class="totals-table">
       <tr><td>Ara Toplam (KDV Dahil)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
-      ${discountN > 0 ? `<tr><td style="color:#16a34a">İskonto</td><td style="text-align:right;color:#16a34a">−${fmtN(discountN)}</td></tr>` : ''}
       <tr class="total-row"><td><strong>GENEL TOPLAM${vatRate > 0 ? ` (%${vatRate} KDV Dahil)` : ''}</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
   </div>
