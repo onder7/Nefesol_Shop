@@ -178,7 +178,7 @@ export function OrderDetail() {
       company.logoUrl = `${window.location.origin}${company.logoUrl}`;
     }
 
-    // KDV oranı (global) — fiyatlar KDV dahil, orandan net/KDV ayrıştırılır
+    // KDV oranı (global) — fiyatlar KDV dahil, sadece toplam etiketinde gösterilir
     let vatRate = 20;
     try {
       const tr = await api.get<{ success: boolean; data: { taxRate: number } }>('/tax-config');
@@ -188,13 +188,9 @@ export function OrderDetail() {
 
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const subtotalN = Number(order.subtotal);   // KDV dahil
-    const discountN = Number(order.discount);   // KDV dahil
-    const totalN    = Number(order.total);      // KDV dahil
-    const div       = 1 + vatRate / 100;
-    const netSubtotalN = subtotalN / div;       // KDV hariç ara toplam
-    const netDiscountN = discountN / div;       // KDV hariç indirim
-    const vatAmount    = Math.max(0, Math.round((totalN - totalN / div) * 100) / 100); // toplam KDV
+    const subtotalN = Number(order.subtotal);   // KDV dahil (brüt)
+    const discountN = Number(order.discount);   // iskonto (brüt)
+    const totalN    = Number(order.total);      // KDV dahil (brüt)
     const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
     const addr = order.address as any;
@@ -290,10 +286,9 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </table>
   <div class="totals-row">
     <table class="totals-table">
-      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(netSubtotalN)}</td></tr>
-      ${discountN > 0 ? `<tr><td style="color:#16a34a">İndirim (KDV Hariç)</td><td style="text-align:right;color:#16a34a">−${fmtN(netDiscountN)}</td></tr>` : ''}
-      <tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(vatAmount)}</td></tr>
-      <tr class="total-row"><td><strong>GENEL TOPLAM</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
+      <tr><td>Ara Toplam (KDV Dahil)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
+      ${discountN > 0 ? `<tr><td style="color:#16a34a">İskonto</td><td style="text-align:right;color:#16a34a">−${fmtN(discountN)}</td></tr>` : ''}
+      <tr class="total-row"><td><strong>GENEL TOPLAM${vatRate > 0 ? ` (%${vatRate} KDV Dahil)` : ''}</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
   </div>
   <div class="footer">
@@ -352,12 +347,10 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
 
   const addr = order.address as { firstName: string; lastName: string; address: string; district: string; city: string } | undefined;
 
-  // Fiyatlar KDV dahil. Net = gross / (1 + oran/100); KDV = toplam − net toplam
-  const div = 1 + taxRate / 100;
-  const orderDiscount = Number(order.discount) / div;       // KDV hariç indirim
-  const orderTotal = Number(order.total);                   // KDV dahil
-  const netSubtotal = Number(order.subtotal) / div;         // KDV hariç ara toplam
-  const orderKdv = Math.max(0, Math.round((orderTotal - orderTotal / div) * 100) / 100);
+  // Fiyatlar KDV dahil — Excel gösterimi: brüt ara toplam − iskonto = toplam (KDV dahil)
+  const grossSubtotal = Number(order.subtotal);   // KDV dahil (brüt)
+  const orderDiscount = Number(order.discount);    // iskonto (brüt)
+  const orderTotal = Number(order.total);          // KDV dahil (brüt)
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-7xl">
@@ -404,21 +397,17 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
           <p className="text-sm font-semibold mb-4">Sipariş Özeti</p>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Ara Toplam (KDV Hariç)</span>
-              <span className="font-medium">{formatPrice(netSubtotal)}</span>
+              <span className="text-muted-foreground">Ara Toplam (KDV Dahil)</span>
+              <span className="font-medium">{formatPrice(grossSubtotal)}</span>
             </div>
             {orderDiscount > 0 && (
               <div className="flex justify-between text-green-600">
-                <span className="text-muted-foreground">İndirim (KDV Hariç)</span>
+                <span className="text-muted-foreground">İskonto</span>
                 <span className="font-medium">−{formatPrice(orderDiscount)}</span>
               </div>
             )}
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">KDV (%{taxRate})</span>
-              <span className="font-medium">{formatPrice(orderKdv)}</span>
-            </div>
             <div className="flex justify-between border-t pt-3 font-semibold">
-              <span>Toplam</span>
+              <span>Toplam (%{taxRate} KDV Dahil)</span>
               <span>{formatPrice(orderTotal)}</span>
             </div>
           </div>
