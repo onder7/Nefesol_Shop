@@ -589,6 +589,59 @@ export async function sendRefundEmail(
   await sendMail({ to, subject: `İadeniz Tamamlandı — #${orderRef}`, html });
 }
 
+function customerShell(titleColor: string, title: string, bodyHtml: string, btnColor = '#2563eb'): string {
+  const ordersUrl = `${env.FRONTEND_URL}/hesabim/siparisler`;
+  return `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+      <h2 style="color:${titleColor}">${escapeHtml(title)}</h2>
+      ${bodyHtml}
+      <p style="margin:24px 0">
+        <a href="${ordersUrl}" style="background:${btnColor};color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
+          Siparişlerimi Görüntüle
+        </a>
+      </p>
+    </div>
+  `;
+}
+
+export async function sendCancellationRequestedEmail(to: string, orderId: string): Promise<void> {
+  const orderRef = orderId.slice(-8).toUpperCase();
+  const body = `
+    <p>Sipariş No: <strong>#${orderRef}</strong></p>
+    <p style="margin:16px 0">Sipariş <strong>iptal talebiniz</strong> tarafımıza ulaştı ve incelemeye alındı.
+    Talebiniz onaylandığında ödemeniz iade edilecektir. Süreç sonucu hakkında ayrıca e-posta ile bilgilendirileceksiniz.</p>
+  `;
+  await sendMail({ to, subject: `İptal Talebiniz Alındı — #${orderRef}`, html: customerShell('#2563eb', 'İptal Talebiniz Alındı', body) });
+}
+
+export async function sendCancellationApprovedEmail(
+  to: string,
+  orderId: string,
+  coupon?: { code: string; value: number },
+): Promise<void> {
+  const orderRef = orderId.slice(-8).toUpperCase();
+  const body = coupon
+    ? `<p>Sipariş No: <strong>#${orderRef}</strong></p>
+       <p style="margin:16px 0">İptal talebiniz <strong>onaylandı</strong>. Size özel
+       <strong>${formatPrice(coupon.value)}</strong> değerinde indirim kuponu tanımlandı:</p>
+       <p style="font-family:monospace;font-size:18px;font-weight:bold;background:#f3f4f6;padding:10px 16px;border-radius:6px;display:inline-block">${escapeHtml(coupon.code)}</p>
+       <p style="margin:16px 0;color:#374151">Kuponunuzu bir sonraki alışverişinizde kullanabilirsiniz.</p>`
+    : `<p>Sipariş No: <strong>#${orderRef}</strong></p>
+       <p style="margin:16px 0">İptal talebiniz <strong>onaylandı</strong>. Ödemeniz en kısa sürede iade edilecek; iade tamamlandığında ayrıca bilgilendirileceksiniz.</p>`;
+  await sendMail({ to, subject: `İptal Talebiniz Onaylandı — #${orderRef}`, html: customerShell('#16a34a', 'İptal Talebiniz Onaylandı', body, '#16a34a') });
+}
+
+export async function sendCancellationRejectedEmail(to: string, orderId: string, reason?: string): Promise<void> {
+  const orderRef = orderId.slice(-8).toUpperCase();
+  const body = `
+    <p>Sipariş No: <strong>#${orderRef}</strong></p>
+    <p style="margin:16px 0">İptal talebiniz değerlendirildi ancak <strong>onaylanamadı</strong>.</p>
+    ${reason ? `<p style="margin:12px 0;color:#374151"><strong>Açıklama:</strong> ${escapeHtml(reason)}</p>` : ''}
+    <p style="margin:16px 0;color:#374151">Sorularınız için bizimle iletişime geçebilirsiniz.</p>
+  `;
+  await sendMail({ to, subject: `İptal Talebiniz Hakkında — #${orderRef}`, html: customerShell('#dc2626', 'İptal Talebiniz Onaylanamadı', body, '#dc2626') });
+}
+
 export async function sendCartReminderEmail(
   to: string,
   customerName: string,

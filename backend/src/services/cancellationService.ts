@@ -53,8 +53,12 @@ export async function requestCancellation(
     },
   });
 
-  // TODO: Send email notification when emailService sendMail is exported
-  // Email type: İptal Talebi Alındı
+  // ─── Müşteriye iptal talebi alındı bildirimi (hata yutulur) ───
+  if (order.user?.email) {
+    void emailSvc
+      .sendCancellationRequestedEmail(order.user.email, orderId)
+      .catch((e) => logger.error('İptal talebi e-postası gönderilemedi', { orderId, error: e?.message }));
+  }
 
   return cancellation;
 }
@@ -114,8 +118,13 @@ export async function approveCancellation(
     });
   }
 
-  // TODO: Send approval email when emailService sendMail is exported
-  // Email type: İptal Onaylandı (with coupon info if applicable)
+  // ─── Müşteriye iptal onaylandı bildirimi (kupon teklifi varsa dahil; hata yutulur) ───
+  if (cancellation.order?.user?.email) {
+    const coupon = couponOffered && couponCode ? { code: couponCode, value: Number(couponValue ?? 0) } : undefined;
+    void emailSvc
+      .sendCancellationApprovedEmail(cancellation.order.user.email, cancellation.orderId, coupon)
+      .catch((e) => logger.error('İptal onay e-postası gönderilemedi', { cancellationId, error: e?.message }));
+  }
 
   return updated;
 }
@@ -138,8 +147,12 @@ export async function rejectCancellation(cancellationId: string, reason?: string
     },
   });
 
-  // TODO: Send rejection email when emailService sendMail is exported
-  // Email type: İptal Reddedildi
+  // ─── Müşteriye iptal reddedildi bildirimi (hata yutulur) ───
+  if (cancellation.order?.user?.email) {
+    void emailSvc
+      .sendCancellationRejectedEmail(cancellation.order.user.email, cancellation.orderId, reason)
+      .catch((e) => logger.error('İptal red e-postası gönderilemedi', { cancellationId, error: e?.message }));
+  }
 
   return updated;
 }
