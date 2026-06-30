@@ -185,8 +185,9 @@ function HavaleInfo({ info, noteOnly = false }: { info: NonNullable<{ bankName: 
           Havale / EFT ile Ödeme
         </p>
         <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-          Siparişi tamamladığınızda size bir <strong>sipariş numarası</strong> ve <strong>banka bilgileri (IBAN, hesap adı)</strong> gösterilir.
-          Havale/EFT açıklamasına sipariş numaranızı yazın. Ödemeniz tarafımıza ulaştıktan sonra siparişiniz hazırlanmaya başlar.
+          Siparişinizi tamamladıktan sonra açılacak ekranda <strong>banka hesap bilgilerimiz</strong> ve size özel
+          <strong> Sipariş Numaranız</strong> görüntülenecektir. Lütfen havale/EFT işlemini gerçekleştirirken açıklama
+          kısmına <strong>Sipariş Numaranızı</strong> yazınız. Ödemeniz doğrulandıktan sonra siparişiniz işleme alınacaktır.
         </p>
       </div>
     );
