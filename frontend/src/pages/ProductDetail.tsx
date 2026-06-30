@@ -379,6 +379,34 @@ export function ProductDetail() {
             >
               <Heart className={`h-5 w-5 transition-all duration-200 ${fav ? 'fill-white' : ''}`} />
             </button>
+
+            {/* İleri / geri okları (birden fazla görsel varsa) */}
+            {product.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Önceki görsel"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImageIdx((i) => (i - 1 + product.images.length) % product.images.length);
+                  }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 dark:bg-neutral-800/85 backdrop-blur-sm text-neutral-700 dark:text-neutral-200 shadow-md hover:bg-white dark:hover:bg-neutral-700 active:scale-95 transition-all"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Sonraki görsel"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImageIdx((i) => (i + 1) % product.images.length);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 dark:bg-neutral-800/85 backdrop-blur-sm text-neutral-700 dark:text-neutral-200 shadow-md hover:bg-white dark:hover:bg-neutral-700 active:scale-95 transition-all"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            )}
           </div>
           {product.images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin justify-center sm:justify-start">
