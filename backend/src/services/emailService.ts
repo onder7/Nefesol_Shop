@@ -308,6 +308,7 @@ interface AdminAlertSettings {
   newOrder: boolean;
   lowStock: boolean;
   newReview: boolean;
+  newQuestion: boolean;
 }
 
 async function getAdminAlertSettings(): Promise<AdminAlertSettings> {
@@ -321,6 +322,7 @@ async function getAdminAlertSettings(): Promise<AdminAlertSettings> {
     newOrder: s['new_order_alert'] === 'true',
     lowStock: s['low_stock_alert'] === 'true',
     newReview: s['new_review_alert'] === 'true',
+    newQuestion: s['new_question_alert'] === 'true',
   };
 }
 
@@ -422,6 +424,30 @@ export async function notifyAdminNewReview(info: {
     to: cfg.recipients.join(', '),
     subject: `⭐ Yeni Değerlendirme — ${info.productName}`,
     html: adminShell('Yeni Değerlendirme', inner),
+  });
+}
+
+export async function notifyAdminNewQuestion(info: {
+  productName: string;
+  author: string;
+  body: string;
+}): Promise<void> {
+  const cfg = await getAdminAlertSettings();
+  if (!cfg.newQuestion || cfg.recipients.length === 0) return;
+
+  const inner = `
+    <p>Bir ürüne yeni bir soru soruldu (onay bekliyor).</p>
+    <table style="border-collapse:collapse;margin-top:8px">
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Ürün</td><td style="font-weight:bold">${escapeHtml(info.productName)}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Soran</td><td>${escapeHtml(info.author || '—')}</td></tr>
+    </table>
+    <p style="margin-top:12px;color:#374151">${escapeHtml(info.body)}</p>
+    <p style="color:#6b7280;font-size:13px;margin-top:12px">Yanıtlamak için admin panelindeki Soru-Cevap sayfasını ziyaret edin.</p>
+  `;
+  await sendMail({
+    to: cfg.recipients.join(', '),
+    subject: `❓ Yeni Soru — ${info.productName}`,
+    html: adminShell('Yeni Ürün Sorusu', inner),
   });
 }
 
@@ -530,6 +556,37 @@ export async function sendOrderStatusUpdate(
   `;
 
   await sendMail({ to, subject: `Sipariş Durumu: ${statusLabel} — #${orderRef}`, html });
+}
+
+export async function sendRefundEmail(
+  to: string,
+  orderId: string,
+  amount: number,
+): Promise<void> {
+  const orderRef = orderId.slice(-8).toUpperCase();
+  const ordersUrl = `${env.FRONTEND_URL}/hesabim/siparisler`;
+  const storeName = await getStoreName();
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+      <h2 style="color:#16a34a">İadeniz Tamamlandı</h2>
+      <p>Sipariş No: <strong>#${orderRef}</strong></p>
+      <p style="margin:16px 0">
+        Siparişinizle ilgili iade işleminiz tamamlanmıştır. İade tutarı
+        <strong>${formatPrice(amount)}</strong> ödeme yönteminize iade edilmiştir.
+        Bankanıza bağlı olarak hesabınıza yansıması <strong>1–7 iş günü</strong> sürebilir.
+      </p>
+      <p style="margin:24px 0">
+        <a href="${ordersUrl}"
+           style="background:#16a34a;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
+          Siparişlerimi Görüntüle
+        </a>
+      </p>
+      <p style="color:#666;font-size:14px">${storeName}'i tercih ettiğiniz için teşekkürler.</p>
+    </div>
+  `;
+
+  await sendMail({ to, subject: `İadeniz Tamamlandı — #${orderRef}`, html });
 }
 
 export async function sendCartReminderEmail(

@@ -1278,9 +1278,10 @@ function NotificationsTab() {
         </Field>
         <div className="space-y-3 mt-2">
           {[
-            { key: 'new_order_alert',  label: 'Yeni sipariş geldiğinde bildir' },
-            { key: 'low_stock_alert',  label: 'Stok tükendiğinde bildir' },
-            { key: 'new_review_alert', label: 'Yeni yorum yapıldığında bildir' },
+            { key: 'new_order_alert',    label: 'Yeni sipariş geldiğinde bildir' },
+            { key: 'low_stock_alert',    label: 'Stok tükendiğinde bildir' },
+            { key: 'new_review_alert',   label: 'Yeni yorum yapıldığında bildir' },
+            { key: 'new_question_alert', label: 'Yeni soru sorulduğunda bildir' },
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center justify-between">
               <span className="text-sm text-black dark:text-white">{label}</span>

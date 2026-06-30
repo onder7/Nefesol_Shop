@@ -1,6 +1,8 @@
 import { prisma } from '../config/database';
 import { CancellationReason, CancellationStatus, OrderStatus } from '@prisma/client';
 import { createPersonalCoupon } from './discountService';
+import * as emailSvc from './emailService';
+import { logger } from '../config/logger';
 
 const CANCELLATION_REASON_LABELS: Record<CancellationReason, string> = {
   CHANGED_MIND: 'Siparişten Vazgeçtim',
@@ -177,8 +179,13 @@ export async function processRefund(cancellationId: string) {
     },
   });
 
-  // TODO: Send refund email when emailService sendMail is exported
-  // Email type: İade Tamamlandı
+  // ─── Müşteriye iade tamamlandı bildirimi (hata yutulur) ───
+  const email = cancellation.order?.user?.email;
+  if (email) {
+    void emailSvc
+      .sendRefundEmail(email, cancellation.orderId, Number(cancellation.refundAmount))
+      .catch((e) => logger.error('İade e-postası gönderilemedi', { cancellationId, error: e?.message }));
+  }
 
   return updated;
 }

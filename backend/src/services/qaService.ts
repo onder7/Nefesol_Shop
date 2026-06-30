@@ -1,6 +1,8 @@
 import { prisma } from '../config/database';
 import { AppError } from '../types';
 import { maskProfile, maskFullName } from '../utils/maskName';
+import * as emailSvc from './emailService';
+import { logger } from '../config/logger';
 
 export async function getQuestions(productId: string) {
   const raw = await prisma.productQuestion.findMany({
@@ -56,7 +58,7 @@ export async function addQuestion(
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new AppError('Ürün bulunamadı', 404);
 
-  return prisma.productQuestion.create({
+  const question = await prisma.productQuestion.create({
     data: {
       productId,
       userId: options.userId,
@@ -73,6 +75,17 @@ export async function addQuestion(
       answers: true,
     },
   });
+
+  // ─── Yöneticiye yeni soru bildirimi (hata yutulur) ───
+  const author =
+    [question.user?.profile?.firstName, question.user?.profile?.lastName].filter(Boolean).join(' ').trim() ||
+    options.guestName ||
+    'Misafir';
+  void emailSvc
+    .notifyAdminNewQuestion({ productName: product.name, author, body: question.body })
+    .catch((e) => logger.error('Yeni soru e-postası gönderilemedi', { questionId: question.id, error: e?.message }));
+
+  return question;
 }
 
 export async function addAnswer(
