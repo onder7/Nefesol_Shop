@@ -163,7 +163,7 @@ function PayMethodCard({
 
 // ─── Havale Info ──────────────────────────────────────────────────────────────
 
-function HavaleInfo({ info }: { info: NonNullable<{ bankName: string; iban: string; accountName: string; description: string; orderNumber?: string }> }) {
+function HavaleInfo({ info, noteOnly = false }: { info: NonNullable<{ bankName: string; iban: string; accountName: string; description: string; orderNumber?: string }>; noteOnly?: boolean }) {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} kopyalandı`)).catch(() => {
       const el = document.createElement('textarea');
@@ -175,6 +175,22 @@ function HavaleInfo({ info }: { info: NonNullable<{ bankName: string; iban: stri
       toast.success(`${label} kopyalandı`);
     });
   };
+
+  // Checkout'ta yalnızca bilgilendirme notu — banka bilgileri sonraki adımda
+  if (noteOnly) {
+    return (
+      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
+        <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-2 mb-2">
+          <Banknote className="h-4 w-4" />
+          Havale / EFT ile Ödeme
+        </p>
+        <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+          Siparişi tamamladığınızda size bir <strong>sipariş numarası</strong> ve <strong>banka bilgileri (IBAN, hesap adı)</strong> gösterilir.
+          Havale/EFT açıklamasına sipariş numaranızı yazın. Ödemeniz tarafımıza ulaştıktan sonra siparişiniz hazırlanmaya başlar.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4 space-y-3">
@@ -524,10 +540,10 @@ export function Checkout() {
           )}
         </div>
 
-        {/* Havale details preview */}
-        {payMethod === 'havale' && methods.havale.iban && (
+        {/* Havale bilgilendirme notu — banka bilgileri sonraki adımda gösterilir */}
+        {payMethod === 'havale' && (
           <div className="mt-3">
-            <HavaleInfo info={methods.havale} />
+            <HavaleInfo info={methods.havale} noteOnly />
           </div>
         )}
       </div>
