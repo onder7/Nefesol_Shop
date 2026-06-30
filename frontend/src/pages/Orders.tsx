@@ -241,7 +241,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;background
 .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #111;margin-bottom:20px}
 .title{font-size:28px;font-weight:900;letter-spacing:1px;line-height:1.1;margin-top:2px}
 .header-right{text-align:right}
-.company-name{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.company-name{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:4px}
 .company-addr{font-size:11px;color:#444;line-height:1.7}
 .info-grid{display:flex;gap:0;margin-bottom:24px}
 .info-left{flex:1}

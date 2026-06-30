@@ -360,7 +360,7 @@ export default function OrderDetailPage() {
   .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 3px solid #111; margin-bottom: 20px; }
   .header-left .title { font-size: 28px; font-weight: 900; letter-spacing: 1px; color: #111; line-height: 1.1; margin-top: 2px; }
   .header-right { text-align: right; }
-  .header-right .company-name { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .header-right .company-name { font-size: 15px; font-weight: 700; letter-spacing: .3px; margin-bottom: 4px; }
   .header-right .company-addr { font-size: 11px; color: #444; line-height: 1.7; }
 
   /* ─── Customer + Order Info ─── */

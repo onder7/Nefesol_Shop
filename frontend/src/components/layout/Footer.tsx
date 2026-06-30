@@ -149,9 +149,10 @@ export function Footer() {
       <div className="container mx-auto px-4 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-sm">
         <div>
           <h3 className="text-lg font-bold text-white mb-4">{storeName}</h3>
-          <p className="text-neutral-400 mb-6 leading-relaxed">
-            {storeSlogan || 'Güvenli ödeme ve hızlı kargo seçenekleriyle binlerce ürünü keşfedin.'}
-          </p>
+          <div
+            className="text-neutral-400 mb-6 leading-relaxed [&_a]:underline [&_a]:text-neutral-200 hover:[&_a]:text-white [&_p]:mb-2 [&_strong]:text-white [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
+            dangerouslySetInnerHTML={{ __html: storeSlogan || 'Güvenli ödeme ve hızlı kargo seçenekleriyle binlerce ürünü keşfedin.' }}
+          />
 
           {/* Sosyal medya iconları — sadece admin panelinde girilmişse görünür */}
           {hasSocialLinks && (
@@ -256,13 +257,6 @@ export function Footer() {
               className="hover:text-white hover:underline transition-colors"
             >
               onder7@gmail.com
-            </a>
-            <span className="mx-1.5 text-neutral-700">·</span>
-            <a
-              href="tel:+905414113022"
-              className="hover:text-white hover:underline transition-colors"
-            >
-              0541 411 30 22
             </a>
           </p>
         </div>

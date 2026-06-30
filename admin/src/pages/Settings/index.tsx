@@ -288,11 +288,11 @@ function GeneralTab() {
             <input className={inputCls} value={g.tax_number ?? ''} onChange={(e) => s.set('tax_number', e.target.value)} placeholder="1234567890" />
           </Field>
         </div>
-        <Field label="Footer Sloganı" hint="Sayfa alt bilgisinde (footer) mağaza adının altında görünen kısa tanıtım yazısı.">
-          <textarea
-            className={inputCls + ' min-h-[60px] resize-y'}
+        <Field label="Footer Sloganı" hint="Sayfa alt bilgisinde (footer) mağaza adının altında görünen kısa tanıtım yazısı. Biçimlendirme (kalın, link, renk) ekleyebilirsiniz.">
+          <QuillEditor
             value={g.footer_slogan ?? ''}
-            onChange={(e) => s.set('footer_slogan', e.target.value)}
+            onChange={(html) => s.set('footer_slogan', html)}
+            minHeight={120}
             placeholder="Güvenli ödeme ve hızlı kargo seçenekleriyle binlerce ürünü keşfedin."
           />
         </Field>
