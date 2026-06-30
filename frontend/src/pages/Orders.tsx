@@ -188,10 +188,9 @@ export function OrderDetail() {
 
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const subtotalN = Number(order.subtotal);          // KDV dahil (brüt)
-    const discountN = Number(order.discount);          // iskonto (brüt)
+    const subtotalN = Number(order.subtotal);          // KDV dahil (brüt) ara toplam
+    const discountN = Number(order.discount);          // iskonto (düz tutar, KDV uygulanmaz)
     const totalN    = Number(order.total);             // KDV dahil (brüt) — iskonto düşülmüş
-    const netSubtotalN = subtotalN / (1 + vatRate / 100); // KDV hariç (net) ara toplam
     const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
     const addr = order.address as any;
@@ -287,7 +286,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </table>
   <div class="totals-row">
     <table class="totals-table">
-      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(netSubtotalN)}</td></tr>
+      <tr><td>Ara Toplam (KDV Dahil)</td><td style="text-align:right">${fmtN(subtotalN)}</td></tr>
       <tr class="total-row"><td><strong>GENEL TOPLAM${vatRate > 0 ? ` (%${vatRate} KDV Dahil)` : ''}</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
   </div>
