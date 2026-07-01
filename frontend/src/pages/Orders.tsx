@@ -188,10 +188,13 @@ export function OrderDetail() {
 
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const subtotalN = Number(order.subtotal);          // KDV dahil (brüt)
-    const discountN = Number(order.discount);          // iskonto (düz tutar, KDV uygulanmaz)
-    const totalN    = Number(order.total);             // KDV dahil (brüt) — iskonto düşülmüş
-    const netSubtotalN = subtotalN / (1 + vatRate / 100); // Ara Toplam — KDV HARİÇ (net)
+    const subtotalN = Number(order.subtotal);          // KDV dahil (brüt) — indirimsiz
+    const discountN = Number(order.discount);          // iskonto (düz tutar)
+    const totalN    = Number(order.total);             // indirimli toplam (KDV dahil brüt)
+    const divN      = 1 + vatRate / 100;
+    const netTotalN = totalN / divN;                   // Ara Toplam = indirimli toplamın KDV'siz (net) hali
+    const kdvN      = Math.max(0, totalN - netTotalN); // KDV tutarı
+    const iskontoPct = subtotalN > 0 ? Math.round((discountN / subtotalN) * 100) : 0;
     const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
     const addr = order.address as any;
@@ -282,13 +285,16 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
     </div>
   </div>
   <table>
-    <thead><tr><th style="width:50%">ÜRÜN</th><th style="width:12%">ADET</th><th style="width:19%">BİRİM FİYAT</th><th style="width:19%">ARA TOPLAM</th></tr></thead>
-    <tbody>${itemRows}${discountN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;color:#16a34a;font-weight:bold">İskonto</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;color:#16a34a;font-weight:bold">−${fmtN(discountN)}</td></tr>` : ''}</tbody>
+    <thead><tr><th style="width:50%">ÜRÜN</th><th style="width:12%">ADET</th><th style="width:19%">BİRİM FİYAT</th><th style="width:19%">TOPLAM</th></tr></thead>
+    <tbody>${itemRows}${discountN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;color:#16a34a;font-weight:bold">İskonto${iskontoPct > 0 ? ` (%${iskontoPct})` : ''}</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;color:#16a34a;font-weight:bold">−${fmtN(discountN)}</td></tr>` : ''}</tbody>
   </table>
   <div class="totals-row">
     <table class="totals-table">
-      <tr><td>Ara Toplam (KDV Hariç)</td><td style="text-align:right">${fmtN(netSubtotalN)}</td></tr>
-      <tr class="total-row"><td><strong>GENEL TOPLAM${vatRate > 0 ? ` (%${vatRate} KDV Dahil)` : ''}</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
+      <tr><td><strong>Toplam</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
+      <tr><td colspan="2" style="height:10px;border:none"></td></tr>
+      <tr><td>Ara Toplam</td><td style="text-align:right">${fmtN(netTotalN)}</td></tr>
+      <tr><td>KDV${vatRate > 0 ? ` (%${vatRate})` : ''}</td><td style="text-align:right">${fmtN(kdvN)}</td></tr>
+      <tr class="total-row"><td><strong>Genel Toplam</strong></td><td style="text-align:right"><strong>${fmtN(totalN)}</strong></td></tr>
     </table>
   </div>
   <div class="footer">
@@ -347,10 +353,12 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
 
   const addr = order.address as { firstName: string; lastName: string; address: string; district: string; city: string } | undefined;
 
-  // Fiyatlar KDV dahil — Excel gösterimi: brüt ara toplam − iskonto = toplam (KDV dahil)
-  const grossSubtotal = Number(order.subtotal);   // KDV dahil (brüt)
-  const orderDiscount = Number(order.discount);    // iskonto (brüt)
-  const orderTotal = Number(order.total);          // KDV dahil (brüt)
+  // İskonto düşülmüş toplam KDV dahil; Ara Toplam = netin (total/1+oran), KDV = fark
+  const orderDiscount = Number(order.discount);    // iskonto (düz tutar)
+  const orderTotal = Number(order.total);          // indirimli toplam (KDV dahil)
+  const orderNet = orderTotal / (1 + taxRate / 100);          // Ara Toplam (KDV hariç)
+  const orderKdv = Math.max(0, orderTotal - orderNet);        // KDV tutarı
+  const orderIskontoPct = Number(order.subtotal) > 0 ? Math.round((orderDiscount / Number(order.subtotal)) * 100) : 0;
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-7xl">
@@ -396,18 +404,22 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
         <div className="border rounded-lg p-4 bg-white">
           <p className="text-sm font-semibold mb-4">Sipariş Özeti</p>
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Ara Toplam (KDV Dahil)</span>
-              <span className="font-medium">{formatPrice(grossSubtotal)}</span>
-            </div>
             {orderDiscount > 0 && (
               <div className="flex justify-between text-green-600">
-                <span className="text-muted-foreground">İskonto</span>
+                <span className="text-muted-foreground">İskonto{orderIskontoPct > 0 ? ` (%${orderIskontoPct})` : ''}</span>
                 <span className="font-medium">−{formatPrice(orderDiscount)}</span>
               </div>
             )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Ara Toplam (KDV Hariç)</span>
+              <span className="font-medium">{formatPrice(orderNet)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">KDV (%{taxRate})</span>
+              <span className="font-medium">{formatPrice(orderKdv)}</span>
+            </div>
             <div className="flex justify-between border-t pt-3 font-semibold">
-              <span>Toplam (%{taxRate} KDV Dahil)</span>
+              <span>Genel Toplam</span>
               <span>{formatPrice(orderTotal)}</span>
             </div>
           </div>

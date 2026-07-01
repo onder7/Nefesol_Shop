@@ -846,22 +846,30 @@ export function AccountDashboard() {
                         <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                           <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Sipariş Özeti</h3>
                           <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">Ara Toplam (KDV Dahil)</span>
-                              <span className="text-gray-900 dark:text-white">
-                                {order.subtotal ? formatPrice(Number(order.subtotal)) : '-'}
-                              </span>
-                            </div>
                             {order.discount !== undefined && Number(order.discount) > 0 && (
                               <div className="flex justify-between text-green-600">
-                                <span className="text-gray-600 dark:text-gray-400">İskonto</span>
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  İskonto{Number(order.subtotal) > 0 ? ` (%${Math.round((Number(order.discount) / Number(order.subtotal)) * 100)})` : ''}
+                                </span>
                                 <span className="font-medium">
                                   −{formatPrice(Number(order.discount))}
                                 </span>
                               </div>
                             )}
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Ara Toplam (KDV Hariç)</span>
+                              <span className="text-gray-900 dark:text-white">
+                                {order.total ? formatPrice(Number(order.total) / (1 + taxRate / 100)) : '-'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">KDV (%{taxRate})</span>
+                              <span className="text-gray-900 dark:text-white">
+                                {formatPrice(Math.max(0, Number(order.total) - Number(order.total) / (1 + taxRate / 100)))}
+                              </span>
+                            </div>
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold">
-                              <span>Toplam (%{taxRate} KDV Dahil)</span>
+                              <span>Genel Toplam</span>
                               <span className="text-primary text-lg">
                                 {order.total ? formatPrice(Number(order.total)) : '-'}
                               </span>
