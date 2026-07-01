@@ -188,13 +188,11 @@ export function OrderDetail() {
 
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const subtotalN = Number(order.subtotal);          // KDV dahil (brüt) — indirimsiz
     const discountN = Number(order.discount);          // iskonto (düz tutar)
     const totalN    = Number(order.total);             // indirimli toplam (KDV dahil brüt)
     const divN      = 1 + vatRate / 100;
     const netTotalN = totalN / divN;                   // Ara Toplam = indirimli toplamın KDV'siz (net) hali
     const kdvN      = Math.max(0, totalN - netTotalN); // KDV tutarı
-    const iskontoPct = subtotalN > 0 ? Math.round((discountN / subtotalN) * 100) : 0;
     const fmtN      = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
     const addr = order.address as any;
@@ -286,7 +284,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </div>
   <table>
     <thead><tr><th style="width:50%">ÜRÜN</th><th style="width:12%">ADET</th><th style="width:19%">BİRİM FİYAT</th><th style="width:19%">TOPLAM</th></tr></thead>
-    <tbody>${itemRows}${discountN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;color:#16a34a;font-weight:bold">İskonto${iskontoPct > 0 ? ` (%${iskontoPct})` : ''}</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;color:#16a34a;font-weight:bold">−${fmtN(discountN)}</td></tr>` : ''}</tbody>
+    <tbody>${itemRows}${discountN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;color:#16a34a;font-weight:bold">İskonto</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;color:#16a34a;font-weight:bold">−${fmtN(discountN)}</td></tr>` : ''}</tbody>
   </table>
   <div class="totals-row">
     <table class="totals-table">
@@ -358,7 +356,6 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   const orderTotal = Number(order.total);          // indirimli toplam (KDV dahil)
   const orderNet = orderTotal / (1 + taxRate / 100);          // Ara Toplam (KDV hariç)
   const orderKdv = Math.max(0, orderTotal - orderNet);        // KDV tutarı
-  const orderIskontoPct = Number(order.subtotal) > 0 ? Math.round((orderDiscount / Number(order.subtotal)) * 100) : 0;
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-7xl">
@@ -406,7 +403,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
           <div className="space-y-3 text-sm">
             {orderDiscount > 0 && (
               <div className="flex justify-between text-green-600">
-                <span className="text-muted-foreground">İskonto{orderIskontoPct > 0 ? ` (%${orderIskontoPct})` : ''}</span>
+                <span className="text-muted-foreground">İskonto</span>
                 <span className="font-medium">−{formatPrice(orderDiscount)}</span>
               </div>
             )}

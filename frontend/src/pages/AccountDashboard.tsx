@@ -848,9 +848,7 @@ export function AccountDashboard() {
                           <div className="space-y-2 text-sm">
                             {order.discount !== undefined && Number(order.discount) > 0 && (
                               <div className="flex justify-between text-green-600">
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  İskonto{Number(order.subtotal) > 0 ? ` (%${Math.round((Number(order.discount) / Number(order.subtotal)) * 100)})` : ''}
-                                </span>
+                                <span className="text-gray-600 dark:text-gray-400">İskonto</span>
                                 <span className="font-medium">
                                   −{formatPrice(Number(order.discount))}
                                 </span>
