@@ -32,6 +32,11 @@ function formatPrice(price: number) {
   return price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
 }
 
+// Sipariş özeti kırılımı için 2 ondalıklı (fatura ile aynı hassasiyet)
+function formatPrice2(price: number) {
+  return price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 const ORDER_STATUS_MAP: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Beklemede', color: 'bg-yellow-100 text-yellow-800' },
   PROCESSING: { label: 'İşleniyor', color: 'bg-blue-100 text-blue-800' },
@@ -850,26 +855,32 @@ export function AccountDashboard() {
                               <div className="flex justify-between text-green-600">
                                 <span className="text-gray-600 dark:text-gray-400">İskonto</span>
                                 <span className="font-medium">
-                                  −{formatPrice(Number(order.discount))}
+                                  −{formatPrice2(Number(order.discount))}
                                 </span>
                               </div>
                             )}
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">Ara Toplam (KDV Hariç)</span>
+                            <div className="flex justify-between font-semibold">
+                              <span className="text-gray-900 dark:text-white">Toplam</span>
                               <span className="text-gray-900 dark:text-white">
-                                {order.total ? formatPrice(Number(order.total) / (1 + taxRate / 100)) : '-'}
+                                {order.total ? formatPrice2(Number(order.total)) : '-'}
+                              </span>
+                            </div>
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1 flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Ara Toplam</span>
+                              <span className="text-gray-900 dark:text-white">
+                                {order.total ? formatPrice2(Number(order.total) / (1 + taxRate / 100)) : '-'}
                               </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600 dark:text-gray-400">KDV (%{taxRate})</span>
                               <span className="text-gray-900 dark:text-white">
-                                {formatPrice(Math.max(0, Number(order.total) - Number(order.total) / (1 + taxRate / 100)))}
+                                {formatPrice2(Math.max(0, Number(order.total) - Number(order.total) / (1 + taxRate / 100)))}
                               </span>
                             </div>
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold">
                               <span>Genel Toplam</span>
                               <span className="text-primary text-lg">
-                                {order.total ? formatPrice(Number(order.total)) : '-'}
+                                {order.total ? formatPrice2(Number(order.total)) : '-'}
                               </span>
                             </div>
                           </div>
