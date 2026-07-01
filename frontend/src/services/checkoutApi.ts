@@ -68,6 +68,26 @@ export const checkoutApi = {
   getOrderCancellation: (orderId: string) =>
     api.get<{ success: boolean; data: any }>(`/checkout/orders/${orderId}/cancellation`),
 
+  // İade (Return)
+  getOrderReturns: (orderId: string) =>
+    api.get<{ success: boolean; data: Array<{
+      id: string;
+      status: 'REQUESTED' | 'APPROVED' | 'REJECTED';
+      reason: string;
+      description: string | null;
+      refundAmount: number | null;
+      adminNotes: string | null;
+      requestedAt: string;
+      items: Array<{ orderItemId: string; quantity: number }>;
+    }> }>(`/checkout/orders/${orderId}/returns`),
+
+  requestReturn: (orderId: string, payload: {
+    reason: string;
+    description?: string;
+    items: Array<{ orderItemId: string; quantity: number }>;
+  }) =>
+    api.post<{ success: boolean; data: any }>(`/checkout/orders/${orderId}/return-request`, payload),
+
   // Kullanıcının kişiye özel kuponları (gelecek alışverişte kullanılabilir)
   getMyCoupons: () =>
     api.get<{ success: boolean; data: Array<{

@@ -309,6 +309,7 @@ interface AdminAlertSettings {
   lowStock: boolean;
   newReview: boolean;
   newQuestion: boolean;
+  newReturn: boolean;
 }
 
 async function getAdminAlertSettings(): Promise<AdminAlertSettings> {
@@ -323,6 +324,7 @@ async function getAdminAlertSettings(): Promise<AdminAlertSettings> {
     lowStock: s['low_stock_alert'] === 'true',
     newReview: s['new_review_alert'] === 'true',
     newQuestion: s['new_question_alert'] === 'true',
+    newReturn: s['new_return_alert'] === 'true',
   };
 }
 
@@ -448,6 +450,28 @@ export async function notifyAdminNewQuestion(info: {
     to: cfg.recipients.join(', '),
     subject: `❓ Yeni Soru — ${info.productName}`,
     html: adminShell('Yeni Ürün Sorusu', inner),
+  });
+}
+
+export async function notifyAdminNewReturn(info: {
+  orderRef: string;
+  itemCount: number;
+}): Promise<void> {
+  const cfg = await getAdminAlertSettings();
+  if (!cfg.newReturn || cfg.recipients.length === 0) return;
+
+  const inner = `
+    <p>Bir sipariş için yeni bir <strong>iade talebi</strong> oluşturuldu (onay bekliyor).</p>
+    <table style="border-collapse:collapse;margin-top:8px">
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Sipariş No</td><td style="font-weight:bold">#${info.orderRef}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#6b7280">İade kalemi</td><td>${info.itemCount} ürün</td></tr>
+    </table>
+    <p style="color:#6b7280;font-size:13px;margin-top:12px">Onaylamak için admin panelindeki İptal & İade → İadeler sekmesini ziyaret edin.</p>
+  `;
+  await sendMail({
+    to: cfg.recipients.join(', '),
+    subject: `↩️ Yeni İade Talebi — #${info.orderRef}`,
+    html: adminShell('Yeni İade Talebi', inner),
   });
 }
 
@@ -640,6 +664,38 @@ export async function sendCancellationRejectedEmail(to: string, orderId: string,
     <p style="margin:16px 0;color:#374151">Sorularınız için bizimle iletişime geçebilirsiniz.</p>
   `;
   await sendMail({ to, subject: `İptal Talebiniz Hakkında — #${orderRef}`, html: customerShell('#dc2626', 'İptal Talebiniz Onaylanamadı', body, '#dc2626') });
+}
+
+export async function sendReturnRequestedEmail(to: string, orderId: string): Promise<void> {
+  const orderRef = orderId.slice(-8).toUpperCase();
+  const body = `
+    <p>Sipariş No: <strong>#${orderRef}</strong></p>
+    <p style="margin:16px 0">Sipariş <strong>iade talebiniz</strong> tarafımıza ulaştı ve incelemeye alındı.
+    Talebiniz onaylandığında iade tutarınız ödeme yönteminize iade edilecektir. Süreç sonucu hakkında ayrıca e-posta ile bilgilendirileceksiniz.</p>
+  `;
+  await sendMail({ to, subject: `İade Talebiniz Alındı — #${orderRef}`, html: customerShell('#2563eb', 'İade Talebiniz Alındı', body) });
+}
+
+export async function sendReturnApprovedEmail(to: string, orderId: string, amount: number): Promise<void> {
+  const orderRef = orderId.slice(-8).toUpperCase();
+  const body = `
+    <p>Sipariş No: <strong>#${orderRef}</strong></p>
+    <p style="margin:16px 0">İade talebiniz <strong>onaylandı</strong> ve
+    <strong>${formatPrice(amount)}</strong> tutarındaki iadeniz ödeme yönteminize işlenmiştir.
+    Bankanıza bağlı olarak hesabınıza yansıması <strong>1–7 iş günü</strong> sürebilir.</p>
+  `;
+  await sendMail({ to, subject: `İade Talebiniz Onaylandı — #${orderRef}`, html: customerShell('#16a34a', 'İade Talebiniz Onaylandı', body, '#16a34a') });
+}
+
+export async function sendReturnRejectedEmail(to: string, orderId: string, reason?: string): Promise<void> {
+  const orderRef = orderId.slice(-8).toUpperCase();
+  const body = `
+    <p>Sipariş No: <strong>#${orderRef}</strong></p>
+    <p style="margin:16px 0">İade talebiniz değerlendirildi ancak <strong>onaylanamadı</strong>.</p>
+    ${reason ? `<p style="margin:12px 0;color:#374151"><strong>Açıklama:</strong> ${escapeHtml(reason)}</p>` : ''}
+    <p style="margin:16px 0;color:#374151">Sorularınız için bizimle iletişime geçebilirsiniz.</p>
+  `;
+  await sendMail({ to, subject: `İade Talebiniz Hakkında — #${orderRef}`, html: customerShell('#dc2626', 'İade Talebiniz Onaylanamadı', body, '#dc2626') });
 }
 
 export async function sendCartReminderEmail(

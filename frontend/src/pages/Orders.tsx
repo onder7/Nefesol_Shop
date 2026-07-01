@@ -9,6 +9,8 @@ import { checkoutApi } from '@/services/checkoutApi';
 import { api } from '@/services/api';
 import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
+import { ReturnModal } from '@/components/order/ReturnModal';
+import { ReturnStatus } from '@/components/order/ReturnStatus';
 import { useTaxConfig } from '@/hooks/useTaxConfig';
 import type { Order } from '@/types';
 
@@ -142,6 +144,8 @@ export function OrderDetail() {
   const { id: orderId = '' } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const [isCancellationModalOpen, setIsCancellationModalOpen] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [returnVersion, setReturnVersion] = useState(0);
   const [invoiceSending, setInvoiceSending] = useState(false);
   const [invoiceOk, setInvoiceOk] = useState(false);
   const [invoiceErr, setInvoiceErr] = useState('');
@@ -533,6 +537,27 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
         </div>
       )}
 
+      {/* İade Durumu (varsa) */}
+      <div className="mb-8">
+        <ReturnStatus orderId={orderId!} version={returnVersion} />
+      </div>
+
+      {/* İade Talebi Butonu — kargolanmış/teslim edilmiş siparişler */}
+      {['SHIPPED', 'DELIVERED'].includes(order.status) && (
+        <div className="border rounded-lg p-4 mb-8 bg-neutral-50 border-neutral-200 flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            <RefreshCw className="h-5 w-5 text-neutral-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-neutral-900">Ürün İadesi</p>
+              <p className="text-sm text-neutral-700 mt-1">Ürünlerin tamamını veya bir kısmını iade edebilirsiniz. Onaylandığında tutar iade edilir.</p>
+            </div>
+          </div>
+          <Button variant="outline" onClick={() => setIsReturnModalOpen(true)} className="ml-4 flex-shrink-0">
+            İade Talebi Oluştur
+          </Button>
+        </div>
+      )}
+
       {/* Invoice actions */}
       {invoiceOk && (
         <div className="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 px-4 py-3 text-sm">
@@ -576,6 +601,14 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
           refetch();
           qc.invalidateQueries({ queryKey: ['order-cancellation', orderId] });
         }}
+      />
+
+      <ReturnModal
+        orderId={orderId!}
+        items={(order.items ?? []) as any}
+        isOpen={isReturnModalOpen}
+        onClose={() => setIsReturnModalOpen(false)}
+        onSuccess={() => setReturnVersion((v) => v + 1)}
       />
     </main>
   );

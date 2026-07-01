@@ -1282,6 +1282,7 @@ function NotificationsTab() {
             { key: 'low_stock_alert',    label: 'Stok tükendiğinde bildir' },
             { key: 'new_review_alert',   label: 'Yeni yorum yapıldığında bildir' },
             { key: 'new_question_alert', label: 'Yeni soru sorulduğunda bildir' },
+            { key: 'new_return_alert',   label: 'Yeni iade talebi geldiğinde bildir' },
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center justify-between">
               <span className="text-sm text-black dark:text-white">{label}</span>

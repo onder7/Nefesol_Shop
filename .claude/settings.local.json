@@ -15,7 +15,8 @@
       "Bash(git mv *)",
       "Bash(cp /tmp/setup_dryrun.ts src/_dryrun.ts)",
       "Bash(sed -i \"s#'./src/services/setupService'#'./services/setupService'#; s#'./src/config/database'#'./config/database'#\" src/_dryrun.ts)",
-      "Bash(DATABASE_URL='postgresql://ecom:ecom_pass@localhost:5433/setup_test' npx ts-node --transpile-only src/_dryrun.ts)"
+      "Bash(DATABASE_URL='postgresql://ecom:ecom_pass@localhost:5433/setup_test' npx ts-node --transpile-only src/_dryrun.ts)",
+      "Bash(\"/c/Program Files/PuTTY/plink\" -ssh -batch -pw \"T3kn3t12!\" onder@31.7.33.14 \"cd /home/onder/management/stacks/nefesol-shop && docker compose logs backend --since 10m --tail 50\")"
     ]
   }
 }

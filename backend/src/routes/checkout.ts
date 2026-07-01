@@ -4,6 +4,7 @@ import { authenticate, requireAdmin } from '../middlewares/auth';
 import { validate } from '../middlewares/validate';
 import * as ctrl from '../controllers/checkoutController';
 import * as cancelCtrl from '../controllers/cancellationController';
+import * as returnCtrl from '../controllers/returnController';
 
 const router = Router();
 
@@ -47,5 +48,15 @@ router.put('/admin/cancellations/:cancellationId/approve', authenticate, require
 router.put('/admin/cancellations/:cancellationId/reject', authenticate, requireAdmin, cancelCtrl.rejectCancellation as any);
 router.delete('/admin/cancellations/:cancellationId/unreject', authenticate, requireAdmin, cancelCtrl.unrejectCancellation as any);
 router.post('/admin/cancellations/:cancellationId/refund', authenticate, requireAdmin, cancelCtrl.processRefund as any);
+
+// Order Return / İade (customer)
+router.post('/orders/:orderId/return-request', authenticate, returnCtrl.requestReturn as any);
+router.get('/orders/:orderId/returns', authenticate, returnCtrl.getOrderReturns as any);
+
+// Return Management (admin)
+router.get('/admin/returns', authenticate, requireAdmin, returnCtrl.listReturns as any);
+router.get('/admin/returns/:returnId', authenticate, requireAdmin, returnCtrl.getReturn as any);
+router.put('/admin/returns/:returnId/approve', authenticate, requireAdmin, returnCtrl.approveReturn as any);
+router.put('/admin/returns/:returnId/reject', authenticate, requireAdmin, returnCtrl.rejectReturn as any);
 
 export default router;

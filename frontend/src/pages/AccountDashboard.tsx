@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
+import { ReturnModal } from '@/components/order/ReturnModal';
+import { ReturnStatus } from '@/components/order/ReturnStatus';
 import { useQuery } from '@tanstack/react-query';
 import { checkoutApi } from '@/services/checkoutApi';
 import { authApi } from '@/services/authApi';
@@ -82,6 +84,8 @@ export function AccountDashboard() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [orderCancellation, setOrderCancellation] = useState<any>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [returnVersion, setReturnVersion] = useState(0);
 
   function handleLogout() {
     logout();
@@ -979,6 +983,25 @@ export function AccountDashboard() {
                             </div>
                           </div>
                         ) : null}
+
+                        {/* İade durumu + İade talebi butonu (kargolanmış/teslim) */}
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                          <ReturnStatus orderId={order.id} version={returnVersion} />
+                          {['SHIPPED', 'DELIVERED'].includes(order.status) && (
+                            <div className="border rounded-lg p-4 bg-gray-50 border-gray-200 dark:bg-gray-800/40 dark:border-gray-700 flex items-start justify-between gap-4 mt-3">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">Ürün İadesi</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Ürünlerin tamamını veya bir kısmını iade edebilirsiniz.</p>
+                              </div>
+                              <button
+                                onClick={() => setReturnModalOpen(true)}
+                                className="flex-shrink-0 px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 text-sm font-medium transition-colors"
+                              >
+                                İade Talebi Oluştur
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                     })()
@@ -995,6 +1018,17 @@ export function AccountDashboard() {
                         handleSelectOrder(selectedOrderId);
                         refetchOrders();
                       }}
+                    />
+                  )}
+
+                  {/* İade talebi modalı */}
+                  {selectedOrderId && selectedOrderDetail && (
+                    <ReturnModal
+                      orderId={selectedOrderId}
+                      items={(selectedOrderDetail.items ?? []) as any}
+                      isOpen={returnModalOpen}
+                      onClose={() => setReturnModalOpen(false)}
+                      onSuccess={() => { setReturnModalOpen(false); setReturnVersion((v) => v + 1); }}
                     />
                   )}
                 </>
