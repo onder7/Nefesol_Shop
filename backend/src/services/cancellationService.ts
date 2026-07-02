@@ -1,6 +1,5 @@
 import { prisma } from '../config/database';
 import { CancellationReason, CancellationStatus, OrderStatus } from '@prisma/client';
-import { createPersonalCoupon } from './discountService';
 import * as emailSvc from './emailService';
 import { logger } from '../config/logger';
 
@@ -63,13 +62,7 @@ export async function requestCancellation(
   return cancellation;
 }
 
-export async function approveCancellation(
-  cancellationId: string,
-  adminNotes?: string,
-  couponOffered?: boolean,
-  couponCode?: string,
-  couponValue?: number
-) {
+export async function approveCancellation(cancellationId: string, adminNotes?: string) {
   const cancellation = await prisma.orderCancellation.findUnique({
     where: { id: cancellationId },
     include: { order: { include: { items: { include: { variant: true } }, user: true } } },
@@ -85,9 +78,6 @@ export async function approveCancellation(
       status: 'APPROVED',
       approvedAt: new Date(),
       adminNotes,
-      couponOffered: couponOffered || false,
-      couponCode: couponOffered ? couponCode : null,
-      couponValue: couponOffered ? couponValue : null,
     },
   });
 
@@ -98,15 +88,11 @@ export async function approveCancellation(
   });
 
   // Add status log
-  const logNote = couponOffered
-    ? `İptal Onaylandı - Kupon Teklifi: ${couponCode} (${couponValue} TRY)`
-    : `İptal Onaylandı${adminNotes ? ': ' + adminNotes : ''}`;
-
   await prisma.orderStatusLog.create({
     data: {
       orderId: cancellation.orderId,
       status: 'CANCELLED',
-      note: logNote,
+      note: `İptal Onaylandı${adminNotes ? ': ' + adminNotes : ''}`,
     },
   });
 
@@ -118,11 +104,10 @@ export async function approveCancellation(
     });
   }
 
-  // ─── Müşteriye iptal onaylandı bildirimi (kupon teklifi varsa dahil; hata yutulur) ───
+  // ─── Müşteriye iptal onaylandı bildirimi (hata yutulur) ───
   if (cancellation.order?.user?.email) {
-    const coupon = couponOffered && couponCode ? { code: couponCode, value: Number(couponValue ?? 0) } : undefined;
     void emailSvc
-      .sendCancellationApprovedEmail(cancellation.order.user.email, cancellation.orderId, coupon)
+      .sendCancellationApprovedEmail(cancellation.order.user.email, cancellation.orderId)
       .catch((e) => logger.error('İptal onay e-postası gönderilemedi', { cancellationId, error: e?.message }));
   }
 
@@ -267,76 +252,3 @@ export async function unrejectCancellation(cancellationId: string) {
   });
 }
 
-export async function withdrawCancellation(orderId: string, userId: string) {
-  // Find and verify cancellation belongs to user
-  const cancellation = await prisma.orderCancellation.findUnique({
-    where: { orderId },
-    include: { order: { include: { payment: true, items: { include: { variant: true } } } } },
-  });
-
-  if (!cancellation) throw new Error('İptal talebi bulunamadı');
-  if (cancellation.order.userId !== userId) throw new Error('Bu talebe erişim yetkiniz yok');
-  if (cancellation.status !== 'APPROVED') throw new Error('Sadece onaylı talepleri geri alabilirsiniz');
-  if (!cancellation.couponOffered) throw new Error('Kupon teklifi olmayan talepler geri alınamaz');
-
-  const order = cancellation.order;
-  const couponAmount = Number(cancellation.couponValue) || 0;
-
-  // Kuponu kabul etmek = siparişi iptal etmekten vazgeçmek.
-  // Sipariş TAM FİYATTA kalır (faturası tam kesilir); teklif edilen tutar müşteriye
-  // gelecek alışverişte kullanabileceği KİŞİYE ÖZEL bir kupon olarak tanımlanır.
-  // Sipariş ÖDENMİŞSE doğrudan hazırlığa (PROCESSING), ÖDENMEMİŞSE (havale/kapıda) ödeme bekler (PENDING).
-  const isPaid = order.payment?.status === 'SUCCESS';
-  const reinstateStatus = isPaid ? 'PROCESSING' : 'PENDING';
-
-  // Siparişi tam fiyatta geri yükle (indirim uygulanmaz)
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: reinstateStatus },
-  });
-
-  // Müşteriye özel, tek kullanımlık kupon oluştur (gelecek alışveriş)
-  const coupon = await createPersonalCoupon({
-    userId,
-    value: couponAmount,
-    sourceOrderId: orderId,
-    description: 'İptalden vazgeçme hediyesi',
-  });
-
-  // Update cancellation as completed; üretilen kupon kodunu referans olarak sakla
-  await prisma.orderCancellation.update({
-    where: { id: cancellation.id },
-    data: { status: 'REFUNDED', refundedAt: new Date(), couponCode: coupon.code },
-  });
-
-  // Add status log
-  await prisma.orderStatusLog.create({
-    data: {
-      orderId,
-      status: reinstateStatus,
-      note: `İptalden vazgeçildi — ${couponAmount} TL'lik kişiye özel kupon (${coupon.code}) tanımlandı (gelecek alışveriş). ${isPaid ? 'Sipariş hazırlığa alındı.' : 'Sipariş ödeme bekliyor.'}`,
-    },
-  });
-
-  // İptal ONAYINDA stok geri yüklenmişti (approveCancellation). Sipariş yeniden aktifleştiği
-  // için stoğu TEKRAR düş — aksi halde sipariş kargolanır ama stok azalmaz.
-  for (const item of order.items) {
-    const variant = await prisma.productVariant.update({
-      where: { id: item.variantId },
-      data: { stockQty: { decrement: item.quantity } },
-      select: { stockQty: true },
-    });
-    await prisma.stockMovement.create({
-      data: {
-        variantId: item.variantId,
-        oldQty: variant.stockQty + item.quantity,
-        newQty: variant.stockQty,
-        difference: -item.quantity,
-        reason: 'cancellation_withdrawn',
-        note: 'İptalden vazgeçildi (indirim kabul) — stok yeniden düşüldü',
-      },
-    });
-  }
-
-  return { reinstateStatus, isPaid, couponCode: coupon.code, couponValue: couponAmount };
-}

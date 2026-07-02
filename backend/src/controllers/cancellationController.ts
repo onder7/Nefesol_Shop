@@ -62,15 +62,9 @@ export async function getCancellation(req: AuthRequest, res: Response, next: Nex
 export async function approveCancellation(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const cancellationId = req.params.cancellationId as string;
-    const { adminNotes, couponOffered, couponCode, couponValue } = req.body;
+    const { adminNotes } = req.body;
 
-    const cancellation = await cancellationService.approveCancellation(
-      cancellationId,
-      adminNotes,
-      couponOffered,
-      couponCode,
-      couponValue ? parseFloat(String(couponValue)) : undefined
-    );
+    const cancellation = await cancellationService.approveCancellation(cancellationId, adminNotes);
 
     res.json({ success: true, data: cancellation, message: 'İptal onaylandı' });
   } catch (err) {
@@ -144,24 +138,3 @@ export async function unrejectCancellation(req: AuthRequest, res: Response, next
   }
 }
 
-export async function withdrawCancellation(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const orderId = req.params.orderId as string;
-    const userId = req.user?.id;
-
-    if (!userId) return res.status(401).json({ success: false, message: 'Oturum açmanız gerekli' });
-    if (!orderId) return res.status(400).json({ success: false, message: 'Sipariş ID gerekli' });
-
-    const result = await cancellationService.withdrawCancellation(orderId, userId);
-
-    res.json({
-      success: true,
-      data: result,
-      message: result.isPaid
-        ? `${result.couponValue} TL'lik kuponunuz tanımlandı! Siparişiniz hazırlanmaya devam ediyor; kuponu bir sonraki alışverişinizde kullanabilirsiniz.`
-        : `${result.couponValue} TL'lik kuponunuz tanımlandı! Siparişiniz ödeme bekliyor; kuponu bir sonraki alışverişinizde kullanabilirsiniz.`,
-    });
-  } catch (err) {
-    next(err);
-  }
-}

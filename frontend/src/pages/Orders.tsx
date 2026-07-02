@@ -504,15 +504,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
           <CancellationStatus
             status={cancellation.status}
             reason={cancellation.reason}
-            orderId={orderId}
-            couponOffered={cancellation.couponCode ? true : false}
-            couponCode={cancellation.couponCode}
-            couponValue={cancellation.couponValue ? Number(cancellation.couponValue) : undefined}
             adminNotes={cancellation.adminNotes}
-            onRetract={() => {
-              qc.invalidateQueries({ queryKey: ['order-cancellation', orderId] });
-              refetch();
-            }}
           />
         </div>
       )}

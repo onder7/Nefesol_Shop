@@ -35,7 +35,6 @@ router.post('/orders/:id/resend-invoice', authenticate, ctrl.resendInvoice);
 
 // Order Cancellation (customer)
 router.post('/orders/:orderId/cancel-request', authenticate, cancelCtrl.requestCancellation as any);
-router.delete('/orders/:orderId/cancel-request', authenticate, cancelCtrl.withdrawCancellation as any);
 router.get('/orders/:orderId/cancellation', authenticate, cancelCtrl.getOrderCancellation as any);
 
 // Kullanıcının kazandığı kuponlar

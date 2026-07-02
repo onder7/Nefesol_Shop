@@ -54,28 +54,15 @@ const REASON_LABELS: Record<string, string> = {
 function CancellationDetail({ cancellation, onClose, onSuccess }: { cancellation: Cancellation; onClose: () => void; onSuccess: () => void }) {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [approvalType, setApprovalType] = useState<'refund' | 'coupon'>('refund');
-  const [couponCode, setCouponCode] = useState('');
-  const [couponValue, setCouponValue] = useState('');
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [refunding, setRefunding] = useState(false);
 
   const handleApprove = async () => {
-    if (approvalType === 'coupon') {
-      if (!couponCode.trim() || !couponValue.trim()) {
-        alert('Kupon kodu ve değeri gereklidir');
-        return;
-      }
-    }
-
     setApproving(true);
     try {
       await api.put(`/checkout/admin/cancellations/${cancellation.id}/approve`, {
         adminNotes: approvalNotes,
-        couponOffered: approvalType === 'coupon',
-        couponCode: approvalType === 'coupon' ? couponCode : undefined,
-        couponValue: approvalType === 'coupon' ? parseFloat(couponValue) : undefined,
       });
       alert('İptal onaylandı');
       onSuccess();
@@ -189,17 +176,6 @@ function CancellationDetail({ cancellation, onClose, onSuccess }: { cancellation
             </div>
           )}
 
-          {/* Coupon Info (if offered) */}
-          {cancellation.couponOffered && (
-            <div>
-              <label className="text-sm font-semibold text-gray-700 block mb-2">Kupon Teklifi</label>
-              <div className="bg-amber-50 p-3 rounded border border-amber-200 space-y-1 text-sm">
-                <p><span className="text-gray-700">Kupon Kodu:</span> <span className="font-mono font-semibold text-amber-700">{cancellation.couponCode}</span></p>
-                <p><span className="text-gray-700">Kupon Değeri:</span> <span className="font-semibold text-amber-700">{cancellation.couponValue} TRY</span></p>
-              </div>
-            </div>
-          )}
-
           {/* Admin Notes */}
           {cancellation.adminNotes && (
             <div>
@@ -211,58 +187,10 @@ function CancellationDetail({ cancellation, onClose, onSuccess }: { cancellation
           {/* Actions */}
           {cancellation.status === 'REQUESTED' && (
             <div className="border-t pt-6 space-y-4">
-              {/* Approval Type Selection */}
-              <div>
-                <label className="text-sm font-semibold text-gray-700 block mb-3">Onay Şekli</label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="refund"
-                      checked={approvalType === 'refund'}
-                      onChange={(e) => setApprovalType(e.target.value as 'refund' | 'coupon')}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-700">İade Yap ({cancellation.refundAmount} TRY)</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="coupon"
-                      checked={approvalType === 'coupon'}
-                      onChange={(e) => setApprovalType(e.target.value as 'refund' | 'coupon')}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-700">Kupon Teklifi (Satış Tutma)</span>
-                  </label>
-                </div>
+              <div className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 border">
+                Onaylandığında sipariş iptal edilir, stok geri yüklenir ve müşteriye{' '}
+                <span className="font-semibold">{cancellation.refundAmount} TRY</span> iade edilir.
               </div>
-
-              {/* Coupon Fields (visible when coupon is selected) */}
-              {approvalType === 'coupon' && (
-                <div className="space-y-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700 block mb-1">Kupon Kodu</label>
-                    <input
-                      type="text"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      placeholder="Örn: RETURN2024"
-                      className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700 block mb-1">Kupon Değeri (TRY)</label>
-                    <input
-                      type="number"
-                      value={couponValue}
-                      onChange={(e) => setCouponValue(e.target.value)}
-                      placeholder={String(cancellation.refundAmount)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
-              )}
 
               {/* Admin Notes */}
               <div>

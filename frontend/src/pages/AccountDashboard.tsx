@@ -959,12 +959,7 @@ export function AccountDashboard() {
                             <CancellationStatus
                               status={orderCancellation.status}
                               reason={orderCancellation.reason}
-                              orderId={order.id}
-                              couponOffered={orderCancellation.couponCode ? true : false}
-                              couponCode={orderCancellation.couponCode}
-                              couponValue={orderCancellation.couponValue ? Number(orderCancellation.couponValue) : undefined}
                               adminNotes={orderCancellation.adminNotes}
-                              onRetract={() => handleSelectOrder(order.id)}
                             />
                           </div>
                         ) : ['PENDING', 'PROCESSING'].includes(order.status) ? (
