@@ -104,13 +104,26 @@ export async function getIframeToken(p: PaytrTokenParams): Promise<TokenResult> 
 
 /** PayTR iframe gömme HTML'i — frontend checkoutFormContent olarak enjekte eder. */
 export function buildIframeHtml(token: string): string {
-  // min-height: resizer yüklenmeden de kart formunun görünmesini garanti eder.
-  // Resizer yüklendiğinde onload ile çağrılır; yüklenemezse min-height devrede kalır.
+  // PayTR iframe'i içeriğe göre boyutlanır. Resizer script'i ASENKRON yüklendiği için
+  // iFrameResize'ı script YÜKLENDİKTEN sonra (onload) çağırıyoruz — aksi halde
+  // (eski kodda olduğu gibi) iFrameResize henüz tanımsızken çağrılıp resizer hiç
+  // çalışmaz, iframe 700px'te sabit kalır ve mobilde taksitlerin altındaki "Öde"
+  // butonu kesilir. Resizer yüklenemez/çalışmazsa büyük min-height + iç kaydırma
+  // devreye girip butonun yine de erişilebilir olmasını garanti eder.
   return (
-    '<script src="https://www.paytr.com/js/iframeResizer.min.js"></script>' +
     `<iframe src="https://www.paytr.com/odeme/guvenli/${token}" id="paytriframe" ` +
     'frameborder="0" scrolling="no" style="width:100%;min-height:700px;border:none;"></iframe>' +
-    "<script>try{iFrameResize({checkOrigin:false},'#paytriframe');}catch(e){}</script>"
+    '<script>(function(){' +
+    "function go(){try{iFrameResize({checkOrigin:false},'#paytriframe');}catch(e){}}" +
+    'function grow(){var f=document.getElementById("paytriframe");' +
+    'if(f){f.style.minHeight="1400px";f.setAttribute("scrolling","auto");}}' +
+    "var s=document.createElement('script');" +
+    "s.src='https://www.paytr.com/js/iframeResizer.min.js';" +
+    's.onload=go;s.onerror=grow;document.body.appendChild(s);' +
+    // Güvenlik ağı: 4 sn sonra iframe hâlâ ~700px ise (resizer sessizce başarısız olduysa) büyüt
+    'setTimeout(function(){var f=document.getElementById("paytriframe");' +
+    'if(f&&f.offsetHeight<760){grow();}},4000);' +
+    '})();</script>'
   );
 }
 
