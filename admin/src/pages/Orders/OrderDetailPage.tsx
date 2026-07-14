@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, API_BASE } from '../../lib/api';
+import { api, API_BASE, getToken } from '../../lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -237,6 +237,18 @@ export default function OrderDetailPage() {
   const [invoiceErr, setInvoiceErr]         = useState('');
   const [taxRate, setTaxRate]               = useState(20);
 
+  // e-Fatura / e-Arşiv (Sysmond E-Dönüşüm)
+  type EInvoice = {
+    status: 'DRAFT' | 'QUEUED' | 'SENT' | 'REJECTED' | 'ERROR' | 'CANCELLED';
+    ettn?: string | null;
+    invoiceNo?: string | null;
+    profile?: string | null;
+    errorMessage?: string | null;
+  } | null;
+  const [eInvoice, setEInvoice] = useState<EInvoice>(null);
+  const [eInvBusy, setEInvBusy] = useState(false);
+  const [eInvErr, setEInvErr]   = useState('');
+
   useEffect(() => {
     api.get('/tax-config')
       .then((r) => {
@@ -245,6 +257,71 @@ export default function OrderDetailPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!orderId) return;
+    api.get<{ success: boolean; data: EInvoice }>(`/admin/orders/${orderId}/e-invoice`)
+      .then((r) => setEInvoice(r.data))
+      .catch(() => {});
+  }, [orderId]);
+
+  async function handleIssueEInvoice() {
+    setEInvBusy(true);
+    setEInvErr('');
+    try {
+      const r = await api.post<{ success: boolean; data: NonNullable<EInvoice> }>(
+        `/admin/orders/${orderId}/e-invoice`, {},
+      );
+      if (r.data.status !== 'SENT') {
+        setEInvErr(r.data.errorMessage || 'Fatura kesilemedi');
+        setEInvoice(r.data);
+      } else {
+        // Tüm alanları (profile dahil) almak için güncel kaydı çek
+        const fresh = await api.get<{ success: boolean; data: EInvoice }>(`/admin/orders/${orderId}/e-invoice`);
+        setEInvoice(fresh.data);
+      }
+    } catch (err) {
+      setEInvErr(err instanceof Error ? err.message : 'Fatura kesilemedi');
+    } finally {
+      setEInvBusy(false);
+    }
+  }
+
+  async function handleCancelEInvoice() {
+    if (!window.confirm('Bu e-Arşiv faturayı iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) return;
+    setEInvBusy(true);
+    setEInvErr('');
+    try {
+      const r = await api.post<{ success: boolean; data: { status: string; message?: string } }>(
+        `/admin/orders/${orderId}/e-invoice/cancel`, {},
+      );
+      if (r.data.status === 'CANCELLED') {
+        setEInvoice((prev) => prev ? { ...prev, status: 'CANCELLED' } : prev);
+      } else {
+        setEInvErr(r.data.message || 'İptal başarısız');
+      }
+    } catch (err) {
+      setEInvErr(err instanceof Error ? err.message : 'İptal başarısız');
+    } finally {
+      setEInvBusy(false);
+    }
+  }
+
+  async function openEInvoicePdf() {
+    setEInvErr('');
+    try {
+      const res = await fetch(`${API_BASE}/admin/orders/${orderId}/e-invoice/pdf`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) { setEInvErr('PDF alınamadı (fatura henüz işlenmemiş olabilir)'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      setEInvErr('PDF alınamadı');
+    }
+  }
 
   async function handleSendInvoice() {
     setInvoiceSending(true);
@@ -615,6 +692,58 @@ export default function OrderDetailPage() {
           )}
           {invoiceErr && (
             <span className="text-xs text-red-600 font-medium px-2">{invoiceErr}</span>
+          )}
+
+          {/* e-Fatura / e-Arşiv durum + aksiyonlar */}
+          {eInvErr && (
+            <span className="text-xs text-red-600 font-medium px-2 max-w-xs truncate" title={eInvErr}>{eInvErr}</span>
+          )}
+          {eInvoice?.status === 'CANCELLED' ? (
+            <span className="text-xs text-gray-500 font-medium px-2">e-Arşiv İptal Edildi</span>
+          ) : eInvoice?.status === 'SENT' ? (
+            <>
+              <span className="text-xs text-green-600 font-medium px-2">
+                e-Fatura kesildi{eInvoice.invoiceNo ? ` (${eInvoice.invoiceNo})` : ''}
+              </span>
+              <button
+                onClick={openEInvoicePdf}
+                title="e-Fatura PDF'ini aç"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 transition"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                  <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                </svg>
+                e-Fatura PDF
+              </button>
+              {eInvoice.profile === 'EARSIVFATURA' && (
+                <button
+                  onClick={handleCancelEInvoice}
+                  disabled={eInvBusy}
+                  title="e-Arşiv faturayı iptal et"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-sm font-medium text-red-600 hover:bg-red-100 transition disabled:opacity-50"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                  {eInvBusy ? 'İptal ediliyor…' : 'Fatura İptal'}
+                </button>
+              )}
+            </>
+          ) : (
+            <button
+              onClick={handleIssueEInvoice}
+              disabled={eInvBusy}
+              title="Bu sipariş için e-Fatura/e-Arşiv kes"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-primary bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition disabled:opacity-50"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                <path d="M14 2v6h6M9 13h6M9 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {eInvBusy ? 'Kesiliyor…' : eInvoice?.status === 'ERROR' ? 'e-Fatura Tekrar Dene' : 'e-Fatura Kes'}
+            </button>
           )}
 
           {/* Send invoice email */}

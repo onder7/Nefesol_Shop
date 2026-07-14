@@ -6,14 +6,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   MapPin, Plus, ChevronRight, ShoppingBag, CreditCard,
-  Loader2, Check, Banknote, Truck, Copy,
+  Loader2, Check, Banknote, Truck, Copy, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { checkoutApi, type PaymentMethodsResponse } from '@/services/checkoutApi';
+import { checkoutApi, type PaymentMethodsResponse, type BillingInfo } from '@/services/checkoutApi';
+import { productApi } from '@/services/productApi';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import type { Address, CheckoutInitResponse } from '@/types';
@@ -280,6 +281,9 @@ export function Checkout() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [initData, setInitData] = useState<InitData | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>('card');
+  // Fatura bilgileri (e-Fatura/e-Arşiv için)
+  const [billingType, setBillingType] = useState<'individual' | 'corporate'>('individual');
+  const [billing, setBilling] = useState({ billingName: '', taxNumber: '', identityNo: '', taxOffice: '' });
   const paymentDivRef = useRef<HTMLDivElement>(null);
 
   if (!isAuthenticated) return <Navigate to="/giris" state={{ from: '/odeme' }} replace />;
@@ -293,6 +297,11 @@ export function Checkout() {
   const { data: methodsData } = useQuery({
     queryKey: ['payment-methods'],
     queryFn: async () => (await checkoutApi.getPaymentMethods()).data.data,
+  });
+
+  const { data: shippingConfig } = useQuery({
+    queryKey: ['shipping-config'],
+    queryFn: () => productApi.shippingConfig().then((r) => r.data.data),
   });
 
   const methods: PaymentMethodsResponse = methodsData ?? {
@@ -319,7 +328,8 @@ export function Checkout() {
 
   // iyzico initialize
   const initMut = useMutation({
-    mutationFn: (addressId: string) => checkoutApi.initialize(addressId, appliedCoupon?.code),
+    mutationFn: (vars: { addressId: string; billing?: BillingInfo }) =>
+      checkoutApi.initialize(vars.addressId, appliedCoupon?.code, vars.billing),
     onSuccess: (res) => {
       setInitData(res.data.data as InitData);
       setStep(2);
@@ -330,8 +340,8 @@ export function Checkout() {
 
   // COD / Havale place order
   const placeOrderMut = useMutation({
-    mutationFn: ({ addressId, method }: { addressId: string; method: 'cod' | 'havale' }) =>
-      checkoutApi.placeOrder(addressId, method, appliedCoupon?.code),
+    mutationFn: ({ addressId, method, billing }: { addressId: string; method: 'cod' | 'havale'; billing?: BillingInfo }) =>
+      checkoutApi.placeOrder(addressId, method, appliedCoupon?.code, billing),
     onSuccess: (res) => {
       setCart(null);
       setAppliedCoupon(null);
@@ -363,7 +373,9 @@ export function Checkout() {
 
   const subtotal = cart.items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0);
   const codFee = payMethod === 'cod' ? (methods.cod.fee ?? 0) : 0;
-  const shippingFee = initData?.shippingFee ?? (subtotal >= 500 ? 0 : 49.9);
+  const SHIPPING_FEE = shippingConfig?.shippingFee ?? 95;
+  const FREE_THRESHOLD = shippingConfig?.freeShippingThreshold ?? 500;
+  const shippingFee = initData?.shippingFee ?? (subtotal >= FREE_THRESHOLD ? 0 : SHIPPING_FEE);
 
   // Kupon indirimi (net ara toplam üzerinden) — server ile aynı mantık
   const discount = initData?.discount ?? (appliedCoupon
@@ -380,10 +392,32 @@ export function Checkout() {
 
   const handleProceed = () => {
     if (!selectedAddress) return;
+
+    // Fatura bilgisi doğrulama
+    if (billingType === 'corporate') {
+      if (!billing.billingName.trim() || !/^\d{10}$/.test(billing.taxNumber.trim()) || !billing.taxOffice.trim()) {
+        toast.error('Kurumsal fatura için ünvan, 10 haneli VKN ve vergi dairesi zorunludur');
+        return;
+      }
+    } else if (billing.identityNo.trim() && !/^\d{11}$/.test(billing.identityNo.trim())) {
+      toast.error('TC Kimlik No 11 haneli olmalıdır');
+      return;
+    }
+
+    const billingPayload: BillingInfo =
+      billingType === 'corporate'
+        ? {
+            isCorporate: true,
+            billingName: billing.billingName.trim(),
+            taxNumber: billing.taxNumber.trim(),
+            taxOffice: billing.taxOffice.trim(),
+          }
+        : { isCorporate: false, ...(billing.identityNo.trim() ? { identityNo: billing.identityNo.trim() } : {}) };
+
     if (payMethod === 'card') {
-      initMut.mutate(selectedAddress.id);
+      initMut.mutate({ addressId: selectedAddress.id, billing: billingPayload });
     } else {
-      placeOrderMut.mutate({ addressId: selectedAddress.id, method: payMethod });
+      placeOrderMut.mutate({ addressId: selectedAddress.id, method: payMethod, billing: billingPayload });
     }
   };
 
@@ -545,6 +579,83 @@ export function Checkout() {
         {payMethod === 'havale' && (
           <div className="mt-3">
             <HavaleInfo info={methods.havale} noteOnly />
+          </div>
+        )}
+      </div>
+
+      {/* Fatura bilgileri (e-Fatura / e-Arşiv) */}
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-3">
+          <FileText className="h-5 w-5 text-primary" />
+          Fatura Bilgileri
+        </h2>
+
+        <div className="flex gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => setBillingType('individual')}
+            className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+              billingType === 'individual' ? 'border-primary bg-primary/5 text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            Bireysel
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingType('corporate')}
+            className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+              billingType === 'corporate' ? 'border-primary bg-primary/5 text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            Kurumsal
+          </button>
+        </div>
+
+        {billingType === 'individual' ? (
+          <div>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={11}
+              value={billing.identityNo}
+              onChange={(e) => setBilling((b) => ({ ...b, identityNo: e.target.value.replace(/\D/g, '') }))}
+              placeholder="TC Kimlik No (opsiyonel)"
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Bireysel müşteriler için e-Arşiv fatura kesilir. TCKN girilmesi zorunlu değildir.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={billing.billingName}
+              onChange={(e) => setBilling((b) => ({ ...b, billingName: e.target.value }))}
+              placeholder="Firma Ünvanı *"
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                value={billing.taxNumber}
+                onChange={(e) => setBilling((b) => ({ ...b, taxNumber: e.target.value.replace(/\D/g, '') }))}
+                placeholder="Vergi No (VKN) *"
+                className="w-full rounded-md border px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={billing.taxOffice}
+                onChange={(e) => setBilling((b) => ({ ...b, taxOffice: e.target.value }))}
+                placeholder="Vergi Dairesi *"
+                className="w-full rounded-md border px-3 py-2 text-sm"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Vergi mükellefi kurumlar için e-Fatura kesilir. Tüm alanlar zorunludur.
+            </p>
           </div>
         )}
       </div>

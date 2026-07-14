@@ -16,7 +16,9 @@ interface RegisterInput {
   firstName: string;
   lastName: string;
   phone?: string;
-  marketingConsent?: boolean;
+  marketingConsent?: boolean; // e-posta izni
+  smsConsent?: boolean;
+  acceptTerms?: boolean; // üyelik koşulları + KVKK (zorunlu)
 }
 
 interface LoginInput {
@@ -29,6 +31,9 @@ export interface GuestLoginInput {
   firstName: string;
   lastName: string;
   phone?: string;
+  marketingConsent?: boolean;
+  smsConsent?: boolean;
+  acceptTerms?: boolean;
 }
 
 function signAccess(userId: string, email: string, role: string): string {
@@ -53,8 +58,12 @@ async function revokeRefreshToken(userId: string): Promise<void> {
 }
 
 export async function register(input: RegisterInput): Promise<TokenPair> {
+  if (!input.acceptTerms) {
+    throw new AppError('Üyelik koşullarını ve kişisel verilerin korunmasını kabul etmelisiniz', 400);
+  }
+
   const existing = await prisma.user.findUnique({ where: { email: input.email }, include: { profile: true } });
-  
+
   const hashed = await bcrypt.hash(input.password, 12);
   let user;
 
@@ -69,6 +78,8 @@ export async function register(input: RegisterInput): Promise<TokenPair> {
         passwordHash: hashed,
         isGuest: false,
         marketingConsent: input.marketingConsent ?? existing.marketingConsent,
+        smsConsent: input.smsConsent ?? existing.smsConsent,
+        termsAcceptedAt: new Date(),
         profile: {
           update: {
             firstName: input.firstName || existing.profile?.firstName,
@@ -86,6 +97,8 @@ export async function register(input: RegisterInput): Promise<TokenPair> {
         role: 'CUSTOMER',
         isGuest: false,
         marketingConsent: input.marketingConsent ?? false,
+        smsConsent: input.smsConsent ?? false,
+        termsAcceptedAt: new Date(),
         profile: {
           create: {
             firstName: input.firstName,
@@ -105,6 +118,10 @@ export async function register(input: RegisterInput): Promise<TokenPair> {
 }
 
 export async function guestLogin(input: GuestLoginInput): Promise<(TokenPair & { user: object })> {
+  if (!input.acceptTerms) {
+    throw new AppError('Üyelik koşullarını ve kişisel verilerin korunmasını kabul etmelisiniz', 400);
+  }
+
   const existing = await prisma.user.findUnique({
     where: { email: input.email },
     include: { profile: true },
@@ -117,17 +134,26 @@ export async function guestLogin(input: GuestLoginInput): Promise<(TokenPair & {
     if (existing.passwordHash) {
       throw new AppError('Bu e-posta adresi ile kayıtlı bir hesap var. Lütfen üye girişi yapınız.', 409);
     }
-    // is_guest = false olarak kaydedilmiş eski misafirleri düzelt
-    if (!existing.isGuest) {
-      await prisma.user.update({ where: { id: existing.id }, data: { isGuest: true } });
-    }
-    user = existing;
+    // Misafiri düzelt + onayları güncelle
+    user = await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        isGuest: true,
+        marketingConsent: input.marketingConsent ?? existing.marketingConsent,
+        smsConsent: input.smsConsent ?? existing.smsConsent,
+        termsAcceptedAt: new Date(),
+      },
+      include: { profile: true },
+    });
   } else {
     user = await prisma.user.create({
       data: {
         email: input.email,
         role: 'CUSTOMER',
         isGuest: true,
+        marketingConsent: input.marketingConsent ?? false,
+        smsConsent: input.smsConsent ?? false,
+        termsAcceptedAt: new Date(),
         profile: {
           create: {
             firstName: input.firstName,

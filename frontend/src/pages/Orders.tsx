@@ -11,7 +11,6 @@ import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
 import { ReturnModal } from '@/components/order/ReturnModal';
 import { ReturnStatus } from '@/components/order/ReturnStatus';
-import { useTaxConfig } from '@/hooks/useTaxConfig';
 import type { Order } from '@/types';
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
@@ -193,6 +192,7 @@ export function OrderDetail() {
     const orderRef = `TR-${order.id.slice(-8).toUpperCase()}`;
     const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const discountN = Number(order.discount);          // iskonto (düz tutar)
+    const shippingN = Number(order.shippingFee ?? 0);  // kargo ucreti
     const totalN    = Number(order.total);             // indirimli toplam (KDV dahil brüt)
     const divN      = 1 + vatRate / 100;
     const netTotalN = totalN / divN;                   // Ara Toplam = indirimli toplamın KDV'siz (net) hali
@@ -288,7 +288,7 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   </div>
   <table>
     <thead><tr><th style="width:50%">ÜRÜN</th><th style="width:12%">ADET</th><th style="width:19%">BİRİM FİYAT</th><th style="width:19%">TOPLAM</th></tr></thead>
-    <tbody>${itemRows}${discountN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;color:#16a34a;font-weight:bold">İskonto</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;color:#16a34a;font-weight:bold">−${fmtN(discountN)}</td></tr>` : ''}</tbody>
+    <tbody>${itemRows}${discountN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;color:#16a34a;font-weight:bold">İskonto</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;color:#16a34a;font-weight:bold">−${fmtN(discountN)}</td></tr>` : ''}${shippingN > 0 ? `<tr><td colspan="3" style="padding:8px 10px;border-bottom:1px solid #ddd;font-weight:bold">Kargo</td><td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;font-weight:bold">${fmtN(shippingN)}</td></tr>` : ''}</tbody>
   </table>
   <div class="totals-row">
     <table class="totals-table">
@@ -331,7 +331,6 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
     },
     enabled: !!orderId,
   });
-  const { taxRate } = useTaxConfig();
 
   if (isLoading) {
     return (
@@ -358,8 +357,6 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
   // İskonto düşülmüş toplam KDV dahil; Ara Toplam = netin (total/1+oran), KDV = fark
   const orderDiscount = Number(order.discount);    // iskonto (düz tutar)
   const orderTotal = Number(order.total);          // indirimli toplam (KDV dahil)
-  const orderNet = orderTotal / (1 + taxRate / 100);          // Ara Toplam (KDV hariç)
-  const orderKdv = Math.max(0, orderTotal - orderNet);        // KDV tutarı
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-7xl">
@@ -411,13 +408,15 @@ thead th:nth-child(3),thead th:nth-child(4){text-align:right}
                 <span className="font-medium">−{formatPrice(orderDiscount)}</span>
               </div>
             )}
+            {Number(order.shippingFee) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Kargo</span>
+                <span className="font-medium">{formatPrice(Number(order.shippingFee))}</span>
+              </div>
+            )}
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Ara Toplam (KDV Hariç)</span>
-              <span className="font-medium">{formatPrice(orderNet)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">KDV (%{taxRate})</span>
-              <span className="font-medium">{formatPrice(orderKdv)}</span>
+              <span className="text-muted-foreground">Ara Toplam (KDV Dahil)</span>
+              <span className="font-medium">{formatPrice(Number(order.subtotal))}</span>
             </div>
             <div className="flex justify-between border-t pt-3 font-semibold">
               <span>Genel Toplam</span>

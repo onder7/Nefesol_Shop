@@ -23,6 +23,12 @@ const TOOLBAR = [
 
 const EMPTY = '<p><br></p>';
 
+// Quill'in koruyamayacağı zengin HTML (tam sayfa şablonları): <style>, <div>,
+// <table>, class="..." vb. Böyle içerik editöre yüklenince Quill kırpar; bu
+// yüzden karmaşık içerik editörü doğrudan HTML kaynak modunda açar.
+const isComplexHtml = (html: string) =>
+  /<(style|div|table|section|article|figure|iframe|script)\b|\sclass\s*=/i.test(html || '');
+
 export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
@@ -31,17 +37,29 @@ export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: P
 
   const isInternalChange = useRef(false);
   const lastExternalValue = useRef(value);
+  // Programatik innerHTML yüklemesi sırasında tetiklenen text-change'i bastırır;
+  // böylece bir sayfayı sadece AÇMAK içeriği (Quill'in kırptığı haliyle) kaydetmez.
+  const loadingRef = useRef(false);
 
-  // HTML kaynak kodu görünümü
-  const [sourceMode, setSourceMode] = useState(false);
+  // Zengin/karmaşık içerik (Quill'in kırptığı <style>/<div>) — Görsel sekmesi
+  // gizlenir, HTML + Önizleme sunulur.
+  const complexMode = useRef(isComplexHtml(value)).current;
+  // Görünüm: editor (Quill görsel) | source (HTML) | preview (render)
+  const [view, setView] = useState<'editor' | 'source' | 'preview'>(complexMode ? 'source' : 'editor');
 
-  const toggleSource = () => {
-    // Kaynak → Editör: textarea'daki güncel HTML'i editöre yükle
-    if (sourceMode && quillRef.current) {
-      quillRef.current.root.innerHTML = value || '';
-      lastExternalValue.current = value || '';
-    }
-    setSourceMode((p) => !p);
+  // Quill'e içeriği güvenli yükle: onChange tetiklenmez
+  const loadIntoQuill = (html: string) => {
+    const q = quillRef.current;
+    if (!q) return;
+    loadingRef.current = true;
+    q.root.innerHTML = html || '';
+    lastExternalValue.current = html || '';
+    setTimeout(() => { loadingRef.current = false; }, 0);
+  };
+
+  const changeView = (next: 'editor' | 'source' | 'preview') => {
+    if (next === 'editor') loadIntoQuill(value || ''); // güncel HTML'i editöre al (onChange yok)
+    setView(next);
   };
 
   useEffect(() => {
@@ -84,12 +102,15 @@ export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: P
 
     quillRef.current = q;
 
-    // innerHTML kullanarak yükleme — resim width'lerini korur
+    // İlk yükleme — programatik, onChange tetiklenmemeli (loadingRef bastırır)
     if (value) {
+      loadingRef.current = true;
       q.root.innerHTML = value;
+      setTimeout(() => { loadingRef.current = false; }, 0);
     }
 
     q.on('text-change', () => {
+      if (loadingRef.current) return; // programatik yükleme — kullanıcı değişikliği değil
       isInternalChange.current = true;
       const html = q.root.innerHTML;
       const cleaned = html === EMPTY ? '' : html;
@@ -208,36 +229,42 @@ export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Dışarıdan gelen value değişikliklerini editöre yansıt
+  // Dışarıdan gelen value değişikliklerini editöre yansıt (programatik → onChange yok)
   useEffect(() => {
     const q = quillRef.current;
     if (!q || isInternalChange.current) {
       isInternalChange.current = false;
       return;
     }
-    if (value !== lastExternalValue.current) {
-      lastExternalValue.current = value;
-      q.root.innerHTML = value ?? '';
+    // Sadece görsel editör görünürken editöre yansıt; source/preview kendi yönetir
+    if (view === 'editor' && value !== lastExternalValue.current) {
+      loadIntoQuill(value ?? '');
     }
   }, [value]);
 
   return (
-    <div className={`quill-wrapper rounded border border-stroke dark:border-strokedark overflow-hidden${sourceMode ? ' source-mode' : ''}`}>
+    <div className={`quill-wrapper rounded border border-stroke dark:border-strokedark overflow-hidden${view !== 'editor' ? ' hide-editor' : ''}`}>
       <style>{`
         .quill-wrapper .qe-bar {
-          display: flex; justify-content: flex-end; align-items: center;
+          display: flex; justify-content: flex-end; align-items: center; gap: 4px;
           padding: 4px 6px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
         }
         .dark .quill-wrapper .qe-bar { background: #16202e; border-bottom-color: #2d3d52; }
-        .quill-wrapper .qe-source-btn {
+        .quill-wrapper .qe-tab {
           font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px;
           border: 1px solid #cbd5e1; background: #fff; color: #475569; cursor: pointer;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         }
-        .quill-wrapper .qe-source-btn:hover { background: #3C50E0; color: #fff; border-color: #3C50E0; }
-        .dark .quill-wrapper .qe-source-btn { background: #1e2a3a; color: #94a3b8; border-color: #2d3d52; }
-        .quill-wrapper.source-mode .ql-toolbar,
-        .quill-wrapper.source-mode .ql-container { display: none; }
+        .quill-wrapper .qe-tab:hover { background: #eef2ff; }
+        .quill-wrapper .qe-tab.active { background: #3C50E0; color: #fff; border-color: #3C50E0; }
+        .dark .quill-wrapper .qe-tab { background: #1e2a3a; color: #94a3b8; border-color: #2d3d52; }
+        .dark .quill-wrapper .qe-tab:hover { background: #24344a; }
+        .dark .quill-wrapper .qe-tab.active { background: #3C50E0; color: #fff; border-color: #3C50E0; }
+        .quill-wrapper.hide-editor .ql-toolbar,
+        .quill-wrapper.hide-editor .ql-container { display: none; }
+        .quill-wrapper .qe-preview {
+          width: 100%; border: none; background: #fff; display: block;
+        }
         .quill-wrapper .qe-source {
           width: 100%; border: none; outline: none; padding: 12px;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -285,19 +312,37 @@ export function QuillEditor({ value, onChange, placeholder, minHeight = 280 }: P
         .quill-wrapper .ql-editor pre.ql-syntax { background: #1e293b; color: #e2e8f0; padding: .75rem 1rem; border-radius: .375rem; font-size: .8rem; overflow-x: auto; }
       `}</style>
       <div className="qe-bar">
-        <button type="button" onClick={toggleSource} className="qe-source-btn">
-          {sourceMode ? '◀ Editöre Dön' : '</> HTML Kaynağı'}
+        {!complexMode && (
+          <button type="button" onClick={() => changeView('editor')} className={`qe-tab${view === 'editor' ? ' active' : ''}`}>
+            Görsel
+          </button>
+        )}
+        <button type="button" onClick={() => changeView('source')} className={`qe-tab${view === 'source' ? ' active' : ''}`}>
+          {'</>'} HTML
+        </button>
+        <button type="button" onClick={() => changeView('preview')} className={`qe-tab${view === 'preview' ? ' active' : ''}`}>
+          👁 Önizleme
         </button>
       </div>
+      {/* Görsel editör (Quill) — DOM'da kalır; editör dışı görünümde CSS gizler */}
       <div ref={containerRef} />
-      {sourceMode && (
+      {view === 'source' && (
         <textarea
           className="qe-source"
           value={value}
           spellCheck={false}
           style={{ minHeight }}
           onChange={(e) => onChangeRef.current(e.target.value)}
-          placeholder="<p>HTML kaynak kodu…</p>"
+          placeholder="<div>HTML kaynak kodu…</div>"
+        />
+      )}
+      {view === 'preview' && (
+        <iframe
+          className="qe-preview"
+          style={{ minHeight }}
+          srcDoc={value || '<p style="color:#94a3b8;font-family:sans-serif;padding:12px">İçerik yok</p>'}
+          title="Önizleme"
+          sandbox=""
         />
       )}
     </div>

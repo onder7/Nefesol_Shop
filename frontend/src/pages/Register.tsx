@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { ConsentCheckboxes, type ConsentValue } from '@/components/auth/ConsentCheckboxes';
 
 export function Register() {
   const { name: storeName } = useStoreInfo();
@@ -26,7 +27,7 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [viewPassword, setViewPassword] = useState(false);
   const [viewConfirmPassword, setViewConfirmPassword] = useState(false);
-  const [marketingConsent, setMarketingConsent] = useState(true);
+  const [consent, setConsent] = useState<ConsentValue>({ emailConsent: true, smsConsent: true, acceptTerms: false });
 
   function set(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -71,10 +72,19 @@ export function Register() {
       toast.error('Şifreler eşleşmiyor. Lütfen iki alana da aynı şifreyi girin.');
       return;
     }
+    if (!consent.acceptTerms) {
+      toast.error('Üyelik koşullarını ve kişisel verilerimin korunmasını kabul etmelisiniz.');
+      return;
+    }
     setLoading(true);
     try {
       const { confirmPassword: _, ...payload } = form;
-      const res = await authApi.register({ ...payload, marketingConsent });
+      const res = await authApi.register({
+        ...payload,
+        marketingConsent: consent.emailConsent,
+        smsConsent: consent.smsConsent,
+        acceptTerms: consent.acceptTerms,
+      });
       const { accessToken } = res.data.data;
       const meRes = await authApi.me();
       setUser(meRes.data.data as User, accessToken);
@@ -225,20 +235,8 @@ export function Register() {
                 </div>
               </div>
 
-              {/* Ticari elektronik ileti onayı (kampanya/SMS/e-posta) */}
-              <label className="flex items-start gap-3 pt-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={marketingConsent}
-                  onChange={(e) => setMarketingConsent(e.target.checked)}
-                  className="mt-0.5 h-5 w-5 shrink-0 accent-primary cursor-pointer"
-                />
-                <span className="text-xs leading-relaxed text-muted-foreground">
-                  <span className="font-semibold text-foreground">{storeName}</span> ve iştiraklerinin önemli
-                  kampanyalarından haberdar olmak için anlık/kısa mesaj, e-posta ve telefon aracılığıyla{' '}
-                  <span className="font-semibold text-foreground">elektronik ileti</span> almak istiyorum.
-                </span>
-              </label>
+              {/* ETK/KVKK onayları — e-posta / SMS izinleri + üyelik koşulları */}
+              <ConsentCheckboxes value={consent} onChange={(p) => setConsent((c) => ({ ...c, ...p }))} />
 
               <div className="flex justify-between items-center pt-4">
                 <Link to="/giris" className="font-bold text-primary hover:underline text-sm">
@@ -287,18 +285,6 @@ export function Register() {
             </form>
           </div>
 
-          {/* Footer Linkleri */}
-          <footer className="mt-8 sm:mt-16 flex flex-wrap gap-2 sm:gap-4 justify-between text-xs font-bold text-muted-foreground">
-            <Link to="/sozlesmeler" className="hover:text-foreground transition-colors">
-              Kullanım Koşulları
-            </Link>
-            <Link to="/kvkk" className="hover:text-foreground transition-colors">
-              Gizlilik Politikası
-            </Link>
-            <Link to="/iletisim" className="hover:text-foreground transition-colors">
-              Yardım
-            </Link>
-          </footer>
         </div>
       </div>
 

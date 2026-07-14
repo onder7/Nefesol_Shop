@@ -92,15 +92,6 @@ export function ForgotPassword() {
             </div>
           </div>
 
-          {/* Footer Linkleri */}
-          <footer className="mt-8 sm:mt-16 flex gap-2 sm:gap-4 justify-center text-[10px] sm:text-xs font-bold text-muted-foreground flex-wrap">
-            <Link to="/sozlesmeler" className="hover:text-foreground transition-colors">
-              Kullanım Koşulları
-            </Link>
-            <Link to="/kvkk" className="hover:text-foreground transition-colors">
-              Gizlilik Politikası
-            </Link>
-          </footer>
         </div>
       </div>
 

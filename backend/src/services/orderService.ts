@@ -36,7 +36,20 @@ export async function getCartForCheckout(userId: string) {
   return cart;
 }
 
-export async function createOrder(userId: string, addressId: string, couponCode?: string) {
+export interface OrderBilling {
+  isCorporate?: boolean;
+  billingName?: string;
+  taxNumber?: string; // VKN
+  identityNo?: string; // TCKN
+  taxOffice?: string;
+}
+
+export async function createOrder(
+  userId: string,
+  addressId: string,
+  couponCode?: string,
+  billing?: OrderBilling,
+) {
   const cart = await getCartForCheckout(userId);
 
   const address = await prisma.address.findFirst({ where: { id: addressId, userId } });
@@ -75,7 +88,14 @@ export async function createOrder(userId: string, addressId: string, couponCode?
 
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({
-      data: { userId, addressId, subtotal, shippingFee, discount, total, status: 'PENDING' },
+      data: {
+        userId, addressId, subtotal, shippingFee, discount, total, status: 'PENDING',
+        isCorporate: billing?.isCorporate ?? false,
+        billingName: billing?.billingName ?? null,
+        taxNumber: billing?.taxNumber ?? null,
+        identityNo: billing?.identityNo ?? null,
+        taxOffice: billing?.taxOffice ?? null,
+      },
     });
 
     if (discountId) {

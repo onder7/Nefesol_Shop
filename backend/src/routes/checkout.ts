@@ -8,15 +8,27 @@ import * as returnCtrl from '../controllers/returnController';
 
 const router = Router();
 
+const billingSchema = z
+  .object({
+    isCorporate: z.boolean().optional(),
+    billingName: z.string().max(300).optional(),
+    taxNumber: z.string().max(11).optional(),
+    identityNo: z.string().max(11).optional(),
+    taxOffice: z.string().max(200).optional(),
+  })
+  .optional();
+
 const initSchema = z.object({
   addressId: z.string().min(1),
   couponCode: z.string().optional(),
+  billing: billingSchema,
 });
 
 const placeOrderSchema = z.object({
   addressId: z.string().min(1),
   method: z.enum(['cod', 'havale']),
   couponCode: z.string().optional(),
+  billing: billingSchema,
 });
 
 // Public
@@ -27,6 +39,8 @@ router.post('/initialize', authenticate, validate(initSchema), ctrl.initialize);
 router.post('/place-order', authenticate, validate(placeOrderSchema), ctrl.placeOrder);
 router.post('/callback', ctrl.callback);            // Iyzico posts here (no auth)
 router.post('/dev-callback', ctrl.devCallback);     // Test mode bypass
+router.post('/paytr-callback', ctrl.paytrCallback); // PayTR bildirim (server-to-server, no auth)
+router.get('/paytr-return', ctrl.paytrReturn);      // PayTR ok_url yönlendirmesi (no auth)
 
 // Orders (authenticated)
 router.get('/orders', authenticate, ctrl.listOrders);

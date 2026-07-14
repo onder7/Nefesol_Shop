@@ -7,7 +7,9 @@ export interface RegisterPayload {
   firstName: string;
   lastName: string;
   phone?: string;
-  marketingConsent?: boolean;
+  marketingConsent?: boolean; // e-posta izni
+  smsConsent?: boolean;
+  acceptTerms?: boolean;
 }
 
 export interface LoginPayload {
@@ -20,6 +22,9 @@ export interface GuestLoginPayload {
   firstName: string;
   lastName: string;
   phone?: string;
+  marketingConsent?: boolean;
+  smsConsent?: boolean;
+  acceptTerms?: boolean;
 }
 
 export const authApi = {

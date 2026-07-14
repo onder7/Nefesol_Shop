@@ -152,6 +152,37 @@ export default function UserAnalytics() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
+  // Favorileri / sepetleri temizle
+  const [clearing, setClearing] = useState<'fav' | 'cart' | null>(null);
+
+  const handleClearFavorites = async () => {
+    if (!window.confirm('Tüm favoriler (En Çok Favorilenenler) temizlensin mi? Bu işlem geri alınamaz.')) return;
+    setClearing('fav');
+    try {
+      await api.delete<any>('/admin/wishlists');
+      fetchAnalytics();
+    } catch (err) {
+      console.error(err);
+      alert('Favoriler temizlenemedi.');
+    } finally {
+      setClearing(null);
+    }
+  };
+
+  const handleClearCarts = async () => {
+    if (!window.confirm('Tüm sepetler (Sepette Bekleyenler) temizlensin mi? Bu işlem geri alınamaz.')) return;
+    setClearing('cart');
+    try {
+      await api.delete<any>('/admin/carts');
+      fetchAnalytics();
+    } catch (err) {
+      console.error(err);
+      alert('Sepetler temizlenemedi.');
+    } finally {
+      setClearing(null);
+    }
+  };
+
   // Recalculated states
   const filteredSubs = useMemo(() => {
     const list = data?.subscribers ?? [];
@@ -442,9 +473,19 @@ export default function UserAnalytics() {
                   </h3>
                   <p className="mt-0.5 text-xs text-bodydark2">Tüm zamanların en beğenilen ürünleri</p>
                 </div>
-                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                  Top 5
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                    Top 5
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearFavorites}
+                    disabled={clearing === 'fav'}
+                    className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-900/40 dark:bg-red-900/20"
+                  >
+                    {clearing === 'fav' ? 'Temizleniyor…' : 'Temizle'}
+                  </button>
+                </div>
               </div>
               <div className="divide-y divide-stroke dark:divide-strokedark">
                 {data.favorites.map((item, i) => (
@@ -491,9 +532,19 @@ export default function UserAnalytics() {
                   </h3>
                   <p className="mt-0.5 text-xs text-bodydark2">Terk edilme riski olan aktif sepetler</p>
                 </div>
-                <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning">
-                  {data.cartUsers.length} sepet
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning">
+                    {data.cartUsers.length} sepet
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearCarts}
+                    disabled={clearing === 'cart'}
+                    className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-900/40 dark:bg-red-900/20"
+                  >
+                    {clearing === 'cart' ? 'Temizleniyor…' : 'Temizle'}
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

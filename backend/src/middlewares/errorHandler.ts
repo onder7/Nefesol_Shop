@@ -42,6 +42,18 @@ export function errorHandler(
     return;
   }
 
+  // Operasyonel hatalar: err.status / err.statusCode ile fırlatılanlar
+  // (Object.assign(new Error(...), { status: 4xx }) deseni projede yaygın).
+  const status = (err as { status?: unknown; statusCode?: unknown }).status
+    ?? (err as { statusCode?: unknown }).statusCode;
+  if (typeof status === 'number' && status >= 400 && status < 600) {
+    if (status >= 500) {
+      logger.error('Sunucu hatası', { error: err.message, stack: err.stack, url: req.url, method: req.method });
+    }
+    res.status(status).json({ success: false, error: err.message });
+    return;
+  }
+
   logger.error('Beklenmeyen hata', {
     error: err.message,
     stack: err.stack,

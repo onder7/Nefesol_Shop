@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { ConsentCheckboxes, type ConsentValue } from '@/components/auth/ConsentCheckboxes';
 
 export function Login() {
   const { name: storeName } = useStoreInfo();
@@ -23,15 +24,25 @@ export function Login() {
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [guestForm, setGuestForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [guestConsent, setGuestConsent] = useState<ConsentValue>({ emailConsent: true, smsConsent: true, acceptTerms: false });
   const [loading, setLoading] = useState(false);
   const [viewPassword, setViewPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'guest'>(from === '/odeme' ? 'guest' : 'login');
 
   async function handleGuestSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!guestConsent.acceptTerms) {
+      toast.error('Üyelik koşullarını ve kişisel verilerimin korunmasını kabul etmelisiniz.');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await authApi.guestLogin(guestForm);
+      const res = await authApi.guestLogin({
+        ...guestForm,
+        marketingConsent: guestConsent.emailConsent,
+        smsConsent: guestConsent.smsConsent,
+        acceptTerms: guestConsent.acceptTerms,
+      });
       const { accessToken, user } = res.data.data;
       setUser(user as User, accessToken);
 
@@ -293,6 +304,9 @@ export function Login() {
                   />
                 </div>
 
+                {/* ETK/KVKK onayları */}
+                <ConsentCheckboxes value={guestConsent} onChange={(p) => setGuestConsent((c) => ({ ...c, ...p }))} />
+
                 <div className="pt-4">
                   <Button
                     type="submit"
@@ -306,15 +320,6 @@ export function Login() {
             )}
           </div>
 
-          {/* Footer Linkleri */}
-          <footer className="mt-4 sm:mt-6 flex gap-2 sm:gap-4 justify-center sm:justify-between text-[10px] sm:text-xs font-bold text-muted-foreground flex-wrap">
-            <Link to="/sozlesmeler" className="hover:text-foreground transition-colors">
-              Kullanım Koşulları
-            </Link>
-            <Link to="/kvkk" className="hover:text-foreground transition-colors">
-              Gizlilik Politikası
-            </Link>
-          </footer>
         </div>
       </div>
 

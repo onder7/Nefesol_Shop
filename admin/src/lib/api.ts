@@ -1,6 +1,6 @@
 // Ortam-bağımsız API kökü: prod'da build arg ile '/api', dev'de localhost.
 // Login/MFA gibi interceptor (401→refresh→redirect) istemeyen yerler de bunu kullanır.
-export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api';
+export const API_BASE: string = import.meta.env.DEV ? 'http://localhost:5000/api' : '/api';
 
 export function getToken(): string | null {
   return localStorage.getItem('admin_token');

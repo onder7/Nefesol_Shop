@@ -18,6 +18,14 @@ export interface PaymentMethodsResponse {
   havale: { enabled: boolean; bankName: string; iban: string; accountName: string; description: string };
 }
 
+export interface BillingInfo {
+  isCorporate: boolean;
+  billingName?: string;
+  taxNumber?: string; // VKN
+  identityNo?: string; // TCKN
+  taxOffice?: string;
+}
+
 export interface PlaceOrderResponse {
   orderId: string;
   havale?: {
@@ -51,11 +59,11 @@ export const checkoutApi = {
     api.get<{ success: boolean; data: PaymentMethodsResponse }>('/checkout/payment-methods'),
 
   // Checkout
-  initialize: (addressId: string, couponCode?: string) =>
-    api.post<{ success: boolean; data: CheckoutInitResponse }>('/checkout/initialize', { addressId, couponCode }),
+  initialize: (addressId: string, couponCode?: string, billing?: BillingInfo) =>
+    api.post<{ success: boolean; data: CheckoutInitResponse }>('/checkout/initialize', { addressId, couponCode, billing }),
 
-  placeOrder: (addressId: string, method: 'cod' | 'havale', couponCode?: string) =>
-    api.post<{ success: boolean; data: PlaceOrderResponse }>('/checkout/place-order', { addressId, method, couponCode }),
+  placeOrder: (addressId: string, method: 'cod' | 'havale', couponCode?: string, billing?: BillingInfo) =>
+    api.post<{ success: boolean; data: PlaceOrderResponse }>('/checkout/place-order', { addressId, method, couponCode, billing }),
 
   // Orders
   listOrders: () =>

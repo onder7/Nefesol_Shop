@@ -473,6 +473,15 @@ function PaymentTab() {
             </Field>
           </div>
         )}
+        {bool('paytr_enabled') && (
+          <div className="flex items-center justify-between mt-4">
+            <div>
+              <p className="text-sm font-medium text-black dark:text-white">Test Modu</p>
+              <p className="text-xs text-gray-400">Açıkken PayTR test kartlarıyla deneme yapılır (gerçek çekim olmaz). Canlıya alırken kapatın.</p>
+            </div>
+            <Toggle checked={bool('paytr_test_mode')} onChange={(v) => s.set('paytr_test_mode', String(v))} />
+          </div>
+        )}
       </SectionCard>
 
       {/* Kapıda Ödeme */}
@@ -2063,7 +2072,7 @@ function PagesTab() {
             <QuillEditor
               value={draft.content}
               onChange={(html) => setDraft({ ...draft, content: html })}
-              placeholder="Sayfa içeriğini yazın... Resim eklemek için araç çubuğundaki 🖼 simgesine tıklayın."
+              placeholder="Sayfa içeriğini yazın... Zengin HTML (<style>, <div class=…>) otomatik HTML kaynak modunda açılır ve olduğu gibi korunur."
               minHeight={360}
             />
           </div>

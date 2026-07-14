@@ -157,7 +157,7 @@ function AppRoutes() {
                   path="customers"
                   element={
                     <>
-                      <PageTitle title="Mü��teriler | Yönetim Paneli" />
+                      <PageTitle title="Müşteriler | Yönetim Paneli" />
                       <Customers />
                     </>
                   }

@@ -72,6 +72,24 @@ export async function deleteProduct(req: AuthRequest, res: Response, next: NextF
   }
 }
 
+export async function clearWishlists(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.clearAllWishlists();
+    res.json({ success: true, message: `${result.deleted} favori temizlendi`, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function clearCarts(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.clearAllCarts();
+    res.json({ success: true, message: `${result.deleted} sepet temizlendi`, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Orders
 export async function listOrders(req: AuthRequest, res: Response, next: NextFunction) {
   try {
@@ -188,6 +206,34 @@ export async function getCustomerDetail(req: AuthRequest, res: Response, next: N
   } catch (err) {
     next(err);
   }
+}
+
+export async function updateCustomerNote(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminUpdateCustomerNote(String(req.params.id), String(req.body?.note ?? ''));
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function sendCustomerPasswordReset(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminSendCustomerPasswordReset(String(req.params.id));
+    res.json({ success: true, message: 'Şifre sıfırlama linki gönderildi', data });
+  } catch (err) { next(err); }
+}
+
+export async function createCustomerCoupon(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await adminService.adminCreateCustomerCoupon(String(req.params.id), req.body);
+    res.status(201).json({ success: true, message: 'Kupon oluşturuldu', data });
+  } catch (err) { next(err); }
+}
+
+export async function deleteCustomer(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await adminService.adminDeleteCustomer(String(req.params.id));
+    res.json({ success: true, message: 'Müşteri silindi' });
+  } catch (err) { next(err); }
 }
 
 // Categories

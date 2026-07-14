@@ -6,6 +6,7 @@ import * as chatbotCtrl from '../controllers/chatbotController';
 import * as popupCtrl from '../controllers/popupController';
 import * as campaignCtrl from '../controllers/discountCampaignController';
 import * as attrCtrl from '../controllers/attributeController';
+import * as invoiceCtrl from '../controllers/invoiceController';
 import { uploadImage } from '../middlewares/upload';
 import { uploadProductImage, uploadProductImageWatermarked } from '../controllers/uploadController';
 
@@ -19,6 +20,8 @@ router.use(authenticate, requireAdmin);
 router.get('/stats', ctrl.getStats);
 router.get('/analytics', ctrl.getAnalytics);
 router.get('/user-analytics', ctrl.getUserAnalytics);
+router.delete('/wishlists', ctrl.clearWishlists); // En Çok Favorilenenler temizle
+router.delete('/carts', ctrl.clearCarts); // Sepette Bekleyenler temizle
 router.get('/analytics/traffic', ctrl.getTrafficAnalytics);
 
 // Upload
@@ -41,6 +44,15 @@ router.put('/orders/:id/shipping', ctrl.updateOrderShipping);
 router.put('/orders/:id/payment-status', ctrl.updatePaymentStatus);
 router.post('/orders/:id/send-invoice', ctrl.sendOrderInvoiceEmail);
 
+// e-Fatura / e-Arşiv (Sysmond E-Dönüşüm)
+router.get('/e-invoice/ping', invoiceCtrl.ping);
+router.post('/orders/:id/e-invoice', invoiceCtrl.issue);
+router.get('/orders/:id/e-invoice', invoiceCtrl.get);
+router.post('/orders/:id/e-invoice/refresh', invoiceCtrl.refresh);
+router.get('/orders/:id/e-invoice/pdf', invoiceCtrl.pdf);
+router.get('/orders/:id/e-invoice/preview-xml', invoiceCtrl.previewXml);
+router.post('/orders/:id/e-invoice/cancel', invoiceCtrl.cancel);
+
 // Reviews (moderasyon — onaylanmadan müşteri tarafında görünmez)
 router.get('/reviews', ctrl.listReviews);
 router.put('/reviews/:id/approve', ctrl.approveReview);
@@ -58,6 +70,10 @@ router.post('/questions/:id/answer', ctrl.answerQuestionAdmin);
 router.get('/customers', ctrl.listCustomers);
 router.get('/customers/:id', ctrl.getCustomerDetail);
 router.put('/customers/:id/toggle-status', ctrl.toggleCustomerStatus);
+router.put('/customers/:id/note', ctrl.updateCustomerNote);
+router.post('/customers/:id/reset-password', ctrl.sendCustomerPasswordReset);
+router.post('/customers/:id/coupon', ctrl.createCustomerCoupon);
+router.delete('/customers/:id', ctrl.deleteCustomer); // sadece sipariş/favori/sepet yoksa
 
 // Newsletter Subscribers
 router.post('/newsletter/subscribers', ctrl.createSubscriber);

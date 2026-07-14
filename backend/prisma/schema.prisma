@@ -26,8 +26,13 @@ model User {
   isActive     Boolean  @default(true) @map("is_active")
   refreshTokens String[] @default([]) @map("refresh_tokens")
 
-  // Ticari elektronik ileti (kampanya/SMS/e-posta) onayı — ETK/KVKK
-  marketingConsent Boolean @default(false) @map("marketing_consent")
+  // Ticari elektronik ileti onayları (ETK/KVKK). marketingConsent = e-posta izni
+  marketingConsent Boolean   @default(false) @map("marketing_consent")
+  smsConsent       Boolean   @default(false) @map("sms_consent")
+  termsAcceptedAt  DateTime? @map("terms_accepted_at") // üyelik koşulları + KVKK kabul zamanı
+
+  // Sadece adminlerin gördüğü müşteri notu
+  adminNote        String?   @map("admin_note")
 
   // MFA Fields
   mfaEnabled   Boolean  @default(false) @map("mfa_enabled")
@@ -363,6 +368,13 @@ model Order {
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
+  // ── Fatura bilgileri (sipariş anındaki snapshot; e-Fatura/e-Arşiv için) ──
+  isCorporate   Boolean @default(false) @map("is_corporate") // kurumsal → e-Fatura, bireysel → e-Arşiv
+  billingName   String? @map("billing_name")                 // fatura ünvanı (kurumsal) veya ad soyad
+  taxNumber     String? @map("tax_number")                   // VKN (kurumsal)
+  identityNo    String? @map("identity_no")                  // TCKN (bireysel)
+  taxOffice     String? @map("tax_office")                   // vergi dairesi (kurumsal)
+
   user           User            @relation(fields: [userId], references: [id])
   address        Address         @relation(fields: [addressId], references: [id])
   items          OrderItem[]
@@ -372,8 +384,46 @@ model Order {
   discountUsages DiscountUsage[]
   cancellation   OrderCancellation?
   returns        OrderReturn[]
+  invoice        Invoice?
 
   @@map("orders")
+}
+
+// ─── e-Fatura / e-Arşiv (QNB eSolutions) ──────────────────────────────────────
+
+enum InvoiceType {
+  EFATURA // GİB e-Fatura mükellefi alıcılar (kurumsal)
+  EARSIV  // e-Arşiv (mükellef olmayan / bireysel)
+}
+
+enum InvoiceStatus {
+  DRAFT     // henüz gönderilmedi
+  QUEUED    // entegratöre gönderildi, sonuç bekleniyor
+  SENT      // başarıyla kesildi/gönderildi
+  REJECTED  // GİB/alıcı reddetti
+  ERROR     // gönderim/teknik hata
+  CANCELLED // e-Arşiv iptal edildi
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  orderId          String        @unique @map("order_id")
+  type             InvoiceType
+  status           InvoiceStatus @default(DRAFT)
+  ettn             String?       @unique // faturayı benzersiz tanımlayan UUID (bizim ürettiğimiz)
+  belgeOid         String?       @map("belge_oid") // QNB belge tekil tanımlayıcısı (durum/indirme anahtarı)
+  invoiceNo        String?       @map("invoice_no") // GİB fatura numarası
+  profile          String?       // TICARIFATURA / TEMELFATURA / EARSIV
+  pdfUrl           String?       @map("pdf_url")
+  providerResponse Json?         @map("provider_response") // entegratör ham cevabı
+  errorMessage     String?       @map("error_message")
+  sentAt           DateTime?     @map("sent_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
 }
 
 model OrderItem {

@@ -143,9 +143,12 @@ router.put('/:id', authenticate, requireAdmin, async (req: Request, res: Respons
 router.delete('/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    await prisma.discount.delete({
-      where: { id },
-    });
+    // Kullanılmış kuponlarda discount_usages FK (RESTRICT) silmeyi engeller.
+    // Önce kullanım kayıtlarını, sonra kuponu sil (tek transaction).
+    await prisma.$transaction([
+      prisma.discountUsage.deleteMany({ where: { discountId: id } }),
+      prisma.discount.delete({ where: { id } }),
+    ]);
 
     res.json({ success: true, message: 'İndirim silindi' });
   } catch (error: any) {

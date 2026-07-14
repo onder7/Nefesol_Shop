@@ -16,6 +16,9 @@ const registerSchema = z.object({
   firstName: z.string().min(2, 'Ad en az 2 karakter olmalı').max(50),
   lastName: z.string().min(2, 'Soyad en az 2 karakter olmalı').max(50),
   phone: z.string().optional(),
+  marketingConsent: z.boolean().optional(), // e-posta izni
+  smsConsent: z.boolean().optional(),
+  acceptTerms: z.boolean().optional(), // üyelik koşulları + KVKK (serviste zorunlu)
 });
 
 const loginSchema = z.object({
@@ -64,6 +67,9 @@ const guestLoginSchema = z.object({
   firstName: z.string().min(2, 'Ad en az 2 karakter olmalı').max(50),
   lastName: z.string().min(2, 'Soyad en az 2 karakter olmalı').max(50),
   phone: z.string().optional(),
+  marketingConsent: z.boolean().optional(),
+  smsConsent: z.boolean().optional(),
+  acceptTerms: z.boolean().optional(),
 });
 
 router.post('/register', validate(registerSchema), ctrl.register);

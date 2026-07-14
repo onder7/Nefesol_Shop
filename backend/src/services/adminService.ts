@@ -100,6 +100,34 @@ export interface AdminProductInput {
   tags?: string[];
 }
 
+/**
+ * Verilen kategori + tüm alt kategorilerinin id'lerini döner.
+ * Üst kategori seçildiğinde alt kategorilerdeki ürünler de listelensin diye kullanılır.
+ * (Ör. "Havlular" seçilince "Premium Havlular" ürünleri de gelir.) Döngüye karşı korumalı.
+ */
+async function categoryWithDescendants(categoryId: string): Promise<string[]> {
+  const all = await prisma.category.findMany({ select: { id: true, parentId: true } });
+  const childrenOf = new Map<string, string[]>();
+  for (const c of all) {
+    if (c.parentId) {
+      const arr = childrenOf.get(c.parentId) ?? [];
+      arr.push(c.id);
+      childrenOf.set(c.parentId, arr);
+    }
+  }
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const stack = [categoryId];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (seen.has(id)) continue; // döngü koruması
+    seen.add(id);
+    result.push(id);
+    for (const child of childrenOf.get(id) ?? []) stack.push(child);
+  }
+  return result;
+}
+
 export async function adminListProducts(params: {
   page?: number;
   limit?: number;
@@ -117,7 +145,11 @@ export async function adminListProducts(params: {
       { slug: { contains: search, mode: 'insensitive' } },
     ];
   }
-  if (categoryId) where.categoryId = categoryId;
+  if (categoryId) {
+    // Seçilen kategori + alt kategorileri kapsansın
+    const ids = await categoryWithDescendants(categoryId);
+    where.categoryId = { in: ids };
+  }
   if (brandId) where.brandId = brandId;
 
   const [products, total] = await Promise.all([
@@ -921,7 +953,9 @@ export async function getCustomerDetail(userId: string) {
     where: { id: userId },
     select: {
       id: true, email: true, firstName: true, lastName: true,
-      isActive: true, createdAt: true, marketingConsent: true,
+      isActive: true, isGuest: true, createdAt: true,
+      marketingConsent: true, smsConsent: true, adminNote: true,
+      passwordHash: true,
       profile: { select: { firstName: true, lastName: true, phone: true } },
     },
   });
@@ -938,6 +972,15 @@ export async function getCustomerDetail(userId: string) {
 
   const countsTowardSpend = (s: string) => !['CANCELLED', 'REFUNDED'].includes(s);
   const totalSpent = orders.filter((o) => countsTowardSpend(o.status)).reduce((s, o) => s + Number(o.total), 0);
+  const openStatuses = ['PENDING', 'PROCESSING', 'SHIPPED'];
+  const pendingOrShippingCount = orders.filter((o) => openStatuses.includes(o.status)).length;
+
+  // Silme uygunluğu için favori + sepet sayıları
+  const [wishlistCount, cartItemCount] = await Promise.all([
+    prisma.wishlistItem.count({ where: { wishlist: { userId } } }),
+    prisma.cartItem.count({ where: { cart: { userId } } }),
+  ]);
+  const deletable = orders.length === 0 && wishlistCount === 0 && cartItemCount === 0;
 
   return {
     user: {
@@ -947,13 +990,21 @@ export async function getCustomerDetail(userId: string) {
       lastName: user.profile?.lastName || user.lastName || '',
       phone: user.profile?.phone || '',
       isActive: user.isActive,
+      isGuest: user.isGuest,
+      hasPassword: !!user.passwordHash,
       createdAt: user.createdAt,
-      marketingConsent: user.marketingConsent,
+      emailConsent: user.marketingConsent,
+      smsConsent: user.smsConsent,
+      adminNote: user.adminNote ?? '',
     },
     summary: {
       orderCount: orders.length,
       paidOrderCount: orders.filter((o) => countsTowardSpend(o.status)).length,
       totalSpent,
+      pendingOrShippingCount,
+      wishlistCount,
+      cartItemCount,
+      deletable,
     },
     orders: orders.map((o) => ({
       id: o.id,
@@ -969,6 +1020,97 @@ export async function getCustomerDetail(userId: string) {
       })),
     })),
   };
+}
+
+/** Müşteriye özel admin notu günceller. */
+export async function adminUpdateCustomerNote(userId: string, note: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) throw new AppError('Müşteri bulunamadı', 404);
+  await prisma.user.update({ where: { id: userId }, data: { adminNote: note.trim() || null } });
+  return { ok: true };
+}
+
+/** Müşteriye şifre sıfırlama e-postası tetikler (mevcut forgotPassword akışını kullanır). */
+export async function adminSendCustomerPasswordReset(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, passwordHash: true, isGuest: true } });
+  if (!user) throw new AppError('Müşteri bulunamadı', 404);
+  if (!user.passwordHash) {
+    throw new AppError('Bu müşteri şifreli bir hesaba sahip değil (misafir / sosyal giriş), sıfırlama linki gönderilemez', 400);
+  }
+  const { forgotPassword } = await import('./authService');
+  await forgotPassword(user.email);
+  return { ok: true, email: user.email };
+}
+
+export interface AdminCustomerCouponInput {
+  code: string;
+  type: 'PERCENT' | 'FIXED';
+  value: number;
+  minOrder?: number;
+  maxUses?: number;
+  expiresAt?: string; // ISO
+  description?: string;
+}
+
+/** Müşteriye özel indirim kuponu oluşturur (Discount.userId = müşteri). */
+export async function adminCreateCustomerCoupon(userId: string, input: AdminCustomerCouponInput) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) throw new AppError('Müşteri bulunamadı', 404);
+
+  const code = input.code.trim().toUpperCase();
+  if (!code) throw new AppError('Kupon kodu gerekli', 400);
+  if (!(input.value > 0)) throw new AppError('Kupon değeri 0’dan büyük olmalı', 400);
+
+  const existing = await prisma.discount.findUnique({ where: { code } });
+  if (existing) throw new AppError('Bu kupon kodu zaten kullanılıyor', 409);
+
+  return prisma.discount.create({
+    data: {
+      code,
+      type: input.type,
+      value: input.value,
+      minOrder: input.minOrder ?? null,
+      maxUses: input.maxUses ?? 1,
+      isActive: true,
+      expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      userId, // kişiye özel
+      description: input.description?.trim() || 'Müşteriye özel kupon',
+    },
+    select: { id: true, code: true, type: true, value: true, expiresAt: true },
+  });
+}
+
+/**
+ * Müşteriyi siler — YALNIZCA siparişi, favorisi ve sepeti yoksa.
+ * Bloklamayan bağlı veriler (yorum, kişiye özel kupon) önce temizlenir;
+ * kalanı (profil, adres, boş sepet/favori, bildirim) FK cascade ile gider.
+ */
+export async function adminDeleteCustomer(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } });
+  if (!user) throw new AppError('Müşteri bulunamadı', 404);
+  if (user.role === 'ADMIN') throw new AppError('Yönetici hesabı bu ekrandan silinemez', 400);
+
+  const [orderCount, wishlistCount, cartItemCount] = await Promise.all([
+    prisma.order.count({ where: { userId } }),
+    prisma.wishlistItem.count({ where: { wishlist: { userId } } }),
+    prisma.cartItem.count({ where: { cart: { userId } } }),
+  ]);
+
+  if (orderCount > 0 || wishlistCount > 0 || cartItemCount > 0) {
+    const parts: string[] = [];
+    if (orderCount > 0) parts.push(`${orderCount} sipariş`);
+    if (wishlistCount > 0) parts.push(`${wishlistCount} favori`);
+    if (cartItemCount > 0) parts.push(`${cartItemCount} sepet ürünü`);
+    throw new AppError(`Bu müşteri silinemez: ${parts.join(', ')} bulunuyor. Önce bunların temizlenmesi gerekir.`, 409);
+  }
+
+  await prisma.$transaction([
+    prisma.review.deleteMany({ where: { userId } }),
+    prisma.discount.deleteMany({ where: { userId } }), // kişiye özel kuponlar
+    prisma.user.delete({ where: { id: userId } }), // profil/adres/boş sepet-favori/bildirim → cascade
+  ]);
+
+  return { ok: true };
 }
 
 export async function adminListBrands() {
@@ -1274,6 +1416,19 @@ export async function adminGlobalSearch(q: string) {
     }),
   ]);
   return { products, orders, customers };
+}
+
+/** Tüm favorileri (wishlist) temizler. Silinen kalem sayısını döner. */
+export async function clearAllWishlists(): Promise<{ deleted: number }> {
+  const res = await prisma.wishlistItem.deleteMany({});
+  return { deleted: res.count };
+}
+
+/** Tüm sepetleri (cart + cart_items) temizler. Silinen sepet sayısını döner. */
+export async function clearAllCarts(): Promise<{ deleted: number }> {
+  await prisma.cartItem.deleteMany({});
+  const res = await prisma.cart.deleteMany({});
+  return { deleted: res.count };
 }
 
 export async function getUserAnalyticsData() {

@@ -1,11 +1,8 @@
-name: onder_online_shop
+name: mabridgeglobal_shop
 
 services:
   nginx:
     image: nginx:alpine
-    ports:
-      - '80:80'
-      - '443:443'
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
     depends_on:
@@ -15,6 +12,7 @@ services:
     restart: unless-stopped
     networks:
       - app
+      - web_proxy
 
   frontend:
     build:
@@ -93,3 +91,5 @@ volumes:
 networks:
   app:
     driver: bridge
+  web_proxy:
+    external: true
