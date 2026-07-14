@@ -41,6 +41,8 @@ const queryClient = new QueryClient({
 function AppContent() {
   const location = useLocation();
   const isAuthPage = ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla'].includes(location.pathname);
+  // Ödeme sayfasında sabit alt menü, iyzico'nun sabitlenmiş "Öde" butonunu mobilde örtüyor — bu yüzden gizle
+  const isCheckoutPage = location.pathname === '/odeme';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -97,8 +99,8 @@ function AppContent() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       {!isAuthPage && <Footer />}
-      <BottomNav />
-      {!isAuthPage && <LiveChat />}
+      {!isCheckoutPage && <BottomNav />}
+      {!isAuthPage && !isCheckoutPage && <LiveChat />}
       {!isAuthPage && <PopupNotification />}
       <CookieConsent />
     </div>
