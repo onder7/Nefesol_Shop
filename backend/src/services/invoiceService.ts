@@ -5,6 +5,21 @@ import { logger } from '../config/logger';
 import { getTaxConfig } from './settingsService';
 import * as sysmond from './sysmondService';
 
+// docDate'i Türkiye saatiyle "YYYY-MM-DDTHH:mm:ss" üretir. Container TZ=UTC olduğunda
+// toISOString() UTC verip faturayı 3 saat geri gösteriyordu; burada Europe/Istanbul'a
+// göre biçimlendiriyoruz (Türkiye sabit UTC+3, DST yok).
+function istanbulDocDate(d: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d);
+  const p: Record<string, string> = {};
+  for (const part of parts) p[part.type] = part.value;
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Sipariş → Sysmond e-Dönüşüm fatura entegrasyonu.
 //
@@ -170,14 +185,14 @@ export async function issueInvoice(orderId: string): Promise<IssueResult> {
 
   const invoiceDetail = await buildLineItems(order);
 
-  // docDate: Sysmond "2026-07-07T00:00:00" formatı bekliyor (Z yok, ms yok)
+  // docDate: Sysmond "2026-07-07T00:00:00" formatı bekliyor (Z yok, ms yok) — Türkiye saatiyle
   const now = new Date();
-  const docDate = now.toISOString().split('.')[0]; // "2026-07-07T11:23:45"
+  const docDate = istanbulDocDate(now); // "2026-07-07T14:23:45" (Europe/Istanbul)
 
   // docNo: PREFIX + YIL + 9 haneli timestamp sonu (Sysmond format: "MAB2026000001234")
   // Seri öneki fatura tipine göre seçilir: e-Fatura=MAB, e-Arşiv=GLB.
   const invoicePrefix = pickInvoicePrefix(profile);
-  const year = now.getFullYear();
+  const year = docDate.slice(0, 4); // fatura tarihinin (Türkiye) yılı
   const seq = String(now.getTime()).slice(-9);
   const docNo = `${invoicePrefix}${year}${seq}`;
 
@@ -341,10 +356,10 @@ export async function previewPayload(orderId: string): Promise<object> {
   const a = order.address;
   const fullName = `${a.firstName} ${a.lastName}`.trim();
   const previewDate = new Date();
-  const docDate = previewDate.toISOString().split('.')[0];
+  const docDate = istanbulDocDate(previewDate);
   const { profile, pkAlias } = await resolveInvoiceTarget(order);
   const invoicePrefix = pickInvoicePrefix(profile);
-  const docNo = `${invoicePrefix}${previewDate.getFullYear()}${String(previewDate.getTime()).slice(-9)}`;
+  const docNo = `${invoicePrefix}${docDate.slice(0, 4)}${String(previewDate.getTime()).slice(-9)}`;
   return {
     profile,
     invoiceType: 'SATIS',
