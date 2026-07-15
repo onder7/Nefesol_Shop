@@ -26,6 +26,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { useTaxConfig } from '@/hooks/useTaxConfig';
@@ -57,7 +58,8 @@ export function AccountDashboard() {
   const { taxRate } = useTaxConfig();
   const { hasWarning: profileHasWarning, missingAddress, missingPhone, message: profileWarningMessage } = useProfileCompleteness();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { setCart, setAppliedCoupon } = useCartStore();
   const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'orders');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -235,6 +237,23 @@ export function AccountDashboard() {
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
+
+  // PayTR ödemesi başarıyla tamamlanınca buraya yönlendiriliyoruz (?odeme=basarili).
+  // Sunucu sepeti zaten temizledi; client sepet state'ini de temizle, kullanıcıyı
+  // bilgilendir, siparişleri tazele ve URL'i temizle.
+  useEffect(() => {
+    if (searchParams.get('odeme') !== 'basarili') return;
+    setCart(null);
+    setAppliedCoupon(null);
+    setActiveSection('orders');
+    refetchOrders();
+    toast.success('Ödemeniz başarıyla tamamlandı. Siparişiniz oluşturuldu.');
+    const next = new URLSearchParams(searchParams);
+    next.delete('odeme');
+    next.delete('orderId');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch favorites
   const { data: favoritesData = [], isLoading: favoritesLoading, refetch: refetchFavorites } = useQuery({

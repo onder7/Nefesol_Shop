@@ -414,7 +414,8 @@ export async function paytrReturn(req: Request, res: Response) {
   for (let i = 0; i < 12; i++) {
     const r = await redis.get(`paytr:result:${oid}`);
     if (r && r !== 'FAILED') {
-      return breakoutRedirect(res, `${env.FRONTEND_URL}/siparis-tamamlandi?orderId=${r}`);
+      // Ödeme başarılı → kullanıcıyı profildeki Siparişlerim (ödemeler) sayfasına yönlendir
+      return breakoutRedirect(res, `${env.FRONTEND_URL}/hesabim/siparisler?odeme=basarili&orderId=${r}`);
     }
     if (r === 'FAILED') {
       return breakoutRedirect(res, `${env.FRONTEND_URL}/sepet?error=payment_failed`);
