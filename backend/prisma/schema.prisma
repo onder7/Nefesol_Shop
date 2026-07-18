@@ -544,6 +544,11 @@ model Shipping {
   deliveredAt    DateTime? @map("delivered_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
+  // HepsiJET entegrasyonu
+  deliveryNo  String? @map("delivery_no")  // customerDeliveryNo — tekrar denemede korunur
+  barcodeData String? @map("barcode_data") @db.Text // ZPL etiket verisi
+  payload     Json?   // HepsiJET'e gönderilen istek + dönen yanıt (hata ayıklama)
+
   order Order @relation(fields: [orderId], references: [id])
 
   @@map("shippings")

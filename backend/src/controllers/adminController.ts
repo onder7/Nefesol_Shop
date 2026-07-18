@@ -10,6 +10,7 @@ import { getSystemStats } from '../services/systemService';
 import * as reviewService from '../services/reviewService';
 import * as qaService from '../services/qaService';
 import * as watermarkService from '../services/watermarkService';
+import * as hepsijet from '../services/hepsijetService';
 import { prisma } from '../config/database';
 
 export async function getStats(req: AuthRequest, res: Response, next: NextFunction) {
@@ -482,6 +483,8 @@ export async function updateSettings(req: AuthRequest, res: Response, next: Next
   try {
     const group = String(req.params.group);
     await settingsService.updateSettingsGroup(group + '_', req.body as Record<string, string>);
+    // Kargo ayarları değiştiyse HepsiJET token cache'i geçersiz kılınmalı
+    if (group === 'shipping') hepsijet.invalidateToken();
     const data = await settingsService.getSettingsGroup(group + '_');
     res.json({ success: true, data });
   } catch (err) { next(err); }

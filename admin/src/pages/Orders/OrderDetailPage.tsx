@@ -249,6 +249,10 @@ export default function OrderDetailPage() {
   const [eInvBusy, setEInvBusy] = useState(false);
   const [eInvErr, setEInvErr]   = useState('');
 
+  // HepsiJET kargo
+  const [shipBusy, setShipBusy] = useState(false);
+  const [shipErr, setShipErr]   = useState('');
+
   useEffect(() => {
     api.get('/tax-config')
       .then((r) => {
@@ -611,6 +615,39 @@ export default function OrderDetailPage() {
     }
   }
 
+  async function handleCreateShipment() {
+    setShipBusy(true);
+    setShipErr('');
+    try {
+      await api.post(`/admin/orders/${orderId}/shipment`, {});
+      loadOrder();
+    } catch (err) {
+      setShipErr(err instanceof Error ? err.message : 'Kargo gönderisi oluşturulamadı');
+    } finally {
+      setShipBusy(false);
+    }
+  }
+
+  // ZPL etiketi metin dosyası olarak iner; barkod yazıcıya bu dosya gönderilir.
+  async function handleDownloadLabel() {
+    setShipErr('');
+    try {
+      const res = await fetch(`${API_BASE}/admin/orders/${orderId}/shipment/label`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) { setShipErr('Etiket alınamadı (bu sipariş için kayıtlı barkod yok)'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hepsijet-${order?.shipping?.trackingNumber ?? orderId}.zpl`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setShipErr(err instanceof Error ? err.message : 'Etiket indirilemedi');
+    }
+  }
+
   async function handleSaveShipping() {
     setShippingSaving(true);
     try {
@@ -699,7 +736,21 @@ export default function OrderDetailPage() {
             <span className="text-xs text-red-600 font-medium px-2 max-w-xs truncate" title={eInvErr}>{eInvErr}</span>
           )}
           {eInvoice?.status === 'CANCELLED' ? (
-            <span className="text-xs text-gray-500 font-medium px-2">e-Arşiv İptal Edildi</span>
+            <>
+              <span className="text-xs text-gray-500 font-medium px-2">e-Arşiv İptal Edildi</span>
+              <button
+                onClick={handleIssueEInvoice}
+                disabled={eInvBusy}
+                title="İptal edilen faturayı yeniden kes"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-primary bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition disabled:opacity-50"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                  <path d="M14 2v6h6M9 13h6M9 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {eInvBusy ? 'Kesiliyor…' : 'Yeniden Fatura Kes'}
+              </button>
+            </>
           ) : eInvoice?.status === 'SENT' ? (
             <>
               <span className="text-xs text-green-600 font-medium px-2">
@@ -1076,6 +1127,47 @@ export default function OrderDetailPage() {
                 Sipariş "Kargoda" durumuna alındığında kargo bilgileri burada görünür.
               </div>
             )}
+
+            {/* HepsiJET gönderi oluşturma */}
+            <div className="border-t border-stroke dark:border-strokedark pt-4 pb-4 print:hidden">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">HepsiJET</p>
+              {shipErr && (
+                <div className="mb-3 rounded bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-xs">
+                  {shipErr}
+                </div>
+              )}
+              <div className="flex gap-2 flex-wrap items-center">
+                {order.shipping?.trackingNumber && order.shipping.carrier === 'HepsiJET' ? (
+                  <>
+                    <span className="text-xs text-green-600 font-medium px-1">
+                      Gönderi oluşturuldu ({order.shipping.trackingNumber})
+                    </span>
+                    <button
+                      onClick={handleDownloadLabel}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-primary bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Etiketi İndir (ZPL)
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleCreateShipment}
+                    disabled={shipBusy}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M16 3H1v13h15V3zM16 8h4l3 3v5h-7V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                      <circle cx="5.5" cy="18.5" r="2" stroke="currentColor" strokeWidth="1.8"/>
+                      <circle cx="18.5" cy="18.5" r="2" stroke="currentColor" strokeWidth="1.8"/>
+                    </svg>
+                    {shipBusy ? 'Oluşturuluyor…' : 'HepsiJET Kargo Oluştur'}
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* Kargo bilgisi düzenleme */}
             {order.shipping && (

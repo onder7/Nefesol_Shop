@@ -189,19 +189,16 @@ export async function issueInvoice(orderId: string): Promise<IssueResult> {
   const now = new Date();
   const docDate = istanbulDocDate(now); // "2026-07-07T14:23:45" (Europe/Istanbul)
 
-  // docNo: PREFIX + YIL + 9 haneli timestamp sonu (Sysmond format: "MAB2026000001234")
+  // Otomatik sayaç için docNo yerine prefix gönderiyoruz.
   // Seri öneki fatura tipine göre seçilir: e-Fatura=MAB, e-Arşiv=GLB.
   const invoicePrefix = pickInvoicePrefix(profile);
-  const year = docDate.slice(0, 4); // fatura tarihinin (Türkiye) yılı
-  const seq = String(now.getTime()).slice(-9);
-  const docNo = `${invoicePrefix}${year}${seq}`;
 
   const faturaItem: sysmond.FaturaItem = {
     profile,
     invoiceType: 'SATIS',
     ettn,
     docDate,
-    docNo,
+    prefix: invoicePrefix,
     currencyCode: 'TRY',
     isDraft: false,
     ...(profile === 'EARSIVFATURA' ? { senderType: 'ELEKTRONIK' } : {}),
@@ -359,13 +356,12 @@ export async function previewPayload(orderId: string): Promise<object> {
   const docDate = istanbulDocDate(previewDate);
   const { profile, pkAlias } = await resolveInvoiceTarget(order);
   const invoicePrefix = pickInvoicePrefix(profile);
-  const docNo = `${invoicePrefix}${docDate.slice(0, 4)}${String(previewDate.getTime()).slice(-9)}`;
   return {
     profile,
     invoiceType: 'SATIS',
     ettn: '(üretilecek)',
     docDate,
-    docNo,
+    prefix: invoicePrefix,
     currencyCode: 'TRY',
     isDraft: false,
     ...(profile === 'EARSIVFATURA' ? { senderType: 'ELEKTRONIK' } : {}),

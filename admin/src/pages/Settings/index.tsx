@@ -571,12 +571,22 @@ function PaymentTab() {
 
 // ─── Tab: Kargo ───────────────────────────────────────────────────────────────
 
+interface HepsijetPing {
+  ok: boolean;
+  mode: string;
+  xdock?: string;
+  company?: string;
+  message?: string;
+}
+
 function ShippingTab() {
   const [loading, setLoading] = useState(true);
   const s = useSave('shipping', {});
   const [taxRate, setTaxRate] = useState(20);
   const [savingTax, setSavingTax] = useState(false);
   const [savedTax, setSavedTax] = useState(false);
+  const [pinging, setPinging] = useState(false);
+  const [pingResult, setPingResult] = useState<HepsijetPing | null>(null);
 
   useEffect(() => {
     api
@@ -619,6 +629,19 @@ function ShippingTab() {
       alert('KDV oranı kaydedilemedi');
     } finally {
       setSavingTax(false);
+    }
+  };
+
+  const handleHepsijetPing = async () => {
+    setPinging(true);
+    setPingResult(null);
+    try {
+      const r = await api.get<{ success: boolean; data: HepsijetPing }>('/admin/hepsijet/ping');
+      setPingResult(r.data);
+    } catch (err) {
+      setPingResult({ ok: false, mode: '', message: err instanceof Error ? err.message : 'Bağlantı hatası' });
+    } finally {
+      setPinging(false);
     }
   };
 
@@ -700,6 +723,147 @@ function ShippingTab() {
             {savingTax ? 'Kaydediliyor…' : savedTax ? '✓ Kaydedildi' : 'KDV Kaydet'}
           </button>
         </div>
+      </SectionCard>
+
+      {/* HepsiJET — gönderi oluşturma entegrasyonu (RETAIL TR) */}
+      <SectionCard
+        title="HepsiJET Entegrasyonu"
+        subtitle="Sipariş detayından tek tıkla kargo gönderisi oluşturur ve barkod (ZPL) üretir"
+      >
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-strokedark p-4 mb-5">
+          <div>
+            <p className="text-sm font-medium">HepsiJET aktif</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Kapalıyken sipariş detayındaki "Kargo Oluştur" butonu çalışmaz.
+            </p>
+          </div>
+          <Toggle
+            checked={g.hepsijet_enabled === 'true'}
+            onChange={(v) => s.set('hepsijet_enabled', v ? 'true' : 'false')}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Ortam">
+            <select
+              className={inputCls}
+              value={g.hepsijet_mode ?? 'test'}
+              onChange={(e) => s.set('hepsijet_mode', e.target.value)}
+            >
+              <option value="test">Test (integrationapitest.hepsijet.com)</option>
+              <option value="prod">Canlı (integration.hepsijet.com)</option>
+            </select>
+          </Field>
+          <Field label="Gönderi Tipi">
+            <select
+              className={inputCls}
+              value={g.hepsijet_product_code ?? 'HX_STD'}
+              onChange={(e) => s.set('hepsijet_product_code', e.target.value)}
+            >
+              <option value="HX_STD">HX_STD — Standart Teslimat</option>
+              <option value="HX_SD">HX_SD — Aynı Gün</option>
+              <option value="HX_ND">HX_ND — Ertesi Gün</option>
+              <option value="HJ_DT">HJ_DT — Kapıdan Kapıya</option>
+            </select>
+          </Field>
+          <Field label="Kullanıcı Adı">
+            <input
+              className={inputCls}
+              value={g.hepsijet_username ?? ''}
+              onChange={(e) => s.set('hepsijet_username', e.target.value)}
+              placeholder="HepsiJET tarafından verilir"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </Field>
+          <Field label="Şifre">
+            <input
+              className={inputCls}
+              type="password"
+              value={g.hepsijet_password ?? ''}
+              onChange={(e) => s.set('hepsijet_password', e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+            />
+          </Field>
+        </div>
+
+        <p className="mt-6 mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Firma Bilgileri (HepsiJET tarafından tanımlanır)
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Firma Adı" hint="company.name — birebir HepsiJET'in verdiği değer">
+            <input className={inputCls} value={g.hepsijet_company_name ?? ''} onChange={(e) => s.set('hepsijet_company_name', e.target.value)} />
+          </Field>
+          <Field label="Firma Kodu" hint="company.abbreviationCode">
+            <input className={inputCls} value={g.hepsijet_company_code ?? ''} onChange={(e) => s.set('hepsijet_company_code', e.target.value)} />
+          </Field>
+          <Field label="Gönderi No Öneki" hint="3 haneli — customerDeliveryNo bu kodla başlamak zorunda">
+            <input className={inputCls} maxLength={3} value={g.hepsijet_delivery_prefix ?? ''} onChange={(e) => s.set('hepsijet_delivery_prefix', e.target.value)} placeholder="örn. 123" />
+          </Field>
+          <Field label="XDock Kodu" hint="currentXDock.abbreviationCode — örn. ETMS123">
+            <input className={inputCls} value={g.hepsijet_xdock ?? ''} onChange={(e) => s.set('hepsijet_xdock', e.target.value)} />
+          </Field>
+          <Field label="Varsayılan Desi" hint="Ürün bazlı desi henüz yok; her gönderi bu değerle iletilir">
+            <input className={inputCls} type="number" min="1" step="0.1" value={g.hepsijet_default_desi ?? ''} onChange={(e) => s.set('hepsijet_default_desi', e.target.value)} placeholder="4" />
+          </Field>
+        </div>
+
+        <p className="mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Gönderici (Depo) Adresi
+        </p>
+        <p className="mb-3 text-xs text-amber-600 dark:text-amber-500">
+          Alanlar HepsiJET'in API adlarıyla etiketlendi. HepsiJET'in gönderdiği tanım mailinde
+          <strong> town</strong> mahalle, <strong>district</strong> ilçe olarak verilmişti; dokümanda ise tersi
+          (town=ilçe, district=mahalle). Buraya <strong>mailde yazan değerler</strong> girildi. Alıcı adresi
+          dokümandaki eşlemeyi kullanıyor — HepsiJET'ten teyit alınmalı.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Gönderici Adres ID" hint="senderAddress.companyAddressId — HepsiJET verir, sabittir">
+            <input className={inputCls} value={g.hepsijet_sender_address_id ?? ''} onChange={(e) => s.set('hepsijet_sender_address_id', e.target.value)} />
+          </Field>
+          <Field label="city" hint="HepsiJET'in verdiği değer — örn. ANTALYA">
+            <input className={inputCls} value={g.hepsijet_sender_city ?? ''} onChange={(e) => s.set('hepsijet_sender_city', e.target.value)} placeholder="ANTALYA" />
+          </Field>
+          <Field label="town" hint="HepsiJET'in verdiği değer — mailde mahalle yazılmıştı (KIZILTOPRAK)">
+            <input className={inputCls} value={g.hepsijet_sender_town ?? ''} onChange={(e) => s.set('hepsijet_sender_town', e.target.value)} />
+          </Field>
+          <Field label="district" hint="HepsiJET'in verdiği değer — mailde ilçe yazılmıştı (MURATPAŞA)">
+            <input className={inputCls} value={g.hepsijet_sender_district ?? ''} onChange={(e) => s.set('hepsijet_sender_district', e.target.value)} />
+          </Field>
+        </div>
+        <div className="mt-4">
+          <Field label="Açık Adres">
+            <textarea
+              className={inputCls}
+              rows={2}
+              value={g.hepsijet_sender_address ?? ''}
+              onChange={(e) => s.set('hepsijet_sender_address', e.target.value)}
+              placeholder="Cadde, sokak, no, kat…"
+            />
+          </Field>
+        </div>
+
+        <div className="mt-5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleHepsijetPing}
+            disabled={pinging}
+            className="px-4 py-2 rounded-lg border border-primary bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50 transition"
+          >
+            {pinging ? 'Deneniyor…' : 'Bağlantıyı Test Et'}
+          </button>
+          {pingResult && (
+            <span className={`text-xs font-medium ${pingResult.ok ? 'text-green-600' : 'text-red-600'}`}>
+              {pingResult.ok
+                ? `✓ Bağlantı başarılı (${pingResult.mode}${pingResult.xdock ? ` · XDock: ${pingResult.xdock}` : ''})`
+                : `✗ ${pingResult.message}`}
+            </span>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-gray-400">
+          Test etmeden önce ayarları kaydedin — bağlantı testi kayıtlı değerleri kullanır.
+        </p>
       </SectionCard>
 
       <CarrierSection title="Yurtiçi Kargo API" prefix="yurtici" />

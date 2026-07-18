@@ -7,6 +7,7 @@ import * as popupCtrl from '../controllers/popupController';
 import * as campaignCtrl from '../controllers/discountCampaignController';
 import * as attrCtrl from '../controllers/attributeController';
 import * as invoiceCtrl from '../controllers/invoiceController';
+import * as shipmentCtrl from '../controllers/shipmentController';
 import { uploadImage } from '../middlewares/upload';
 import { uploadProductImage, uploadProductImageWatermarked } from '../controllers/uploadController';
 
@@ -52,6 +53,12 @@ router.post('/orders/:id/e-invoice/refresh', invoiceCtrl.refresh);
 router.get('/orders/:id/e-invoice/pdf', invoiceCtrl.pdf);
 router.get('/orders/:id/e-invoice/preview-xml', invoiceCtrl.previewXml);
 router.post('/orders/:id/e-invoice/cancel', invoiceCtrl.cancel);
+
+// Kargo (HepsiJET)
+router.get('/hepsijet/ping', shipmentCtrl.ping);
+router.post('/orders/:id/shipment', shipmentCtrl.create);
+router.get('/orders/:id/shipment/label', shipmentCtrl.label);
+router.get('/orders/:id/shipment/preview', shipmentCtrl.preview);
 
 // Reviews (moderasyon — onaylanmadan müşteri tarafında görünmez)
 router.get('/reviews', ctrl.listReviews);
