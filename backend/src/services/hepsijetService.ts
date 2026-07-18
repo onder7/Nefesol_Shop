@@ -8,7 +8,9 @@ import { getSettingsGroup } from './settingsService';
 // öneki) okunur. Token 60 dakika geçerlidir; süre dolmadan önce yeniden alınır.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEST_URL = 'https://integrationapitest.hepsijet.com';
+// Not: Postman dokumaninda test adresi "integrationapitest" (tiresiz) yaziyor,
+// dogrusu tireli olani — tiresiz olan DNS'te hic yok.
+const TEST_URL = 'https://integration-apitest.hepsijet.com';
 const PROD_URL = 'https://integration.hepsijet.com';
 
 export interface HepsijetConfig {
