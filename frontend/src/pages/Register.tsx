@@ -111,6 +111,10 @@ export function Register() {
       }
 
       const { accessToken } = res.data.data;
+      // Token'ı önce store'a yaz: me() isteği Authorization başlığını buradan alır.
+      // Aksi halde yalnızca çereze bağlı kalıyor; çerez Secure olduğu için
+      // HTTP üzerinde (yerel geliştirme) gitmiyor ve 401 alınıyordu.
+      useAuthStore.getState().setTokens(accessToken!);
       const meRes = await authApi.me();
       setUser(meRes.data.data as User, accessToken!);
       toast.success('Kayıt başarılı! Hoş geldiniz.');
