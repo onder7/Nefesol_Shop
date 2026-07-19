@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
@@ -24,7 +24,6 @@ import { Cart } from '@/pages/Cart';
 import { Checkout } from '@/pages/Checkout';
 import { OrderSuccess } from '@/pages/OrderSuccess';
 import { OrderDetail } from '@/pages/Orders';
-import { Favorites } from '@/pages/Favorites';
 import { Addresses } from '@/pages/Addresses';
 import { NotFound } from '@/pages/NotFound';
 import { AccountDashboard } from '@/pages/AccountDashboard';
@@ -87,11 +86,17 @@ function AppContent() {
 
           {/* Hesap sayfaları (sipariş geçmişi dahil) yalnızca üyelere açık — misafir erişemez */}
           <Route element={<CustomerOnlyRoute />}>
+            {/* Hesabım sekmeleri — her sekmenin kendi adresi var (paylaşılabilir, geri tuşu çalışır).
+                Aktif sekme AccountDashboard içinde yoldan (pathname) türetilir. */}
             <Route path="/hesabim" element={<AccountDashboard />} />
+            <Route path="/hesabim/sepetim" element={<AccountDashboard />} />
             <Route path="/hesabim/siparisler" element={<AccountDashboard />} />
             <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
-            <Route path="/hesabim/profil" element={<Navigate to="/hesabim" replace />} />
-            <Route path="/hesabim/favoriler" element={<Favorites />} />
+            <Route path="/hesabim/favoriler" element={<AccountDashboard />} />
+            <Route path="/hesabim/degerlendirmelerim" element={<AccountDashboard />} />
+            <Route path="/hesabim/sorularim" element={<AccountDashboard />} />
+            <Route path="/hesabim/indirimlerim" element={<AccountDashboard />} />
+            <Route path="/hesabim/profil" element={<AccountDashboard />} />
             <Route path="/hesabim/adresler" element={<Addresses />} />
           </Route>
         </Route>

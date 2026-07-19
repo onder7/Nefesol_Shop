@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
 import { ReturnModal } from '@/components/order/ReturnModal';
@@ -31,6 +31,36 @@ import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { useTaxConfig } from '@/hooks/useTaxConfig';
 
+// ─── Hesabım sekmeleri ↔ URL eşlemesi ───────────────────────────────────────
+// Her sekmenin kendi adresi var; aktif sekme yoldan türetilir.
+
+export const SECTION_TO_PATH: Record<string, string> = {
+  overview:  '/hesabim',
+  cart:      '/hesabim/sepetim',
+  orders:    '/hesabim/siparisler',
+  favorites: '/hesabim/favoriler',
+  reviews:   '/hesabim/degerlendirmelerim',
+  questions: '/hesabim/sorularim',
+  coupons:   '/hesabim/indirimlerim',
+  profile:   '/hesabim/profil',
+};
+
+const PATH_TO_SECTION: Record<string, string> = Object.fromEntries(
+  Object.entries(SECTION_TO_PATH).map(([section, path]) => [path, section]),
+);
+
+/**
+ * Aktif sekmeyi adresten çözer. Eski `?tab=` bağlantıları da çalışmaya devam
+ * etsin diye, yol eşleşmediğinde sorgu parametresine bakılır.
+ */
+function sectionFromPath(pathname: string, tabParam: string | null): string {
+  const clean = pathname.replace(/\/+$/, '') || '/hesabim';
+  // Eski `/hesabim?tab=reviews` biçimindeki bağlantılar çalışmaya devam etsin.
+  // Yalnızca temel adreste geçerli; alt yollarda yol bilgisi esas alınır.
+  if (clean === '/hesabim' && tabParam && SECTION_TO_PATH[tabParam]) return tabParam;
+  return PATH_TO_SECTION[clean] ?? 'overview';
+}
+
 function formatPrice(price: number) {
   return price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
 }
@@ -58,9 +88,14 @@ export function AccountDashboard() {
   const { taxRate } = useTaxConfig();
   const { hasWarning: profileHasWarning, missingAddress, missingPhone, message: profileWarningMessage } = useProfileCompleteness();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { setCart, setAppliedCoupon } = useCartStore();
-  const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'orders');
+  const location = useLocation();
+  // Aktif sekme URL'den türetilir; state tutulmaz. Böylece hem doğrudan link
+  // paylaşılabilir hem de zaten /hesabim'dayken menüden başka sekmeye geçilebilir
+  // (state kullanıldığında bileşen yeniden mount olmadığı için sekme değişmiyordu).
+  const activeSection = sectionFromPath(location.pathname, searchParams.get('tab'));
+  const setActiveSection = (id: string) => navigate(SECTION_TO_PATH[id] ?? '/hesabim');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -245,13 +280,10 @@ export function AccountDashboard() {
     if (searchParams.get('odeme') !== 'basarili') return;
     setCart(null);
     setAppliedCoupon(null);
-    setActiveSection('orders');
     refetchOrders();
     toast.success('Ödemeniz başarıyla tamamlandı. Siparişiniz oluşturuldu.');
-    const next = new URLSearchParams(searchParams);
-    next.delete('odeme');
-    next.delete('orderId');
-    setSearchParams(next, { replace: true });
+    // Siparişler sekmesine geç ve ödeme parametrelerini adresten temizle (tek adımda).
+    navigate('/hesabim/siparisler', { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

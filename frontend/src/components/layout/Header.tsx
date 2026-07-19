@@ -291,17 +291,20 @@ export function Header() {
                     <DropdownMenuItem render={<Link to="/hesabim/siparisler" />} className="text-sm">
                       Siparişlerim
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/iletisim" />} className="text-sm">
-                      Soru ve Taleplerim
+                    <DropdownMenuItem render={<Link to="/hesabim/sorularim" />} className="text-sm">
+                      Soru &amp; Cevaplarım
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim/profil" />} className="text-sm">
-                      Kullanıcı Bilgilerim
-                    </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                    <DropdownMenuItem render={<Link to="/hesabim/degerlendirmelerim" />} className="text-sm">
                       Değerlendirmelerim
                     </DropdownMenuItem>
                     <DropdownMenuItem render={<Link to="/hesabim/favoriler" />} className="text-sm">
                       Beğendiklerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link to="/hesabim/indirimlerim" />} className="text-sm">
+                      İndirimlerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link to="/hesabim/profil" />} className="text-sm">
+                      Profil Bilgileri
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
