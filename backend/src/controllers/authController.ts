@@ -26,12 +26,25 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { accessToken, refreshToken } = await authService.register(req.body);
-    setTokenCookies(res, accessToken, refreshToken);
+    const result = await authService.register(req.body);
+
+    // Doğrulama zorunluysa oturum açılmaz; kullanıcı e-postasını doğrulamalı.
+    if ('verificationRequired' in result) {
+      res.status(201).json({
+        success: true,
+        message: result.emailSent
+          ? 'Kayıt başarılı. E-posta adresinize doğrulama linki gönderildi.'
+          : 'Kayıt başarılı, ancak doğrulama e-postası gönderilemedi. Lütfen "Tekrar gönder" ile yeniden deneyin.',
+        data: { verificationRequired: true, email: result.email, emailSent: result.emailSent },
+      });
+      return;
+    }
+
+    setTokenCookies(res, result.accessToken, result.refreshToken);
     res.status(201).json({
       success: true,
       message: 'Kayıt başarılı',
-      data: { accessToken },
+      data: { accessToken: result.accessToken },
     });
   } catch (err) {
     next(err);
@@ -171,6 +184,77 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
   try {
     await authService.resetPassword(req.body.token, req.body.newPassword);
     res.json({ success: true, message: 'Şifreniz başarıyla sıfırlandı' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── E-posta doğrulama ───────────────────────────────────────────────────────
+
+/** Aktivasyon linkinden gelen token'ı doğrular ve oturum açar. */
+export async function verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const token = String(req.body.token ?? req.query.token ?? '').trim();
+    if (!token) {
+      res.status(400).json({ success: false, error: 'Doğrulama token’ı eksik' });
+      return;
+    }
+    const { accessToken, refreshToken, user } = await authService.verifyEmail(token);
+    setTokenCookies(res, accessToken, refreshToken);
+    res.json({
+      success: true,
+      message: 'E-posta adresiniz doğrulandı. Hesabınız aktif.',
+      data: { accessToken, user },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Aktivasyon e-postasını yeniden gönderir. */
+export async function resendVerification(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await authService.resendVerification(String(req.body.email ?? '').trim());
+    // Güvenlik: hesap var ya da yok, aynı mesaj
+    res.json({
+      success: true,
+      message: 'Hesap doğrulanmamışsa aktivasyon linki e-posta adresine yeniden gönderildi.',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Doğrulama ayarının açık olup olmadığını herkese açık şekilde bildirir (arayüz için). */
+export async function verificationStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const required = await authService.isEmailVerificationRequired();
+    res.json({ success: true, data: { required } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Misafir doğrulama kodu ──────────────────────────────────────────────────
+
+export async function sendGuestCode(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await authService.sendGuestCode(req.user!.id);
+    res.json({ success: true, message: 'Doğrulama kodu e-posta adresinize gönderildi.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function verifyGuestCode(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const code = String(req.body.code ?? '').trim();
+    if (!/^\d{6}$/.test(code)) {
+      res.status(400).json({ success: false, error: '6 haneli doğrulama kodunu girin.' });
+      return;
+    }
+    await authService.verifyGuestCode(req.user!.id, code);
+    res.json({ success: true, message: 'E-posta adresiniz doğrulandı.' });
   } catch (err) {
     next(err);
   }

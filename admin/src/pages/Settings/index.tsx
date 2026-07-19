@@ -255,6 +255,77 @@ function LogoUpload({ currentLogo, onUpload }: { currentLogo?: string; onUpload:
 
 // ─── Tab: Genel ───────────────────────────────────────────────────────────────
 
+/**
+ * Üyelik doğrulama ayarı. `general` grubundan ayrı bir grupta (`auth_`) tutulur,
+ * o yüzden kendi kaydetme mantığı var — değiştirir değiştirmez kaydeder.
+ */
+function EmailVerificationSection() {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ success: boolean; data: Record<string, string> }>('/admin/settings/auth')
+      .then((r) => setEnabled(r.data?.email_verification_required === 'true'))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = async (v: boolean) => {
+    const previous = enabled;
+    setEnabled(v);
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.put('/admin/settings/auth', { email_verification_required: v ? 'true' : 'false' });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      setEnabled(previous); // kaydedilemediyse görüntüyü geri al
+      alert('Ayar kaydedilemedi. Lütfen tekrar deneyin.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SectionCard
+      title="Üyelik ve E-posta Doğrulama"
+      subtitle="Yeni üye kaydı ve misafir siparişlerinde e-posta doğrulaması istenip istenmeyeceği"
+    >
+      <div className="flex items-start justify-between gap-4 rounded-lg border border-gray-200 dark:border-strokedark p-4">
+        <div className="flex-1">
+          <p className="text-sm font-medium">E-posta doğrulaması zorunlu</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+            <strong>Açık:</strong> Yeni üyeler pasif olarak kaydedilir, aktivasyon linki gönderilir ve
+            link tıklanana kadar giriş yapamazlar. Misafirler siparişi tamamlarken e-postalarına gelen
+            6 haneli kodu girmek zorundadır.
+            <br />
+            <strong>Kapalı:</strong> Üyeler doğrudan aktif olur, misafirler doğrulama olmadan sipariş verir.
+          </p>
+          {enabled && (
+            <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">
+              E-posta gönderimi çalışmıyorsa yeni üyeler hesaplarını aktifleştiremez. Bildirimler
+              sekmesinden SMTP ayarlarını test edin.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {loading ? (
+            <span className="text-xs text-gray-400">yükleniyor…</span>
+          ) : (
+            <Toggle checked={enabled} onChange={toggle} />
+          )}
+          {saving && <span className="text-xs text-gray-400">kaydediliyor…</span>}
+          {saved && <span className="text-xs text-green-600">✓ kaydedildi</span>}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 function GeneralTab() {
   const [loading, setLoading] = useState(true);
   const s = useSave('general', {});
@@ -372,6 +443,8 @@ function GeneralTab() {
           </div>
         )}
       </SectionCard>
+
+      <EmailVerificationSection />
 
       <SaveBar saving={s.saving} saved={s.saved} error={s.error} onSave={s.save} onReset={s.reset} />
     </div>

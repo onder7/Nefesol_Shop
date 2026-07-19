@@ -16,6 +16,7 @@ import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
 import { ForgotPassword } from '@/pages/ForgotPassword';
 import { ResetPassword } from '@/pages/ResetPassword';
+import { VerifyEmail } from '@/pages/VerifyEmail';
 import { CategoryPage } from '@/pages/CategoryPage';
 import { ProductDetail } from '@/pages/ProductDetail';
 import CampaignDetail from '@/pages/CampaignDetail';
@@ -39,7 +40,7 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const location = useLocation();
-  const isAuthPage = ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla'].includes(location.pathname);
+  const isAuthPage = ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla', '/e-posta-dogrula'].includes(location.pathname);
   // Ödeme sayfasında sabit alt menü, iyzico'nun sabitlenmiş "Öde" butonunu mobilde örtüyor — bu yüzden gizle
   const isCheckoutPage = location.pathname === '/odeme';
 
@@ -56,6 +57,7 @@ function AppContent() {
         <Route path="/kayit" element={<Register />} />
         <Route path="/sifremi-unuttum" element={<ForgotPassword />} />
         <Route path="/sifre-sifirla" element={<ResetPassword />} />
+        <Route path="/e-posta-dogrula" element={<VerifyEmail />} />
 
         {/* Aşama 4 — Katalog */}
         <Route path="/kategori/:slug" element={<CategoryPage />} />

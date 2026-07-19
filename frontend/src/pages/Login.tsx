@@ -26,6 +26,9 @@ export function Login() {
   const [guestForm, setGuestForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [guestConsent, setGuestConsent] = useState<ConsentValue>({ emailConsent: true, smsConsent: true, acceptTerms: false });
   const [loading, setLoading] = useState(false);
+  // Hesap doğrulanmamışsa giriş formunun üstünde uyarı + tekrar gönder butonu
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
   const [viewPassword, setViewPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'guest'>(from === '/odeme' ? 'guest' : 'login');
 
@@ -113,11 +116,29 @@ export function Login() {
       toast.success('Giriş başarılı!');
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      const data = (err as { response?: { data?: { message?: string; error?: string } } }).response?.data;
+      const data = (err as { response?: { data?: { message?: string; error?: string; code?: string } } })
+        .response?.data;
+      // Hesap doğrulanmamış: hata yerine "tekrar gönder" seçeneği sun
+      if (data?.code === 'EMAIL_NOT_VERIFIED') {
+        setUnverified(true);
+        return;
+      }
       const msg = data?.message ?? data?.error ?? 'Giriş yapılamadı';
       toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    setResending(true);
+    try {
+      await authApi.resendVerification(form.email);
+      toast.success('Doğrulama linki e-posta adresinize yeniden gönderildi.');
+    } catch {
+      toast.error('E-posta gönderilemedi. Lütfen biraz sonra tekrar deneyin.');
+    } finally {
+      setResending(false);
     }
   }
 
@@ -163,6 +184,26 @@ export function Login() {
             )}
 
             {activeTab === 'login' ? (
+              <>
+              {unverified && (
+                <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    Hesabınız henüz doğrulanmamış
+                  </p>
+                  <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                    E-posta adresinize gönderilen aktivasyon linkine tıklayın. Spam klasörünü de kontrol edin.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resending}
+                    className="mt-3 text-sm font-medium text-amber-900 underline hover:no-underline disabled:opacity-50 dark:text-amber-200"
+                  >
+                    {resending ? 'Gönderiliyor…' : 'Doğrulama linkini tekrar gönder'}
+                  </button>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-6 w-full">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="font-bold text-sm text-foreground">
@@ -243,6 +284,7 @@ export function Login() {
                   <GoogleSignInButton text="signin_with" onCredential={handleGoogleCredential} />
                 </div>
               </form>
+              </>
             ) : (
               <form onSubmit={handleGuestSubmit} className="space-y-6 w-full">
                 <div className="grid grid-cols-2 gap-4">

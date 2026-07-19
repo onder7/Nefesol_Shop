@@ -28,8 +28,18 @@ export interface GuestLoginPayload {
 }
 
 export const authApi = {
+  // Doğrulama açıkken accessToken yerine verificationRequired döner
   register: (data: RegisterPayload) =>
-    api.post<{ success: boolean; data: { accessToken: string } }>('/auth/register', data),
+    api.post<{
+      success: boolean;
+      message?: string;
+      data: {
+        accessToken?: string;
+        verificationRequired?: boolean;
+        email?: string;
+        emailSent?: boolean;
+      };
+    }>('/auth/register', data),
 
   login: (data: LoginPayload) =>
     api.post<{ success: boolean; data: { accessToken: string; user: User } }>('/auth/login', data),
@@ -55,4 +65,28 @@ export const authApi = {
 
   resetPassword: (token: string, newPassword: string) =>
     api.post<{ success: boolean; message?: string }>('/auth/reset-password', { token, newPassword }),
+
+  // ─── E-posta doğrulama ─────────────────────────────────────────────────────
+
+  /** Doğrulama zorunlu mu — kayıt/ödeme ekranları buna göre davranır */
+  verificationStatus: () =>
+    api.get<{ success: boolean; data: { required: boolean } }>('/auth/verification-status'),
+
+  /** Aktivasyon linkindeki token'ı doğrular; başarılı olursa oturum açılır */
+  verifyEmail: (token: string) =>
+    api.post<{ success: boolean; message?: string; data: { accessToken: string; user: User } }>(
+      '/auth/verify-email',
+      { token },
+    ),
+
+  resendVerification: (email: string) =>
+    api.post<{ success: boolean; message?: string }>('/auth/resend-verification', { email }),
+
+  // ─── Misafir doğrulama kodu ────────────────────────────────────────────────
+
+  sendGuestCode: () =>
+    api.post<{ success: boolean; message?: string }>('/auth/guest/send-code'),
+
+  verifyGuestCode: (code: string) =>
+    api.post<{ success: boolean; message?: string }>('/auth/guest/verify-code', { code }),
 };

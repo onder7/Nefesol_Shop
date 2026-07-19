@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Mail } from 'lucide-react';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { ConsentCheckboxes, type ConsentValue } from '@/components/auth/ConsentCheckboxes';
@@ -28,6 +28,24 @@ export function Register() {
   const [viewPassword, setViewPassword] = useState(false);
   const [viewConfirmPassword, setViewConfirmPassword] = useState(false);
   const [consent, setConsent] = useState<ConsentValue>({ emailConsent: true, smsConsent: true, acceptTerms: false });
+  // Doğrulama zorunluysa kayıt sonrası bu ekran gösterilir (otomatik giriş yapılmaz)
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(true);
+  const [resending, setResending] = useState(false);
+
+  async function handleResend() {
+    if (!pendingEmail) return;
+    setResending(true);
+    try {
+      await authApi.resendVerification(pendingEmail);
+      setEmailSent(true);
+      toast.success('Doğrulama e-postası yeniden gönderildi.');
+    } catch {
+      toast.error('E-posta gönderilemedi. Lütfen biraz sonra tekrar deneyin.');
+    } finally {
+      setResending(false);
+    }
+  }
 
   function set(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -85,9 +103,16 @@ export function Register() {
         smsConsent: consent.smsConsent,
         acceptTerms: consent.acceptTerms,
       });
+      // Doğrulama zorunluysa oturum açılmaz; kullanıcı e-postasındaki linke tıklamalı.
+      if (res.data.data.verificationRequired) {
+        setPendingEmail(res.data.data.email ?? form.email);
+        setEmailSent(res.data.data.emailSent !== false);
+        return;
+      }
+
       const { accessToken } = res.data.data;
       const meRes = await authApi.me();
-      setUser(meRes.data.data as User, accessToken);
+      setUser(meRes.data.data as User, accessToken!);
       toast.success('Kayıt başarılı! Hoş geldiniz.');
       navigate('/', { replace: true });
     } catch (err: unknown) {
@@ -101,6 +126,55 @@ export function Register() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // ─── Kayıt sonrası doğrulama bekleme ekranı ───────────────────────────────
+  if (pendingEmail) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-lg text-center">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+            <Mail className="h-10 w-10 text-primary" />
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            E-postanızı doğrulayın
+          </h1>
+
+          <p className="mt-4 text-base text-muted-foreground leading-relaxed">
+            Hesabınızı aktifleştirmek için{' '}
+            <strong className="text-foreground break-all">{pendingEmail}</strong> adresine bir
+            doğrulama linki gönderdik. Linke tıklayana kadar giriş yapamazsınız.
+          </p>
+
+          <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-left dark:border-amber-800 dark:bg-amber-950/30">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              E-postayı göremiyor musunuz?
+            </p>
+            <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+              <strong>Spam / Gereksiz</strong> klasörünü mutlaka kontrol edin. E-postanın ulaşması
+              birkaç dakika sürebilir.
+            </p>
+          </div>
+
+          {!emailSent && (
+            <div className="mt-4 rounded-xl border border-red-300 bg-red-50 p-4 text-left dark:border-red-800 dark:bg-red-950/30">
+              <p className="text-sm text-red-800 dark:text-red-300">
+                Doğrulama e-postası gönderilemedi. Hesabınız oluşturuldu; aşağıdaki butonla tekrar
+                deneyebilirsiniz.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={handleResend} disabled={resending} variant="outline">
+              {resending ? 'Gönderiliyor…' : 'Tekrar Gönder'}
+            </Button>
+            <Button render={<Link to="/giris" />}>Giriş Sayfasına Dön</Button>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (

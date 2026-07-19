@@ -542,6 +542,53 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
   await sendMail({ to, subject: 'Şifre Sıfırlama Talebi', html });
 }
 
+/** Yeni üyeye hesap aktivasyon linki gönderir. */
+export async function sendVerificationEmail(to: string, token: string): Promise<void> {
+  const verifyUrl = `${env.FRONTEND_URL}/e-posta-dogrula?token=${token}`;
+  const storeName = await getStoreName();
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+      <h2 style="color:#2563eb">Hesabınızı Aktifleştirin</h2>
+      <p>${storeName} üyeliğiniz oluşturuldu. Hesabınızı kullanabilmek için e-posta adresinizi doğrulamanız gerekiyor.</p>
+      <p style="margin:24px 0">
+        <a href="${verifyUrl}"
+           style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
+          Hesabımı Aktifleştir
+        </a>
+      </p>
+      <p style="color:#666;font-size:14px">
+        Buton çalışmazsa bu adresi tarayıcınıza yapıştırın:<br>
+        <span style="color:#2563eb;word-break:break-all">${verifyUrl}</span>
+      </p>
+      <p style="color:#666;font-size:14px">Bu link 24 saat geçerlidir. Bu kaydı siz yapmadıysanız bu e-postayı görmezden gelebilirsiniz.</p>
+    </div>
+  `;
+
+  await sendMail({ to, subject: `${storeName} — Hesabınızı Aktifleştirin`, html });
+}
+
+/** Misafir siparişi için 6 haneli doğrulama kodu gönderir. */
+export async function sendGuestCodeEmail(to: string, code: string): Promise<void> {
+  const storeName = await getStoreName();
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+      <h2 style="color:#2563eb">Doğrulama Kodunuz</h2>
+      <p>Siparişinizi tamamlayabilmek için aşağıdaki kodu ${storeName} sitesindeki doğrulama alanına girin.</p>
+      <p style="margin:24px 0;text-align:center">
+        <span style="display:inline-block;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;
+                     padding:16px 32px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#111">
+          ${code}
+        </span>
+      </p>
+      <p style="color:#666;font-size:14px">Bu kod 10 dakika geçerlidir. Bu işlemi siz yapmadıysanız bu e-postayı görmezden gelebilirsiniz.</p>
+    </div>
+  `;
+
+  await sendMail({ to, subject: `${storeName} — Doğrulama Kodunuz: ${code}`, html });
+}
+
 export async function sendOrderStatusUpdate(
   to: string,
   orderId: string,

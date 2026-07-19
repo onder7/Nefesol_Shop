@@ -19,6 +19,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import type { Address, CheckoutInitResponse } from '@/types';
 import { toast } from 'sonner';
+import { GuestVerifyModal } from '@/components/auth/GuestVerifyModal';
 
 type InitData = CheckoutInitResponse;
 type PayMethod = 'card' | 'cod' | 'havale';
@@ -274,12 +275,15 @@ function HavaleInfo({ info, noteOnly = false }: { info: NonNullable<{ bankName: 
 
 export function Checkout() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { cart, setCart, appliedCoupon, setAppliedCoupon } = useCartStore();
   const [step, setStep] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [initData, setInitData] = useState<InitData | null>(null);
+  // Sunucu e-posta doğrulaması isterse hangi işlemin tekrarlanacağını tutar
+  const [pendingAction, setPendingAction] = useState<'init' | 'place' | null>(null);
+  const lastPayloadRef = useRef<{ addressId: string; billing?: BillingInfo } | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>('card');
   // Fatura bilgileri (e-Fatura/e-Arşiv için)
   const [billingType, setBillingType] = useState<'individual' | 'corporate'>('individual');
@@ -334,8 +338,14 @@ export function Checkout() {
       setInitData(res.data.data as InitData);
       setStep(2);
     },
-    onError: (err: { response?: { data?: { message?: string } } }) =>
-      toast.error(err.response?.data?.message ?? 'Ödeme başlatılamadı'),
+    onError: (err: { response?: { data?: { message?: string; error?: string; code?: string } } }) => {
+      // E-posta doğrulaması gerekiyorsa hata yerine doğrulama penceresini aç
+      if (err.response?.data?.code === 'GUEST_EMAIL_NOT_VERIFIED') {
+        setPendingAction('init');
+        return;
+      }
+      toast.error(err.response?.data?.message ?? err.response?.data?.error ?? 'Ödeme başlatılamadı');
+    },
   });
 
   // COD / Havale place order
@@ -355,8 +365,13 @@ export function Checkout() {
         navigate(`/siparis-tamamlandi?orderId=${orderId}`);
       }
     },
-    onError: (err: { response?: { data?: { error?: string } } }) =>
-      toast.error(err.response?.data?.error ?? 'Sipariş oluşturulamadı'),
+    onError: (err: { response?: { data?: { error?: string; code?: string } } }) => {
+      if (err.response?.data?.code === 'GUEST_EMAIL_NOT_VERIFIED') {
+        setPendingAction('place');
+        return;
+      }
+      toast.error(err.response?.data?.error ?? 'Sipariş oluşturulamadı');
+    },
   });
 
   // Inject iyzico form
@@ -414,10 +429,25 @@ export function Checkout() {
           }
         : { isCorporate: false, ...(billing.identityNo.trim() ? { identityNo: billing.identityNo.trim() } : {}) };
 
+    lastPayloadRef.current = { addressId: selectedAddress.id, billing: billingPayload };
+
     if (payMethod === 'card') {
       initMut.mutate({ addressId: selectedAddress.id, billing: billingPayload });
     } else {
       placeOrderMut.mutate({ addressId: selectedAddress.id, method: payMethod, billing: billingPayload });
+    }
+  };
+
+  // Doğrulama tamamlandıktan sonra yarım kalan işlemi aynı verilerle tekrarla
+  const handleVerified = () => {
+    const payload = lastPayloadRef.current;
+    const action = pendingAction;
+    setPendingAction(null);
+    if (!payload || !action) return;
+    if (action === 'init') {
+      initMut.mutate(payload);
+    } else {
+      placeOrderMut.mutate({ ...payload, method: payMethod as 'cod' | 'havale' });
     }
   };
 
@@ -737,6 +767,13 @@ export function Checkout() {
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-2xl">
+      {pendingAction && (
+        <GuestVerifyModal
+          email={user?.email ?? ''}
+          onVerified={handleVerified}
+          onClose={() => setPendingAction(null)}
+        />
+      )}
       <h1 className="text-2xl font-bold mb-6">Ödeme</h1>
       <StepBar current={step} />
 

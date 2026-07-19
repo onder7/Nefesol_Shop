@@ -9,6 +9,7 @@ import * as paymentSvc from '../services/paymentService';
 import * as paytrSvc from '../services/paytrService';
 import * as emailSvc from '../services/emailService';
 import { validateCoupon } from '../services/discountService';
+import { assertEmailVerifiedForOrder } from '../services/authService';
 import { getShippingConfig, computeShipping, getPaymentMethods, getStoreName } from '../services/settingsService';
 
 // Pending checkout data stored in Redis with 30-min TTL
@@ -62,6 +63,8 @@ function apiBase(_req: Request) {
 export async function initialize(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
+    // E-posta doğrulaması zorunluysa, doğrulanmamış kullanıcı ödemeye başlayamaz.
+    await assertEmailVerifiedForOrder(userId);
     const { addressId, couponCode } = req.body as { addressId: string; couponCode?: string };
     const billing = normalizeBilling((req.body as { billing?: unknown }).billing);
 
@@ -437,6 +440,8 @@ export async function paymentMethods(_req: Request, res: Response, next: NextFun
 export async function placeOrder(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
+    // E-posta doğrulaması zorunluysa, doğrulanmamış kullanıcı sipariş veremez.
+    await assertEmailVerifiedForOrder(userId);
     const { addressId, method, couponCode } = req.body as { addressId: string; method: 'cod' | 'havale'; couponCode?: string };
     const billing = normalizeBilling((req.body as { billing?: unknown }).billing);
 

@@ -84,4 +84,18 @@ router.post('/set-password', authenticate, validate(setPasswordSchema), ctrl.set
 router.post('/forgot-password', validate(forgotPasswordSchema), ctrl.forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), ctrl.resetPassword);
 
+// ─── E-posta doğrulama ───────────────────────────────────────────────────────
+const verifyEmailSchema = z.object({ token: z.string().min(1, 'Doğrulama token’ı gerekli') });
+const resendVerificationSchema = z.object({ email: z.email('Geçerli bir e-posta giriniz') });
+const guestCodeSchema = z.object({ code: z.string().regex(/^\d{6}$/, '6 haneli kodu girin') });
+
+// Arayüz, doğrulama açık mı diye bunu sorar (kayıt/ödeme ekranlarını buna göre kurar)
+router.get('/verification-status', ctrl.verificationStatus);
+router.post('/verify-email', validate(verifyEmailSchema), ctrl.verifyEmail);
+router.post('/resend-verification', validate(resendVerificationSchema), ctrl.resendVerification);
+
+// Misafir doğrulaması — oturum açmış misafir kullanıcı için
+router.post('/guest/send-code', authenticate, ctrl.sendGuestCode);
+router.post('/guest/verify-code', authenticate, validate(guestCodeSchema), ctrl.verifyGuestCode);
+
 export default router;

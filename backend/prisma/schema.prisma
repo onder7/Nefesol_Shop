@@ -24,6 +24,10 @@ model User {
   role         Role     @default(CUSTOMER)
   isGuest      Boolean  @default(false) @map("is_guest")
   isActive     Boolean  @default(true) @map("is_active")
+
+  // E-posta doğrulaması. null = doğrulanmamış. isActive giriş kapısıdır;
+  // bu alan "doğrulama bekliyor" ile "yönetici pasife aldı" ayrımı için tutulur.
+  emailVerifiedAt DateTime? @map("email_verified_at")
   refreshTokens String[] @default([]) @map("refresh_tokens")
 
   // Ticari elektronik ileti onayları (ETK/KVKK). marketingConsent = e-posta izni

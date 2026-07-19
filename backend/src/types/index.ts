@@ -29,6 +29,8 @@ export class AppError extends Error {
     public message: string,
     public statusCode: number = 500,
     public isOperational: boolean = true,
+    /** İstemcinin duruma özel davranabilmesi için makine okunur kod (örn. EMAIL_NOT_VERIFIED) */
+    public code?: string,
   ) {
     super(message);
     Object.setPrototypeOf(this, AppError.prototype);
