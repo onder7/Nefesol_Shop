@@ -8,6 +8,8 @@ import { useCartStore } from '@/store/cartStore';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
+import { GuestActivationCard } from '@/components/auth/GuestActivationCard';
+
 function formatPrice(n: number) {
   return n.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 });
 }
@@ -155,8 +157,12 @@ export function OrderSuccess() {
         </div>
       ) : null}
 
+      {/* Misafir kullanıcıya hesap aktivasyon kartı */}
+      <GuestActivationCard />
+
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <Button render={<Link to="/hesabim/siparisler" />}>
+
           <Package className="h-4 w-4 mr-2" />
           Siparişlerim
         </Button>

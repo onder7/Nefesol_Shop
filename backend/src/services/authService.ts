@@ -454,7 +454,8 @@ export async function getMe(userId: string): Promise<object> {
     id: user.id,
     email: user.email,
     role: user.role,
-    hasPassword: !!user.passwordHash, // sosyal girişli hesapta false → "Şifre Belirle"
+    isGuest: user.isGuest,                // ← eklendi
+    hasPassword: !!user.passwordHash,     // sosyal girişli hesapta false → "Şifre Belirle"
     profile: user.profile
       ? {
           firstName: user.profile.firstName,
@@ -532,4 +533,53 @@ export async function resetPassword(token: string, newPassword: string): Promise
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: hashed } });
   await redis.del(`reset:${token}`);
   await revokeRefreshToken(userId);
+}
+
+// ─── Misafir hesabı aktivasyonu ───────────────────────────────────────────────
+
+/**
+ * Misafir olarak sipariş vermiş kullanıcı bir şifre belirleyerek
+ * gerçek üyeye dönüşür. isGuest=false yapılır ve oturum açılır.
+ *
+ * Güvenlik: yalnızca oturum açmış misafir kullanıcı çağırabilir (authenticate middleware).
+ */
+export async function activateGuest(userId: string, newPassword: string): Promise<TokenPair & { user: object }> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
+  if (!user) throw new AppError('Kullanıcı bulunamadı', 404);
+  if (!user.isGuest) throw new AppError('Bu hesap zaten aktif bir üyelik hesabıdır.', 400);
+  if (user.passwordHash) throw new AppError('Bu hesapta zaten bir şifre belirlenmiş.', 400);
+
+  const hashed = await bcrypt.hash(newPassword, 12);
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash: hashed,
+      isGuest: false,
+      isActive: true,
+      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+      termsAcceptedAt: user.termsAcceptedAt ?? new Date(),
+    },
+    include: { profile: true },
+  });
+
+  const accessToken = signAccess(updated.id, updated.email, updated.role);
+  const refreshToken = signRefresh(updated.id);
+  await storeRefreshToken(updated.id, refreshToken);
+
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      id: updated.id,
+      email: updated.email,
+      role: updated.role,
+      isGuest: false,
+      profile: {
+        firstName: updated.profile?.firstName,
+        lastName: updated.profile?.lastName,
+        phone: updated.profile?.phone,
+        avatarUrl: updated.profile?.avatarUrl,
+      },
+    },
+  };
 }

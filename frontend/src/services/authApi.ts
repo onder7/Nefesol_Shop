@@ -89,4 +89,14 @@ export const authApi = {
 
   verifyGuestCode: (code: string) =>
     api.post<{ success: boolean; message?: string }>('/auth/guest/verify-code', { code }),
+
+  // ─── Misafir aktivasyonu ───────────────────────────────────────────────────
+
+  /** Misafir kullanıcı şifre belirleyerek gerçek üyeye dönüşür */
+  activateGuest: (newPassword: string) =>
+    api.post<{ success: boolean; message?: string; data: { accessToken: string; user: User } }>(
+      '/auth/activate-guest',
+      { newPassword },
+    ),
 };
+

@@ -98,4 +98,15 @@ router.post('/resend-verification', validate(resendVerificationSchema), ctrl.res
 router.post('/guest/send-code', authenticate, ctrl.sendGuestCode);
 router.post('/guest/verify-code', authenticate, validate(guestCodeSchema), ctrl.verifyGuestCode);
 
+// Misafir hesabı aktivasyonu — misafir şifre belirleyerek gerçek üyeye dönüşür
+const activateGuestSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, 'Şifre en az 8 karakter olmalı')
+    .regex(/[A-Z]/, 'En az bir büyük harf içermeli')
+    .regex(/[0-9]/, 'En az bir rakam içermeli'),
+});
+router.post('/activate-guest', authenticate, validate(activateGuestSchema), ctrl.activateGuest);
+
 export default router;
+

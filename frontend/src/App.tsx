@@ -86,14 +86,17 @@ function AppContent() {
           {/* Misafir yalnızca ödeme yapabilir; checkout ProtectedRoute altında kalır */}
           <Route path="/odeme" element={<Checkout />} />
 
-          {/* Hesap sayfaları (sipariş geçmişi dahil) yalnızca üyelere açık — misafir erişemez */}
+          {/* Siparişler — misafir de kendi siparişlerini görebilir (JWT zorunlu) */}
+          <Route path="/hesabim/siparisler" element={<AccountDashboard />} />
+          <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
+          <Route path="/hesabim/aktiflestir" element={<AccountDashboard />} />
+
+          {/* Tam üye sayfaları — misafir erişemez */}
           <Route element={<CustomerOnlyRoute />}>
             {/* Hesabım sekmeleri — her sekmenin kendi adresi var (paylaşılabilir, geri tuşu çalışır).
                 Aktif sekme AccountDashboard içinde yoldan (pathname) türetilir. */}
             <Route path="/hesabim" element={<AccountDashboard />} />
             <Route path="/hesabim/sepetim" element={<AccountDashboard />} />
-            <Route path="/hesabim/siparisler" element={<AccountDashboard />} />
-            <Route path="/hesabim/siparisler/:id" element={<OrderDetail />} />
             <Route path="/hesabim/favoriler" element={<AccountDashboard />} />
             <Route path="/hesabim/degerlendirmelerim" element={<AccountDashboard />} />
             <Route path="/hesabim/sorularim" element={<AccountDashboard />} />
@@ -102,6 +105,7 @@ function AppContent() {
             <Route path="/hesabim/adresler" element={<Addresses />} />
           </Route>
         </Route>
+
 
         <Route path="*" element={<NotFound />} />
       </Routes>

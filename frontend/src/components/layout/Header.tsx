@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, selectIsGuest } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
 import { authApi } from '@/services/authApi';
@@ -25,6 +25,7 @@ import type { Product } from '@/types';
 
 export function Header() {
   const { isAuthenticated, user, logout } = useAuthStore();
+  const isGuest = useAuthStore(selectIsGuest);
   const { name: storeName } = useStoreInfo();
   const { hasWarning: profileHasWarning, message: profileWarningMessage } = useProfileCompleteness();
   const { taxRate } = useTaxConfig();
@@ -269,11 +270,11 @@ export function Header() {
                 <DropdownMenuSeparator />
 
                 {/* Eksik profil uyarısı (adres/telefon) */}
-                {!user?.isGuest && profileHasWarning && (
+                {!isGuest && profileHasWarning && (
                   <>
                     <DropdownMenuItem
-                      render={<Link to="/hesabim/profil" />}
-                      className="text-sm items-start gap-2 bg-red-50 text-red-700 focus:bg-red-100 dark:bg-red-900/20 dark:text-red-300"
+                      onClick={() => navigate('/hesabim/profil')}
+                      className="text-sm items-start gap-2 bg-red-50 text-red-700 focus:bg-red-100 dark:bg-red-900/20 dark:text-red-300 cursor-pointer"
                     >
                       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                       <span className="leading-snug">{profileWarningMessage} Tamamlamak için tıklayın.</span>
@@ -282,40 +283,54 @@ export function Header() {
                   </>
                 )}
 
-                {/* Account Links */}
-                {!user?.isGuest && (
+                {/* Siparişlerim — misafir de dahil tüm giriş yapmış kullanıcılara */}
+                <DropdownMenuItem onClick={() => navigate('/hesabim/siparisler')} className="text-sm cursor-pointer">
+                  Siparişlerim
+                </DropdownMenuItem>
+
+                {/* Tam üye linkleri — yalnızca gerçek üyelere */}
+                {!isGuest && (
                   <>
-                    <DropdownMenuItem render={<Link to="/hesabim" />} className="text-sm">
+                    <DropdownMenuItem onClick={() => navigate('/hesabim')} className="text-sm cursor-pointer">
                       Hesap Özeti
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim/siparisler" />} className="text-sm">
-                      Siparişlerim
-                    </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim/sorularim" />} className="text-sm">
+                    <DropdownMenuItem onClick={() => navigate('/hesabim/sorularim')} className="text-sm cursor-pointer">
                       Soru &amp; Cevaplarım
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim/degerlendirmelerim" />} className="text-sm">
+                    <DropdownMenuItem onClick={() => navigate('/hesabim/degerlendirmelerim')} className="text-sm cursor-pointer">
                       Değerlendirmelerim
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim/favoriler" />} className="text-sm">
+                    <DropdownMenuItem onClick={() => navigate('/hesabim/favoriler')} className="text-sm cursor-pointer">
                       Beğendiklerim
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim/indirimlerim" />} className="text-sm">
+                    <DropdownMenuItem onClick={() => navigate('/hesabim/indirimlerim')} className="text-sm cursor-pointer">
                       İndirimlerim
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link to="/hesabim/profil" />} className="text-sm">
+                    <DropdownMenuItem onClick={() => navigate('/hesabim/profil')} className="text-sm cursor-pointer">
                       Profil Bilgileri
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
                 )}
 
+                {/* Misafir: hesap aktifleştirme kısayolu */}
+                {isGuest && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/hesabim/aktiflestir')} className="text-sm text-primary font-medium cursor-pointer">
+                      Hesabı Aktifleştir →
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
                 {/* Logout */}
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive text-sm">
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive text-sm cursor-pointer">
                   <LogOut className="h-4 w-4 mr-2" />
                   Çıkış Yap
                 </DropdownMenuItem>
               </DropdownMenuContent>
+
             </DropdownMenu>
           ) : (
             <Link

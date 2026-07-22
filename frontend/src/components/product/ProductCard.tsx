@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Product } from '@/types';
 import { Heart, Star, ShoppingCart } from 'lucide-react';
 import { useWishlistStore } from '@/store/wishlistStore';
@@ -25,6 +26,7 @@ export function ProductCard({ product }: Props) {
     .sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
   const primaryImage = images[0];
 
+  const qc = useQueryClient();
   const [imgIdx, setImgIdx] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -88,7 +90,11 @@ export function ProductCard({ product }: Props) {
     if (!cheapestVariant || !inStock) return;
     try {
       const res = await cartApi.addItem(cheapestVariant.id, 1);
-      setCart(res.data.data);
+      const updatedCart = res.data.data;
+      setCart(updatedCart);
+      // TanStack Query cache'ini de güncelle — Cart sayfası açıldığında
+      // eskimiş boş veri yerine güncel sepeti görsün
+      qc.setQueryData(['cart'], updatedCart);
       toast.success('Ürün sepete eklendi!');
     } catch {
       toast.error('Sepete eklenemedi.');

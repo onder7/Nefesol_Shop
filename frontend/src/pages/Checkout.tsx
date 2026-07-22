@@ -20,6 +20,7 @@ import { useAuthStore } from '@/store/authStore';
 import type { Address, CheckoutInitResponse } from '@/types';
 import { toast } from 'sonner';
 import { GuestVerifyModal } from '@/components/auth/GuestVerifyModal';
+import { GuestCheckoutModal } from '@/components/auth/GuestCheckoutModal';
 
 type InitData = CheckoutInitResponse;
 type PayMethod = 'card' | 'cod' | 'havale';
@@ -289,9 +290,13 @@ export function Checkout() {
   const [billingType, setBillingType] = useState<'individual' | 'corporate'>('individual');
   const [billing, setBilling] = useState({ billingName: '', taxNumber: '', identityNo: '', taxOffice: '' });
   const paymentDivRef = useRef<HTMLDivElement>(null);
+  // Misafir girişi: giriş yapılmamış kullanıcıya seçenek sunar
+  const [guestModalOpen, setGuestModalOpen] = useState(!isAuthenticated);
 
-  if (!isAuthenticated) return <Navigate to="/giris" state={{ from: '/odeme' }} replace />;
   if (!cart || cart.items.length === 0) return <Navigate to="/sepet" replace />;
+
+  // Kullanıcı hâlâ giriş yapmadıysa (misafir modalı kapandıysa login'e yönlendir)
+  if (!isAuthenticated && !guestModalOpen) return <Navigate to="/giris" state={{ from: '/odeme' }} replace />;
 
   const { data: addrData, isLoading: addrLoading, refetch: refetchAddr } = useQuery({
     queryKey: ['addresses'],
@@ -767,6 +772,14 @@ export function Checkout() {
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-2xl">
+      {/* Giriş yapılmamış kullanıcıya: misafir veya üye girişi seçeneği */}
+      {guestModalOpen && !isAuthenticated && (
+        <GuestCheckoutModal
+          onClose={() => setGuestModalOpen(false)}
+          onSuccess={() => setGuestModalOpen(false)}
+        />
+      )}
+
       {pendingAction && (
         <GuestVerifyModal
           email={user?.email ?? ''}

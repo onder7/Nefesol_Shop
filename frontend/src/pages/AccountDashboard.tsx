@@ -4,6 +4,7 @@ import { CancellationModal } from '@/components/order/CancellationModal';
 import { CancellationStatus } from '@/components/order/CancellationStatus';
 import { ReturnModal } from '@/components/order/ReturnModal';
 import { ReturnStatus } from '@/components/order/ReturnStatus';
+import { GuestActivationCard } from '@/components/auth/GuestActivationCard';
 import { useQuery } from '@tanstack/react-query';
 import { checkoutApi } from '@/services/checkoutApi';
 import { authApi } from '@/services/authApi';
@@ -24,8 +25,9 @@ import {
   MapPin,
   MessageCircle,
   AlertTriangle,
+  UserPlus,
 } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, selectIsGuest } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useProfileCompleteness } from '@/hooks/useProfileCompleteness';
 import { useStoreInfo } from '@/hooks/useStoreInfo';
@@ -43,6 +45,7 @@ export const SECTION_TO_PATH: Record<string, string> = {
   questions: '/hesabim/sorularim',
   coupons:   '/hesabim/indirimlerim',
   profile:   '/hesabim/profil',
+  activation:'/hesabim/aktiflestir',
 };
 
 const PATH_TO_SECTION: Record<string, string> = Object.fromEntries(
@@ -479,6 +482,25 @@ export function AccountDashboard() {
     },
   ];
 
+  const isGuest = useAuthStore(selectIsGuest);
+
+  const filteredMenuItems = isGuest
+    ? [
+        {
+          id: 'orders',
+          icon: ShoppingBag,
+          label: 'Siparişlerim',
+          badge: ordersData.length > 0 ? String(ordersData.length) : null,
+        },
+        {
+          id: 'activation',
+          icon: UserPlus,
+          label: 'Hesabı Aktifleştir',
+          badge: null,
+        },
+      ]
+    : menuItems;
+
   return (
     <main className="container mx-auto px-4 py-8">
       {/* Eksik profil uyarısı (tanımlı adres / telefon yok) */}
@@ -540,7 +562,7 @@ export function AccountDashboard() {
 
           {/* Menu Items */}
           <nav className="space-y-2">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
@@ -576,6 +598,13 @@ export function AccountDashboard() {
 
         {/* Main Content */}
         <div className="lg:col-span-3">
+          {/* Activation */}
+          {activeSection === 'activation' && (
+            <div className="bg-white rounded-xl border p-6">
+              <GuestActivationCard />
+            </div>
+          )}
+
           {/* Overview */}
           {activeSection === 'overview' && (
             <div className="space-y-6">

@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { UserCircle, Heart, ShoppingBag, Menu, LogOut } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, selectIsGuest } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import {
   DropdownMenu,
@@ -21,6 +21,7 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 export function BottomNav() {
   const { isAuthenticated, user, logout } = useAuthStore();
+  const isGuest = useAuthStore(selectIsGuest);
   const { name: storeName } = useStoreInfo();
   const itemCount = useCartStore((s) => s.itemCount);
   const navigate = useNavigate();
@@ -81,27 +82,42 @@ export function BottomNav() {
               </div>
               <DropdownMenuSeparator />
 
-              {/* Account Links */}
-              <DropdownMenuItem render={<Link to="/hesabim" />} className="text-xs">
-                Hesap Özeti
-              </DropdownMenuItem>
-              <DropdownMenuItem render={<Link to="/hesabim/siparisler" />} className="text-xs">
+              {/* Siparişlerim — misafir dahil tüm giriş yapmış kullanıcılar */}
+              <DropdownMenuItem onClick={() => navigate('/hesabim/siparisler')} className="text-xs cursor-pointer">
                 Siparişlerim
               </DropdownMenuItem>
-              <DropdownMenuItem render={<Link to="/hesabim/profil" />} className="text-xs">
-                Profil Bilgilerim
-              </DropdownMenuItem>
-              <DropdownMenuItem render={<Link to="/hesabim/favoriler" />} className="text-xs">
-                Favori Ürünlerim
-              </DropdownMenuItem>
+
+              {/* Tam üye linkleri */}
+              {!isGuest && (
+                <>
+                  <DropdownMenuItem onClick={() => navigate('/hesabim')} className="text-xs cursor-pointer">
+                    Hesap Özeti
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/hesabim/profil')} className="text-xs cursor-pointer">
+                    Profil Bilgilerim
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/hesabim/favoriler')} className="text-xs cursor-pointer">
+                    Favori Ürünlerim
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              {/* Misafir: aktivasyon kısayolu */}
+              {isGuest && (
+                <DropdownMenuItem onClick={() => navigate('/hesabim/aktiflestir')} className="text-xs text-primary font-medium cursor-pointer">
+                  Hesabı Aktifleştir →
+                </DropdownMenuItem>
+              )}
+
               <DropdownMenuSeparator />
 
               {/* Logout */}
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive text-xs">
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive text-xs cursor-pointer">
                 <LogOut className="h-3 w-3 mr-2" />
                 Çıkış Yap
               </DropdownMenuItem>
             </DropdownMenuContent>
+
           </DropdownMenu>
         ) : (
           <Link

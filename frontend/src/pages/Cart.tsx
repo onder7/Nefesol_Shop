@@ -15,7 +15,7 @@ function formatPrice(price: number) {
 }
 
 export function Cart() {
-  const { setCart, setAppliedCoupon } = useCartStore();
+  const { cart: storeCart, setCart, setAppliedCoupon } = useCartStore();
   const qc = useQueryClient();
 
   const [couponCode, setCouponCode] = useState('');
@@ -28,7 +28,14 @@ export function Cart() {
       const res = await cartApi.get();
       return (res.data.data as CartType | null) ?? null;
     },
+    // Store'daki veriyi başlangıç verisi olarak kullan.
+    // Böylece Cart sayfası açıldığında cache boşsa bile
+    // hemen store'daki güncel sepeti gösterir; arka planda API'den fresh veri çeker.
+    initialData: storeCart ?? undefined,
+    initialDataUpdatedAt: 0, // Her zaman arka planda refetch tetiklensin
+    staleTime: 0,
   });
+
 
   const { data: shippingConfig } = useQuery({
     queryKey: ['shipping-config'],

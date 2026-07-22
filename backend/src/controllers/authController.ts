@@ -259,3 +259,20 @@ export async function verifyGuestCode(req: AuthRequest, res: Response, next: Nex
     next(err);
   }
 }
+
+// ─── Misafir hesabı aktivasyonu ──────────────────────────────────────────────
+
+export async function activateGuest(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await authService.activateGuest(req.user!.id, req.body.newPassword);
+    setTokenCookies(res, result.accessToken, result.refreshToken);
+    res.json({
+      success: true,
+      message: 'Hesabınız başarıyla aktifleştirildi. Artık tam üyesiniz!',
+      data: { accessToken: result.accessToken, user: result.user },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
