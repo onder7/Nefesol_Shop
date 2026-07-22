@@ -39,6 +39,7 @@ router.delete('/products/:id', ctrl.deleteProduct);
 
 // Orders
 router.get('/orders', ctrl.listOrders);
+router.post('/orders/manual', ctrl.createManualOrder); // Manuel / offline satış
 router.get('/orders/:id', ctrl.getOrderDetail);
 router.put('/orders/:id/status', ctrl.updateOrderStatus);
 router.put('/orders/:id/shipping', ctrl.updateOrderShipping);

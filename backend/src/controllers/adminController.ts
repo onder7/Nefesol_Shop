@@ -11,6 +11,7 @@ import * as reviewService from '../services/reviewService';
 import * as qaService from '../services/qaService';
 import * as watermarkService from '../services/watermarkService';
 import * as hepsijet from '../services/hepsijetService';
+import * as orderService from '../services/orderService';
 import { prisma } from '../config/database';
 
 export async function getStats(req: AuthRequest, res: Response, next: NextFunction) {
@@ -142,6 +143,15 @@ export async function updatePaymentStatus(req: AuthRequest, res: Response, next:
     const { status } = req.body as { status: string };
     const data = await adminService.adminUpdatePaymentStatus(String(req.params.id), status);
     res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createManualOrder(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const order = await orderService.createManualOrder(req.body, req.user?.id);
+    res.status(201).json({ success: true, data: order });
   } catch (err) {
     next(err);
   }

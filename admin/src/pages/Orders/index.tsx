@@ -72,6 +72,12 @@ export default function Orders() {
           <h2 className="text-title-md2 font-semibold text-black dark:text-white">Sipariş Yönetimi</h2>
           <p className="text-sm text-gray-500 mt-0.5">{data?.total ?? 0} sipariş</p>
         </div>
+        <Link
+          to="/orders/manual"
+          className="inline-flex items-center gap-1 rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90"
+        >
+          + Manuel Satış
+        </Link>
       </div>
 
       {/* Filtreler */}

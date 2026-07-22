@@ -179,6 +179,217 @@ export async function createOrder(
   return fullOrder;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Manuel / Offline satış — sistem dışında yapılan satışları (telefon, mağaza vb.)
+// yönetici panelinden kaydeder. Sepetten bağımsız çalışır; müşteri hesabı yoksa
+// misafir kullanıcı + adres oluşturur, ödemesi peşin alınmış kabul edilir.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ManualOrderCustomer {
+  email?: string;      // opsiyonel; verilirse mevcut hesaba bağlanır, yoksa misafir açılır
+  firstName: string;
+  lastName: string;
+  phone: string;
+}
+
+export interface ManualOrderAddress {
+  city: string;
+  district: string;
+  neighborhood?: string;
+  address: string;
+  postalCode?: string;
+}
+
+export interface ManualOrderItem {
+  variantId: string;
+  quantity: number;
+  unitPrice?: number;  // verilmezse varyantın güncel fiyatı kullanılır
+}
+
+export interface ManualOrderInput {
+  customer: ManualOrderCustomer;
+  address: ManualOrderAddress;
+  items: ManualOrderItem[];
+  billing?: OrderBilling;
+  paymentMethod?: string;   // "NAKIT" | "HAVALE" | "KREDI_KARTI" | "DIGER" ...
+  paid?: boolean;           // ödeme alındı mı (varsayılan true → Payment.status = SUCCESS)
+  status?: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED';
+  shippingFee?: number;
+  discount?: number;
+  note?: string;
+  decrementStock?: boolean; // stok düşülsün mü (varsayılan true)
+}
+
+/** Yönetici panelinden manuel/offline satış kaydı oluşturur. */
+export async function createManualOrder(input: ManualOrderInput, adminUserId?: string) {
+  const {
+    customer, address, items, billing,
+    paymentMethod = 'MANUEL',
+    paid = true,
+    status = 'DELIVERED',
+    shippingFee = 0,
+    discount = 0,
+    note,
+    decrementStock = true,
+  } = input;
+
+  if (!items || items.length === 0) {
+    throw Object.assign(new Error('En az bir ürün eklemelisiniz'), { status: 400 });
+  }
+  if (!customer?.firstName?.trim() || !customer?.lastName?.trim()) {
+    throw Object.assign(new Error('Müşteri ad ve soyadı zorunludur'), { status: 400 });
+  }
+
+  // Varyantları çek ve doğrula
+  const variantIds = items.map((i) => i.variantId);
+  const variants = await prisma.productVariant.findMany({
+    where: { id: { in: variantIds } },
+    include: { product: { select: { name: true } } },
+  });
+  const variantMap = new Map(variants.map((v) => [v.id, v]));
+
+  const lines = items.map((item) => {
+    const variant = variantMap.get(item.variantId);
+    if (!variant) throw Object.assign(new Error('Ürün varyantı bulunamadı'), { status: 404 });
+    if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+      throw Object.assign(new Error(`"${variant.product.name}" için geçersiz adet`), { status: 400 });
+    }
+    if (decrementStock && variant.stockQty < item.quantity) {
+      throw Object.assign(
+        new Error(`"${variant.product.name}" için yeterli stok yok (kalan: ${variant.stockQty})`),
+        { status: 400 },
+      );
+    }
+    const unitPrice = item.unitPrice != null ? Number(item.unitPrice) : Number(variant.price);
+    if (!(unitPrice >= 0)) {
+      throw Object.assign(new Error(`"${variant.product.name}" için geçersiz fiyat`), { status: 400 });
+    }
+    return { variant, quantity: item.quantity, unitPrice };
+  });
+
+  const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+  const total = Math.max(0, subtotal - Number(discount) + Number(shippingFee));
+
+  const order = await prisma.$transaction(async (tx) => {
+    // 1) Müşteri hesabını bul/oluştur
+    let userId: string;
+    const email = customer.email?.trim().toLowerCase();
+    const existing = email ? await tx.user.findUnique({ where: { email } }) : null;
+
+    if (existing) {
+      userId = existing.id;
+    } else {
+      // e-posta yoksa çakışmayacak sentetik bir adres üret (misafir kaydı)
+      const syntheticEmail = email || `manuel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@manuel.local`;
+      const created = await tx.user.create({
+        data: {
+          email: syntheticEmail,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          role: 'CUSTOMER',
+          isGuest: true,
+          isActive: false,
+          profile: { create: { firstName: customer.firstName, lastName: customer.lastName, phone: customer.phone } },
+        },
+      });
+      userId = created.id;
+    }
+
+    // 2) Adres oluştur (fatura/teslimat snapshot'ı)
+    const addr = await tx.address.create({
+      data: {
+        userId,
+        type: 'BOTH',
+        title: 'Manuel Satış',
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        phone: customer.phone,
+        city: address.city,
+        district: address.district,
+        neighborhood: address.neighborhood || null,
+        postalCode: address.postalCode || null,
+        address: address.address,
+      },
+    });
+
+    // 3) Sipariş
+    const newOrder = await tx.order.create({
+      data: {
+        userId,
+        addressId: addr.id,
+        subtotal,
+        shippingFee: Number(shippingFee),
+        discount: Number(discount),
+        total,
+        status,
+        notes: note || 'Manuel satış',
+        isCorporate: billing?.isCorporate ?? false,
+        billingName: billing?.billingName ?? null,
+        taxNumber: billing?.taxNumber ?? null,
+        identityNo: billing?.identityNo ?? null,
+        taxOffice: billing?.taxOffice ?? null,
+      },
+    });
+
+    // 4) Kalemler + stok düşümü
+    for (const l of lines) {
+      await tx.orderItem.create({
+        data: {
+          orderId: newOrder.id,
+          variantId: l.variant.id,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+        },
+      });
+      if (decrementStock) {
+        const newQty = l.variant.stockQty - l.quantity;
+        await tx.productVariant.update({
+          where: { id: l.variant.id },
+          data: { stockQty: { decrement: l.quantity } },
+        });
+        await tx.stockMovement.create({
+          data: {
+            variantId: l.variant.id,
+            oldQty: l.variant.stockQty,
+            newQty,
+            difference: -l.quantity,
+            reason: 'manual_sale',
+            adminUserId: adminUserId ?? null,
+            note: `Manuel satış (sipariş ${newOrder.id})`,
+          },
+        });
+      }
+    }
+
+    // 5) Ödeme kaydı (offline satış peşin kabul edilir)
+    await tx.payment.create({
+      data: {
+        orderId: newOrder.id,
+        provider: paymentMethod,
+        amount: total,
+        status: paid ? 'SUCCESS' : 'PENDING',
+      },
+    });
+
+    // 6) Durum geçmişi
+    await tx.orderStatusLog.create({
+      data: { orderId: newOrder.id, status, note: 'Manuel satış oluşturuldu' },
+    });
+
+    return newOrder;
+  });
+
+  return prisma.order.findUniqueOrThrow({
+    where: { id: order.id },
+    include: {
+      items: { include: { variant: { include: { product: { select: { name: true, slug: true } } } } } },
+      address: true,
+      payment: true,
+      user: { select: { id: true, email: true, isGuest: true } },
+    },
+  });
+}
+
 export async function listOrders(userId: string) {
   return prisma.order.findMany({
     where: { userId },

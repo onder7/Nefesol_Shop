@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard/ECommerce';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import OrderDetailPage from './pages/Orders/OrderDetailPage';
+import ManualOrder from './pages/Orders/ManualOrder';
 import ProductDetailPage from './pages/Products/ProductDetailPage';
 import Customers from './pages/Customers';
 import Categories from './pages/Categories';
@@ -141,6 +142,15 @@ function AppRoutes() {
                     <>
                       <PageTitle title="Siparişler | Yönetim Paneli" />
                       <Orders />
+                    </>
+                  }
+                />
+                <Route
+                  path="orders/manual"
+                  element={
+                    <>
+                      <PageTitle title="Manuel Satış | Yönetim Paneli" />
+                      <ManualOrder />
                     </>
                   }
                 />
