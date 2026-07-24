@@ -116,6 +116,22 @@ export async function getStoreIdentity(): Promise<{ name: string; legalName: str
   }
 }
 
+/** Manuel/offline satışta üretilen placeholder e-posta (…@manuel.local) mi? */
+export function isPlaceholderEmail(email: string | null | undefined): boolean {
+  return !!email && /@manuel\.local$/i.test(email.trim());
+}
+
+/**
+ * Müşteriye e-posta gönderilecek gerçek adresi çözer. Manuel satış placeholder'ı
+ * (…@manuel.local) ise, teslim edilemeyeceği için mağaza e-postasına (general_email)
+ * yönlendirir. Aksi halde adresi olduğu gibi döner.
+ */
+export async function resolveContactEmail(rawEmail: string): Promise<string> {
+  if (!isPlaceholderEmail(rawEmail)) return rawEmail;
+  const { email } = await getStoreIdentity();
+  return email || rawEmail;
+}
+
 // ─── Generic Key-Value Settings ───────────────────────────────────────────────
 
 export async function getSettingsGroup(prefix: string): Promise<Record<string, string>> {

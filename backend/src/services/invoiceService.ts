@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../config/database';
 import { logger } from '../config/logger';
-import { getTaxConfig } from './settingsService';
+import { getTaxConfig, resolveContactEmail } from './settingsService';
 import * as sysmond from './sysmondService';
 
 // docDate'i Türkiye saatiyle "YYYY-MM-DDTHH:mm:ss" üretir. Container TZ=UTC olduğunda
@@ -255,7 +255,7 @@ export async function issueInvoice(orderId: string): Promise<IssueResult> {
       streetName: [a.neighborhood, a.address].filter(Boolean).join(' '),
       postalCode: a.postalCode ?? undefined,
       telephone: a.phone,
-      email: order.user.email,
+      email: await resolveContactEmail(order.user.email),
     },
     invoiceDetail,
     notes: [`Sipariş No: TR-${order.id.slice(-8).toUpperCase()}`],
@@ -458,7 +458,7 @@ export async function previewPayload(orderId: string): Promise<object> {
       cityName: a.city,
       citySubdivision: a.district || a.city,
       streetName: [a.neighborhood, a.address].filter(Boolean).join(' '),
-      email: order.user.email,
+      email: await resolveContactEmail(order.user.email),
     },
     invoiceDetail,
     isCalculateByApi: true,

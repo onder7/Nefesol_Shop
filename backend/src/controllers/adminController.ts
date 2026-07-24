@@ -166,6 +166,10 @@ export async function sendOrderInvoiceEmail(req: AuthRequest, res: Response, nex
       ? `${order.user.profile.firstName} ${order.user.profile.lastName ?? ''}`.trim()
       : '';
 
+    // Manuel/offline satışta placeholder e-posta (…@manuel.local) teslim edilemez →
+    // mağaza e-postasına (info@…) yönlendir.
+    const recipientEmail = await settingsService.resolveContactEmail(order.user.email);
+
     // Resmi e-Fatura/e-Arşiv kesilmişse PDF'ini indirip müşteriye ek olarak gönder.
     // İndirme başarısız olursa e-posta yine de proforma döküm ile gider.
     let officialInvoice: { pdf: Buffer; label: string; invoiceNo?: string | null } | undefined;
@@ -191,7 +195,7 @@ export async function sendOrderInvoiceEmail(req: AuthRequest, res: Response, nex
       shippingFee: Number(order.shippingFee),
       total: Number(order.total),
       customerName,
-      customerEmail: order.user.email,
+      customerEmail: recipientEmail,
       address: order.address as any,
       items: order.items.map((item: any) => ({
         name: item.variant.product.name,
