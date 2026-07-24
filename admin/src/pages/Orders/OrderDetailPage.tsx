@@ -233,7 +233,7 @@ export default function OrderDetailPage() {
 
   // Invoice email
   const [invoiceSending, setInvoiceSending] = useState(false);
-  const [invoiceOk, setInvoiceOk]           = useState(false);
+  const [invoiceOk, setInvoiceOk]           = useState('');
   const [invoiceErr, setInvoiceErr]         = useState('');
   const [taxRate, setTaxRate]               = useState(20);
 
@@ -291,6 +291,27 @@ export default function OrderDetailPage() {
     }
   }
 
+  async function handleSendGib() {
+    setEInvBusy(true);
+    setEInvErr('');
+    try {
+      const r = await api.post<{ success: boolean; data: NonNullable<EInvoice> }>(
+        `/admin/orders/${orderId}/e-invoice/send-gib`, {},
+      );
+      if (r.data.status !== 'SENT') {
+        setEInvErr(r.data.errorMessage || 'GİB gönderimi başarısız');
+        setEInvoice((prev) => (prev ? { ...prev, status: r.data.status } : prev));
+      } else {
+        const fresh = await api.get<{ success: boolean; data: EInvoice }>(`/admin/orders/${orderId}/e-invoice`);
+        setEInvoice(fresh.data);
+      }
+    } catch (err) {
+      setEInvErr(err instanceof Error ? err.message : 'GİB gönderimi başarısız');
+    } finally {
+      setEInvBusy(false);
+    }
+  }
+
   async function handleCancelEInvoice() {
     if (!window.confirm('Bu e-Arşiv faturayı iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) return;
     setEInvBusy(true);
@@ -331,9 +352,14 @@ export default function OrderDetailPage() {
     setInvoiceSending(true);
     setInvoiceErr('');
     try {
-      await api.post(`/admin/orders/${orderId}/send-invoice`, {});
-      setInvoiceOk(true);
-      setTimeout(() => setInvoiceOk(false), 4000);
+      const r = await api.post<{ success: boolean; data?: { officialInvoice?: boolean; invoiceType?: string | null } }>(
+        `/admin/orders/${orderId}/send-invoice`, {},
+      );
+      const msg = r.data?.officialInvoice
+        ? `${r.data.invoiceType ?? 'Resmi fatura'} müşteriye e-posta ile gönderildi (PDF ekli)`
+        : 'Fatura dökümü müşteriye e-posta ile gönderildi';
+      setInvoiceOk(msg);
+      setTimeout(() => setInvoiceOk(''), 6000);
     } catch (err) {
       setInvoiceErr(err instanceof Error ? err.message : 'E-posta gönderilemedi');
       setTimeout(() => setInvoiceErr(''), 5000);
@@ -725,7 +751,7 @@ export default function OrderDetailPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {/* Email invoice feedback */}
           {invoiceOk && (
-            <span className="text-xs text-green-600 font-medium px-2">Fatura e-postası gönderildi</span>
+            <span className="text-xs text-green-600 font-medium px-2">{invoiceOk}</span>
           )}
           {invoiceErr && (
             <span className="text-xs text-red-600 font-medium px-2">{invoiceErr}</span>
@@ -782,6 +808,23 @@ export default function OrderDetailPage() {
                 </button>
               )}
             </>
+          ) : eInvoice?.status === 'QUEUED' ? (
+            <>
+              <span className="text-xs text-amber-600 font-medium px-2" title={eInvoice.errorMessage || undefined}>
+                Taslak oluştu, GİB'e gönderilmedi
+              </span>
+              <button
+                onClick={handleSendGib}
+                disabled={eInvBusy}
+                title="Sysmond'da bekleyen taslağı GİB'e gönder"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-amber-300 bg-amber-50 text-sm font-medium text-amber-700 hover:bg-amber-100 transition disabled:opacity-50"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {eInvBusy ? 'Gönderiliyor…' : "GİB'e Gönder"}
+              </button>
+            </>
           ) : (
             <button
               onClick={handleIssueEInvoice}
@@ -801,14 +844,22 @@ export default function OrderDetailPage() {
           <button
             onClick={handleSendInvoice}
             disabled={invoiceSending}
-            title={`Faturayı ${order.user.email} adresine gönder`}
+            title={
+              eInvoice?.status === 'SENT'
+                ? `Resmi ${eInvoice.profile === 'EARSIVFATURA' ? 'e-Arşiv' : 'e-Fatura'} PDF'ini ${order.user.email} adresine gönder`
+                : `Fatura dökümünü ${order.user.email} adresine gönder`
+            }
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-stroke bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:bg-meta-4 transition disabled:opacity-50"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            {invoiceSending ? 'Gönderiliyor…' : 'Faturayı E-posta Gönder'}
+            {invoiceSending
+              ? 'Gönderiliyor…'
+              : eInvoice?.status === 'SENT'
+                ? `${eInvoice.profile === 'EARSIVFATURA' ? 'e-Arşiv' : 'e-Fatura'}yı E-posta Gönder`
+                : 'Faturayı E-posta Gönder'}
           </button>
 
           <button

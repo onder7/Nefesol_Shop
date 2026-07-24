@@ -35,6 +35,7 @@ type OrderWithRelations = Prisma.OrderGetPayload<{
     items: { include: { variant: { include: { product: { select: { name: true } } } } } };
     address: true;
     invoice: true;
+    user: { select: { email: true } };
   };
 }>;
 
@@ -45,6 +46,7 @@ async function loadOrder(orderId: string): Promise<OrderWithRelations> {
       items: { include: { variant: { include: { product: { select: { name: true } } } } } },
       address: true,
       invoice: true,
+      user: { select: { email: true } },
     },
   });
   if (!order) throw Object.assign(new Error('Sipariş bulunamadı'), { status: 404 });
@@ -161,6 +163,45 @@ export interface IssueResult {
   errorMessage?: string;
 }
 
+/**
+ * Sysmond'da taslak olarak oluşmuş faturayı GİB'e gönderir ve Invoice kaydını günceller.
+ * issueInvoice (ilk gönderim) ve sendInvoiceToGib (retry) tarafından paylaşılır.
+ *
+ * Mantıksal sonuç (GİB reddi) → status ERROR döner. Ağ/HTTP hatası → throw (çağıran QUEUED bırakır).
+ */
+async function dispatchToGib(orderId: string, ettn: string, fallbackNo?: string): Promise<IssueResult> {
+  const send = await sysmond.sendToGib([ettn]);
+  const sendItem = send.data?.[0];
+  const ok = send.status && (sendItem?.status ?? true);
+
+  if (!ok) {
+    const msg =
+      sendItem?.exceptionMessage ?? sendItem?.message ??
+      send.exceptionMessage ?? send.message ??
+      send.errorList?.join('; ') ?? 'GİB gönderimi başarısız';
+    await prisma.invoice.update({
+      where: { orderId },
+      data: { status: 'ERROR', errorMessage: msg.slice(0, 500), providerResponse: send as any },
+    });
+    logger.warn(`Sysmond→GİB gönderim reddedildi (order ${orderId}, ETTN ${ettn}): ${msg}`);
+    return { status: 'ERROR', ettn, errorMessage: msg };
+  }
+
+  const invoiceNo = sendItem?.documentNo ?? fallbackNo ?? undefined;
+  await prisma.invoice.update({
+    where: { orderId },
+    data: {
+      status: 'SENT',
+      sentAt: new Date(),
+      invoiceNo: invoiceNo ?? null,
+      providerResponse: send as any,
+      errorMessage: null,
+    },
+  });
+  logger.info(`Fatura GİB'e gönderildi (order ${orderId}, ETTN ${ettn}, No ${invoiceNo ?? '–'})`);
+  return { status: 'SENT', ettn, invoiceNo };
+}
+
 /** Sipariş için e-Fatura/e-Arşiv keser. Mükerrer gönderimi engeller. */
 export async function issueInvoice(orderId: string): Promise<IssueResult> {
   const order = await loadOrder(orderId);
@@ -200,7 +241,8 @@ export async function issueInvoice(orderId: string): Promise<IssueResult> {
     docDate,
     prefix: invoicePrefix,
     currencyCode: 'TRY',
-    isDraft: false,
+    // Taslak olarak oluştur; ardından SendInvoice ile GİB'e iletilir (iki adımlı akış).
+    isDraft: true,
     ...(profile === 'EARSIVFATURA' ? { senderType: 'ELEKTRONIK' } : {}),
     ...(pkAlias ? { pkAlias } : {}),
     invoiceAccount: {
@@ -213,6 +255,7 @@ export async function issueInvoice(orderId: string): Promise<IssueResult> {
       streetName: [a.neighborhood, a.address].filter(Boolean).join(' '),
       postalCode: a.postalCode ?? undefined,
       telephone: a.phone,
+      email: order.user.email,
     },
     invoiceDetail,
     notes: [`Sipariş No: TR-${order.id.slice(-8).toUpperCase()}`],
@@ -252,26 +295,67 @@ export async function issueInvoice(orderId: string): Promise<IssueResult> {
     }
 
     const realEttn = item.ettn ?? ettn;
-    const invoiceNo = item.documentNo ?? undefined;
+    const createdNo = item.documentNo ?? undefined;
 
+    // 1. adım tamam: fatura Sysmond'da TASLAK olarak oluştu. QUEUED kaydı —
+    // SendInvoice başarısız olursa taslak korunur ve yeniden denenebilir.
     await prisma.invoice.update({
       where: { orderId },
       data: {
-        status: 'SENT',
-        sentAt: new Date(),
+        status: 'QUEUED',
         ettn: realEttn,
-        invoiceNo: invoiceNo ?? null,
+        invoiceNo: createdNo ?? null,
         providerResponse: res as any,
         errorMessage: null,
       },
     });
-    logger.info(`Sysmond fatura kesildi (order ${orderId}, ETTN ${realEttn}, No ${invoiceNo ?? '–'})`);
-    return { status: 'SENT', ettn: realEttn, invoiceNo, profile };
+
+    // 2. adım: taslağı GİB'e gönder
+    try {
+      const result = await dispatchToGib(orderId, realEttn, createdNo);
+      return { ...result, profile };
+    } catch (sendErr) {
+      // Taslak oluştu ama GİB gönderimi teknik nedenle başarısız → QUEUED kalır (retry).
+      const msg = sendErr instanceof Error ? sendErr.message : String(sendErr);
+      await prisma.invoice
+        .update({ where: { orderId }, data: { status: 'QUEUED', errorMessage: msg.slice(0, 500) } })
+        .catch(() => {});
+      logger.error(`GİB gönderimi hata (order ${orderId}, ETTN ${realEttn}) — taslak bekliyor: ${msg}`);
+      return { status: 'QUEUED', ettn: realEttn, invoiceNo: createdNo, profile, errorMessage: msg };
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await prisma.invoice.update({ where: { orderId }, data: { status: 'ERROR', errorMessage: message } }).catch(() => {});
     logger.error(`Sysmond fatura gönderim hatası (order ${orderId}): ${message}`);
     return { status: 'ERROR', errorMessage: message, ettn };
+  }
+}
+
+/**
+ * Sysmond'da taslak olarak bekleyen (QUEUED/DRAFT/ERROR) faturayı GİB'e gönderir.
+ * "Entegratörde takılı kalmış" faturaları elle iletmek için kullanılır.
+ */
+export async function sendInvoiceToGib(orderId: string): Promise<IssueResult> {
+  const invoice = await prisma.invoice.findUnique({ where: { orderId } });
+  if (!invoice) throw Object.assign(new Error('Fatura bulunamadı'), { status: 404 });
+  if (!invoice.ettn) throw Object.assign(new Error('Fatura ETTN bilgisi eksik'), { status: 400 });
+  if (invoice.status === 'SENT') throw Object.assign(new Error("Fatura zaten GİB'e gönderilmiş"), { status: 409 });
+  if (invoice.status === 'CANCELLED') throw Object.assign(new Error('İptal edilmiş fatura gönderilemez'), { status: 400 });
+
+  if (!sysmond.isConfigured()) {
+    throw Object.assign(new Error('Sysmond e-Dönüşüm yapılandırılmamış'), { status: 400 });
+  }
+
+  try {
+    const result = await dispatchToGib(orderId, invoice.ettn, invoice.invoiceNo ?? undefined);
+    return { ...result, profile: invoice.profile ?? undefined };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await prisma.invoice
+      .update({ where: { orderId }, data: { status: 'QUEUED', errorMessage: msg.slice(0, 500) } })
+      .catch(() => {});
+    logger.error(`GİB gönderimi hata (retry, order ${orderId}, ETTN ${invoice.ettn}): ${msg}`);
+    return { status: 'QUEUED', ettn: invoice.ettn, errorMessage: msg };
   }
 }
 
@@ -363,7 +447,8 @@ export async function previewPayload(orderId: string): Promise<object> {
     docDate,
     prefix: invoicePrefix,
     currencyCode: 'TRY',
-    isDraft: false,
+    // Taslak olarak oluşturulur; gerçek akışta Create sonrası SendInvoice ile GİB'e iletilir.
+    isDraft: true,
     ...(profile === 'EARSIVFATURA' ? { senderType: 'ELEKTRONIK' } : {}),
     ...(pkAlias ? { pkAlias } : {}),
     invoiceAccount: {
@@ -373,6 +458,7 @@ export async function previewPayload(orderId: string): Promise<object> {
       cityName: a.city,
       citySubdivision: a.district || a.city,
       streetName: [a.neighborhood, a.address].filter(Boolean).join(' '),
+      email: order.user.email,
     },
     invoiceDetail,
     isCalculateByApi: true,

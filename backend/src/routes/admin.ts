@@ -50,6 +50,7 @@ router.post('/orders/:id/send-invoice', ctrl.sendOrderInvoiceEmail);
 router.get('/e-invoice/ping', invoiceCtrl.ping);
 router.post('/orders/:id/e-invoice', invoiceCtrl.issue);
 router.get('/orders/:id/e-invoice', invoiceCtrl.get);
+router.post('/orders/:id/e-invoice/send-gib', invoiceCtrl.sendGib);
 router.post('/orders/:id/e-invoice/refresh', invoiceCtrl.refresh);
 router.get('/orders/:id/e-invoice/pdf', invoiceCtrl.pdf);
 router.get('/orders/:id/e-invoice/preview-xml', invoiceCtrl.previewXml);

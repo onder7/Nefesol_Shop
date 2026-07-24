@@ -25,6 +25,16 @@ export async function get(req: AuthRequest, res: Response, next: NextFunction) {
   }
 }
 
+/** Sysmond'da taslak bekleyen faturayı GİB'e (yeniden) gönderir. */
+export async function sendGib(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const result = await invoiceService.sendInvoiceToGib(String(req.params.id));
+    res.json({ success: result.status === 'SENT', data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** GİB durumunu yeniden sorgular (Sysmond GetOutboxInvoiceStatus). */
 export async function refresh(req: AuthRequest, res: Response, next: NextFunction) {
   try {

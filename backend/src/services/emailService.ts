@@ -109,10 +109,16 @@ async function resolveEmailConfig(): Promise<EmailConfig> {
 
 // ─── Core Send ────────────────────────────────────────────────────────────────
 
+interface MailAttachment {
+  filename: string;
+  content: Buffer;
+}
+
 interface MailPayload {
   to: string;
   subject: string;
   html: string;
+  attachments?: MailAttachment[];
 }
 
 async function sendViaBrevo(cfg: BrevoConfig, payload: MailPayload): Promise<void> {
@@ -128,6 +134,9 @@ async function sendViaBrevo(cfg: BrevoConfig, payload: MailPayload): Promise<voi
       to: [{ email: payload.to }],
       subject: payload.subject,
       htmlContent: payload.html,
+      ...(payload.attachments?.length
+        ? { attachment: payload.attachments.map((a) => ({ name: a.filename, content: a.content.toString('base64') })) }
+        : {}),
     }),
   });
 
@@ -152,6 +161,7 @@ async function sendMail(payload: MailPayload): Promise<void> {
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
+      attachments: payload.attachments,
     });
     logger.info('Email gönderildi (SMTP)', { to: payload.to, host: cfg.host });
     return;
@@ -826,6 +836,8 @@ export interface InvoiceEmailOrder {
     attributes?: Record<string, string> | null;
   }>;
   payment?: { provider: string; status: string } | null;
+  /** Sysmond'dan kesilmiş resmi e-Fatura/e-Arşiv. Varsa PDF eklenir ve müşteri bilgilendirilir. */
+  officialInvoice?: { pdf: Buffer; label: string; invoiceNo?: string | null };
 }
 
 export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> {
@@ -842,6 +854,7 @@ export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> 
     })(),
   ]);
 
+  const official = order.officialInvoice;
   const orderRef = `#TR-${order.id.slice(-8).toUpperCase()}`;
   const orderDate = new Date(order.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   const legalName = companyData['legal_name'] || storeName;
@@ -971,6 +984,14 @@ export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> 
     </div>
   </div>
 
+  ${official ? `
+  <!-- Resmi e-Fatura / e-Arşiv bilgi notu -->
+  <div style="margin:0 32px 24px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+    <p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6">
+      📄 <strong>${escapeHtml(official.label)}${official.invoiceNo ? ` (${escapeHtml(String(official.invoiceNo))})` : ''}</strong> düzenlenmiştir ve bu e-postaya PDF olarak eklenmiştir. Yukarıdaki döküm bilgilendirme amaçlıdır; resmi belge ekteki PDF'tir.
+    </p>
+  </div>` : ''}
+
   <!-- Footer -->
   <div style="background:#f8f9fa;padding:16px 32px;text-align:center;border-top:1px solid #eee">
     <p style="margin:0;font-size:12px;color:#888">${escapeHtml(legalName)} — Bizi tercih ettiğiniz için teşekkürler.</p>
@@ -982,10 +1003,17 @@ export async function sendInvoiceEmail(order: InvoiceEmailOrder): Promise<void> 
 </body>
 </html>`;
 
+  const attachments = official
+    ? [{ filename: `${official.label.replace(/\s+/g, '-')}-${orderRef.replace('#', '')}.pdf`, content: official.pdf }]
+    : undefined;
+
   await sendMail({
     to: order.customerEmail,
-    subject: `Siparişinizin Faturası — ${orderRef}`,
+    subject: official
+      ? `${official.label}${official.invoiceNo ? ` ${official.invoiceNo}` : ''} — ${orderRef}`
+      : `Siparişinizin Faturası — ${orderRef}`,
     html,
+    attachments,
   });
 }
 

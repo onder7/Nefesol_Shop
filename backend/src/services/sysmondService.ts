@@ -157,6 +157,15 @@ export async function createInvoice(itemDto: FaturaItem[]): Promise<CreateRespon
   return apiPost<CreateResponse>('/IntegrationGidenFatura/Create', { itemDto });
 }
 
+/**
+ * Taslak (isDraft:true) olarak oluşturulmuş faturaları GİB'e gönderir.
+ * Create'ten dönen ETTN(ler) ile çağrılır; Sysmond belgeyi GİB'e iletir.
+ * Yanıt gövdesi Create ile aynı şekildedir (status + data[].status/documentNo).
+ */
+export async function sendToGib(ettnList: string[]): Promise<CreateResponse> {
+  return apiPost<CreateResponse>('/IntegrationGidenFatura/SendInvoice', { ettnList });
+}
+
 export async function getStatus(ettnList: string[]): Promise<StatusItem[]> {
   const res = await apiPost<{ status: boolean; data?: StatusItem[] }>(
     '/IntegrationGidenFatura/GetOutboxInvoiceStatus',

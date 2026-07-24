@@ -12,7 +12,9 @@ import * as qaService from '../services/qaService';
 import * as watermarkService from '../services/watermarkService';
 import * as hepsijet from '../services/hepsijetService';
 import * as orderService from '../services/orderService';
+import * as invoiceService from '../services/invoiceService';
 import { prisma } from '../config/database';
+import { logger } from '../config/logger';
 
 export async function getStats(req: AuthRequest, res: Response, next: NextFunction) {
   try {
@@ -163,6 +165,24 @@ export async function sendOrderInvoiceEmail(req: AuthRequest, res: Response, nex
     const customerName = order.user.profile?.firstName
       ? `${order.user.profile.firstName} ${order.user.profile.lastName ?? ''}`.trim()
       : '';
+
+    // Resmi e-Fatura/e-Arşiv kesilmişse PDF'ini indirip müşteriye ek olarak gönder.
+    // İndirme başarısız olursa e-posta yine de proforma döküm ile gider.
+    let officialInvoice: { pdf: Buffer; label: string; invoiceNo?: string | null } | undefined;
+    const invoice = await invoiceService.getInvoice(order.id);
+    if (invoice && invoice.status === 'SENT' && invoice.ettn) {
+      try {
+        const pdf = await invoiceService.getInvoicePdf(order.id);
+        officialInvoice = {
+          pdf,
+          label: invoice.type === 'EFATURA' ? 'e-Fatura' : 'e-Arşiv Faturası',
+          invoiceNo: invoice.invoiceNo,
+        };
+      } catch (e) {
+        logger.warn(`Resmi fatura PDF eklenemedi (order ${order.id}), proforma gönderilecek: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
     await sendInvoiceEmail({
       id: order.id,
       createdAt: order.createdAt,
@@ -181,8 +201,9 @@ export async function sendOrderInvoiceEmail(req: AuthRequest, res: Response, nex
         attributes: item.variant.attributes ?? null,
       })),
       payment: order.payment,
+      officialInvoice,
     });
-    res.json({ success: true });
+    res.json({ success: true, data: { officialInvoice: !!officialInvoice, invoiceType: officialInvoice?.label ?? null } });
   } catch (err) {
     next(err);
   }
