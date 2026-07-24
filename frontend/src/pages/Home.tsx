@@ -211,16 +211,6 @@ export function Home() {
 
   return (
     <main className="bg-neutral-50/50 dark:bg-neutral-950 pb-16">
-      {/* ⚠️ GEÇİCİ TEST RİBBON — build doğrulandıktan sonra kaldır */}
-      <div style={{
-        position: 'fixed', bottom: 80, right: 16, zIndex: 9999,
-        background: '#ef4444', color: '#fff', fontWeight: 'bold',
-        fontSize: 13, padding: '6px 14px', borderRadius: 8,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-        pointerEvents: 'none',
-      }}>
-        🔴 BUILD v3 — {new Date().toLocaleTimeString('tr-TR')}
-      </div>
       <SeoHead
         description={`Hızlı kargo, kolay iade ve uygun fiyat garantisiyle ${storeName} ürünlerini keşfedin.`}
         schema={[organizationSchema(storeName), websiteSchema(storeName)]}
