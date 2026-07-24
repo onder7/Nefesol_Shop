@@ -77,6 +77,7 @@ export interface ShipmentResult {
   deliveryNo: string;
   hasLabel: boolean;
   carrier: string;
+  alreadyExists?: boolean;
 }
 
 /** Sipariş için HepsiJET gönderisi oluşturur. */
@@ -159,6 +160,22 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
   try {
     response = await hj.sendDeliveryOrderEnhanced(cfg, payload);
   } catch (err) {
+    const msg = String(err);
+    // 409: gönderi bu numarayla HepsiJET'te zaten kayıtlı → mükerrer basış. Mevcut
+    // kaydı "oluşturuldu" sayıp döndür (500 vermek yerine idempotent davran).
+    if (/\b409\b|kay[ıi]tl[ıi]/i.test(msg)) {
+      const existing = await prisma.shipping.findUnique({ where: { orderId } });
+      const trackingNumber = existing?.trackingNumber || deliveryNo;
+      await prisma.shipping
+        .upsert({
+          where: { orderId },
+          update: { carrier: 'HepsiJET', trackingNumber, deliveryNo },
+          create: { orderId, carrier: 'HepsiJET', trackingNumber, deliveryNo },
+        })
+        .catch(() => {});
+      logger.info('HepsiJET gönderi zaten mevcut (409), mükerrer oluşturma atlandı', { orderId, deliveryNo });
+      return { trackingNumber, deliveryNo, hasLabel: Boolean(existing?.barcodeData), carrier: 'HepsiJET', alreadyExists: true };
+    }
     // Başarısız denemede de deliveryNo'yu saklıyoruz ki tekrar denerken aynısı kullanılsın.
     await prisma.shipping.upsert({
       where: { orderId },
@@ -168,7 +185,9 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
     throw err;
   }
 
-  const trackingNumber = response.data?.trackingNumber ?? null;
+  // HepsiJET takibi customerDeliveryNo (barkod) üzerinden yapılır; ayrı bir takip no
+  // dönmezse barkodu takip numarası olarak kullanırız (müşteri bununla takip eder).
+  const trackingNumber = response.data?.trackingNumber ?? deliveryNo;
   const barcodeData = response.data?.barcodeData ?? null;
 
   await prisma.shipping.upsert({
@@ -193,6 +212,40 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
   logger.info('HepsiJET gönderisi oluşturuldu', { orderId, deliveryNo, trackingNumber });
 
   return { trackingNumber, deliveryNo, hasLabel: Boolean(barcodeData), carrier: 'HepsiJET' };
+}
+
+export interface TrackingResult {
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+}
+
+/**
+ * HepsiJET'ten gönderi takip bilgisini (customerDeliveryNo/barkod ile) sorgular ve
+ * kaydı günceller. Takip numarası = barkod; ayrıca resmi takip URL'i döner.
+ */
+export async function refreshTracking(orderId: string): Promise<TrackingResult> {
+  const shipping = await prisma.shipping.findUnique({ where: { orderId } });
+  if (!shipping?.deliveryNo) {
+    throw Object.assign(new Error('Bu sipariş için HepsiJET gönderisi bulunamadı'), { status: 404 });
+  }
+  const cfg = await hj.getConfig();
+  hj.assertConfigured(cfg);
+
+  const items = await hj.queryTracking(cfg, [shipping.deliveryNo]);
+  const item = items.find((i) => i.barcode === shipping.deliveryNo) ?? items[0];
+  const trackingUrl = (item?.trackingUrl as string | undefined) ?? null;
+  const trackingNumber = shipping.trackingNumber || shipping.deliveryNo;
+
+  await prisma.shipping.update({
+    where: { orderId },
+    data: {
+      trackingNumber,
+      ...(item ? { payload: { ...(shipping.payload as object ?? {}), track: item } as object } : {}),
+    },
+  });
+
+  logger.info('HepsiJET takip bilgisi güncellendi', { orderId, deliveryNo: shipping.deliveryNo, trackingUrl });
+  return { trackingNumber, trackingUrl };
 }
 
 /** Kayıtlı ZPL etiket verisini döner. */

@@ -59,6 +59,7 @@ router.post('/orders/:id/e-invoice/cancel', invoiceCtrl.cancel);
 // Kargo (HepsiJET)
 router.get('/hepsijet/ping', shipmentCtrl.ping);
 router.post('/orders/:id/shipment', shipmentCtrl.create);
+router.post('/orders/:id/shipment/refresh-tracking', shipmentCtrl.refreshTracking);
 router.get('/orders/:id/shipment/label', shipmentCtrl.label);
 router.get('/orders/:id/shipment/preview', shipmentCtrl.preview);
 

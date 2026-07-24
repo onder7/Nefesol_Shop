@@ -15,6 +15,16 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
   }
 }
 
+/** HepsiJET'ten takip bilgisini sorgular ve kaydı günceller. */
+export async function refreshTracking(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const result = await shipmentService.refreshTracking(String(req.params.id));
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** Kargo etiketini (ZPL) indirir. */
 export async function label(req: AuthRequest, res: Response, next: NextFunction) {
   try {

@@ -654,6 +654,20 @@ export default function OrderDetailPage() {
     }
   }
 
+  // HepsiJET'ten takip bilgisini yeniden sorgular (takip no barkodla eşleşir).
+  async function handleRefreshTracking() {
+    setShipBusy(true);
+    setShipErr('');
+    try {
+      await api.post(`/admin/orders/${orderId}/shipment/refresh-tracking`, {});
+      loadOrder();
+    } catch (err) {
+      setShipErr(err instanceof Error ? err.message : 'Takip bilgisi alınamadı');
+    } finally {
+      setShipBusy(false);
+    }
+  }
+
   // ZPL etiketi metin dosyası olarak iner; barkod yazıcıya bu dosya gönderilir.
   async function handleDownloadLabel() {
     setShipErr('');
@@ -1193,6 +1207,28 @@ export default function OrderDetailPage() {
                     <span className="text-xs text-green-600 font-medium px-1">
                       Gönderi oluşturuldu ({order.shipping.trackingNumber})
                     </span>
+                    <a
+                      href={`https://hepsijet.com/gonderi-takibi/${order.shipping.trackingNumber}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 transition"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M10 14L21 3m0 0h-6m6 0v6M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      HepsiJET'te Takip Et
+                    </a>
+                    <button
+                      onClick={handleRefreshTracking}
+                      disabled={shipBusy}
+                      title="Takip bilgisini HepsiJET'ten yeniden sorgula"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-stroke bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:bg-meta-4 transition disabled:opacity-50"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      {shipBusy ? 'Sorgulanıyor…' : 'Takip No Yenile'}
+                    </button>
                     <button
                       onClick={handleDownloadLabel}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-primary bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition"

@@ -252,6 +252,23 @@ export async function sendDeliveryOrderEnhanced(
   return request<HjEnhancedResponse>(cfg, 'POST', '/delivery/sendDeliveryOrderEnhanced', order);
 }
 
+export interface HjTrackItem {
+  barcode: string;
+  trackingUrl?: string;
+  [k: string]: unknown;
+}
+
+/** customerDeliveryNo (barkod) ile gönderi takip bilgisini sorgular. */
+export async function queryTracking(cfg: HepsijetConfig, barcodes: string[]): Promise<HjTrackItem[]> {
+  const res = await request<{ status: string; data?: HjTrackItem[] }>(
+    cfg,
+    'POST',
+    '/delivery/integration/track',
+    { barcodes },
+  );
+  return res.data ?? [];
+}
+
 /** Uygun teslim/iade tarihlerini sorgular. */
 export async function findAvailableDeliveryDates(
   cfg: HepsijetConfig,
