@@ -471,6 +471,20 @@ export function Addresses() {
                 </div>
               </div>
             )}
+
+            {/* Son Görüntülenen Ürünler — adres listesinin altında, tam genişlikte */}
+            {recentlyViewed.length > 0 && (
+              <div className="mt-8 rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Son Görüntülenenler</h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {recentlyViewed.slice(0, 4).map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -510,20 +524,6 @@ export function Addresses() {
                   >
                     Tüm Ürünleri Gör →
                   </Link>
-                </div>
-              </div>
-            )}
-
-            {/* Son Görüntülenen Ürünler */}
-            {recentlyViewed.length > 0 && (
-              <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Son Görüntülenenler</h3>
-                </div>
-                <div className="p-3 grid grid-cols-2 gap-3">
-                  {recentlyViewed.slice(0, 4).map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
                 </div>
               </div>
             )}
