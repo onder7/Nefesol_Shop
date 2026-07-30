@@ -141,7 +141,7 @@ async function login(cfg: HepsijetConfig): Promise<TokenCache> {
   const token = data?.data?.token;
   if (!res.ok || !token) {
     const msg = data?.message ?? data?.errorMessage ?? `HTTP ${res.status}`;
-    throw new Error(`HepsiJET kimlik doğrulama hatası: ${msg}`);
+    throw Object.assign(new Error(`HepsiJET kimlik doğrulama hatası: ${msg}`), { status: 400 });
   }
   logger.info('HepsiJET token alındı', { mode: cfg.mode, xdock: data.data?.xdock?.abbreviationCode });
   return {
@@ -187,13 +187,20 @@ async function request<T>(
   } catch {
     throw new Error(`HepsiJET geçersiz yanıt (${res.status}): ${text.slice(0, 300)}`);
   }
+  // HepsiJET'in mesajı admin panelinde görünsün diye hatalara status iliştiriyoruz;
+  // status taşımayan hatalar errorHandler'da generic "Sunucu hatası"na düşüyor.
   if (!res.ok) {
     const msg = data?.message ?? data?.errorMessage ?? text.slice(0, 300);
-    throw new Error(`HepsiJET API ${res.status}: ${msg}`);
+    throw Object.assign(new Error(`HepsiJET API ${res.status}: ${msg}`), {
+      status: res.status < 500 ? 400 : 502,
+    });
   }
   // HepsiJET HTTP 200 ile de hata dönebiliyor: { status: "ERROR", message: "..." }
   if (data?.status && data.status !== 'OK' && data.status !== 'SUCCESS') {
-    throw new Error(`HepsiJET: ${data.message ?? data.errorMessage ?? data.status}`);
+    throw Object.assign(
+      new Error(`HepsiJET: ${data.message ?? data.errorMessage ?? data.status}`),
+      { status: 400 },
+    );
   }
   return data as T;
 }

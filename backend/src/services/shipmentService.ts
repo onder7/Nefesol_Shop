@@ -355,6 +355,18 @@ export async function createReturnShipment(returnId: string): Promise<ShipmentRe
       where: { id: returnId },
       data: { deliveryNo, shipmentPayload: { request: payload as object, error: String(err) } },
     });
+    // İade gönderisi randevu ister; findAvailableDeliveryDatesV2 test ortamında
+    // (2026-07-30) her tarih aralığı için "randevulu iade limiti tükenmiştir"
+    // dönüyor, yani kapasiteyi HepsiJET'in açması gerekiyor.
+    if (/randevu/i.test(msg)) {
+      throw Object.assign(
+        new Error(
+          `${msg.replace(/^Error:\s*/, '')} — İade gönderisi randevu gerektiriyor; ` +
+          `HepsiJET tarafında uygun randevu günü açılmamış görünüyor.`,
+        ),
+        { status: 400 },
+      );
+    }
     throw err;
   }
 
