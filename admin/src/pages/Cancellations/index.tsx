@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../../lib/api';
+import { api, API_BASE, getToken } from '../../lib/api';
 import { BsChevronRight, BsCheckLg, BsXLg } from 'react-icons/bs';
 
 interface Cancellation {
@@ -276,6 +276,9 @@ interface ReturnRow {
   refundAmount?: string | null;
   adminNotes?: string | null;
   requestedAt: string;
+  deliveryNo?: string | null;
+  trackingNumber?: string | null;
+  hasLabel?: boolean;
   items: Array<{
     id: string;
     quantity: number;
@@ -312,6 +315,45 @@ function ReturnDetail({ ret, onClose, onSuccess }: { ret: ReturnRow; onClose: ()
   const [rejectionReason, setRejectionReason] = useState('');
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [shipping, setShipping] = useState(false);
+  const [shipmentNo, setShipmentNo] = useState<string | null>(ret.trackingNumber ?? null);
+
+  const handleCreateReturnShipment = async () => {
+    setShipping(true);
+    try {
+      const r = await api.post<{ success: boolean; data: { trackingNumber: string | null; deliveryNo: string } }>(
+        `/admin/returns/${ret.id}/shipment`,
+        {},
+      );
+      const no = r.data.trackingNumber || r.data.deliveryNo;
+      setShipmentNo(no);
+      alert(`İade kargosu oluşturuldu.\nGönderi no: ${no}`);
+      onSuccess();
+    } catch (err: any) {
+      alert(err.message || 'İade kargosu oluşturulamadı');
+    } finally {
+      setShipping(false);
+    }
+  };
+
+  // ZPL etiketi metin dosyası olarak iner; barkod yazıcıya bu dosya gönderilir.
+  const handleDownloadReturnLabel = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/returns/${ret.id}/shipment/label`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) { alert('Etiket alınamadı (bu iade için kayıtlı barkod yok)'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hepsijet-iade-${shipmentNo ?? ret.id}.zpl`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || 'Etiket indirilemedi');
+    }
+  };
 
   const handleApprove = async () => {
     if (!confirm('İadeyi onaylıyor musunuz? Seçili ürünlerin stoğu geri yüklenecek.')) return;
@@ -407,6 +449,34 @@ function ReturnDetail({ ret, onClose, onSuccess }: { ret: ReturnRow; onClose: ()
             <div>
               <label className="text-sm font-semibold text-gray-700 block mb-2">Red Açıklaması</label>
               <p className="text-sm text-gray-700 bg-red-50 p-3 rounded border border-red-200">{ret.adminNotes}</p>
+            </div>
+          )}
+
+          {/* HepsiJET iade kargosu — müşteriden alınıp depoya döner */}
+          {ret.status !== 'REJECTED' && (
+            <div className="border-t pt-6">
+              <label className="text-sm font-semibold text-gray-700 block mb-2">İade Kargosu (HepsiJET)</label>
+              {shipmentNo ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700">
+                    Gönderi no: <span className="font-mono font-semibold">{shipmentNo}</span>
+                  </p>
+                  <button
+                    onClick={handleDownloadReturnLabel}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Kargo etiketini indir (ZPL)
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCreateReturnShipment}
+                  disabled={shipping}
+                  className="w-full border border-primary text-primary px-4 py-2 rounded-lg font-medium hover:bg-primary/5 disabled:opacity-50"
+                >
+                  {shipping ? 'Oluşturuluyor...' : 'İade Kargosu Oluştur'}
+                </button>
+              )}
             </div>
           )}
 

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../config/database';
 import { logger } from '../config/logger';
+import { getSettingsGroup } from './settingsService';
 import * as hj from './hepsijetService';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,6 +73,50 @@ function slotFor(productCode: string): string {
   return productCode === 'HX_SD' || productCode === 'HX_ND' ? '1' : '0';
 }
 
+const COUNTRY = { name: 'Türkiye' };
+
+type CustomerAddress = {
+  city: string;
+  district: string;
+  neighborhood: string | null;
+  address: string;
+};
+
+/**
+ * Müşteri adresini HepsiJET adres bloğuna çevirir.
+ *
+ * DİKKAT — town/district eşlemesi kesinleşmedi: HepsiJET'in tanım mailinde
+ * GÖNDERİCİ adresi için town=mahalle (KIZILTOPRAK), district=ilçe (MURATPAŞA)
+ * verildi; dokümanda ve findAvailableDeliveryDatesV2 örneğinde ise town=ilçe.
+ * Müşteri adresi her iki yönde de (giden gönderide alıcı, iade gönderisinde
+ * gönderici) buradan üretiliyor — HepsiJET test gönderilerini inceleyip
+ * düzeltme isterse yalnızca bu fonksiyon değişecek.
+ *
+ * neighborhood opsiyonel; boşsa ilçe gönderilir (mahalle zaten adres satırında).
+ */
+function customerAddressBlock(addr: CustomerAddress, seed: string): hj.HjAddress {
+  return {
+    companyAddressId: uuidFrom(seed),
+    country: COUNTRY,
+    city: { name: addr.city },
+    town: { name: addr.district },
+    district: { name: addr.neighborhood?.trim() || addr.district },
+    addressLine1: addr.address,
+  };
+}
+
+/** Mağaza deposu — değerler ayarlara HepsiJET'in verdiği haliyle giriliyor. */
+function merchantAddressBlock(cfg: hj.HepsijetConfig): hj.HjAddress {
+  return {
+    companyAddressId: cfg.senderAddressId,
+    country: COUNTRY,
+    city: { name: cfg.senderCity },
+    town: { name: cfg.senderTown },
+    district: { name: cfg.senderDistrict || cfg.senderTown },
+    addressLine1: cfg.senderAddressLine,
+  };
+}
+
 export interface ShipmentResult {
   trackingNumber: string | null;
   deliveryNo: string;
@@ -95,14 +140,6 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
     );
   }
 
-  // Alıcı adresi dokümandaki eşlemeye göre gönderiliyor: town = ilçe, district = mahalle.
-  // DİKKAT: HepsiJET'in tanım mailinde gönderici adresi için tersi verilmişti
-  // (town = mahalle, district = ilçe). Gönderici tarafı ayarlardan mailde yazan
-  // haliyle gidiyor. Doküman + findAvailableDeliveryDatesV2 örneği town=ilçe diyor;
-  // HepsiJET teyit ederse bu eşlemenin de değişmesi gerekebilir (çapraz kargo riski).
-  //
-  // Address.neighborhood opsiyonel; boşsa ilçeyi gönderiyoruz (mahalle adres satırında var).
-  const neighborhood = addr.neighborhood?.trim() || addr.district;
   if (!addr.neighborhood?.trim()) {
     logger.warn('HepsiJET: mahalle bilgisi yok, ilçe gönderiliyor', { orderId, district: addr.district });
   }
@@ -113,7 +150,6 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
   }
 
   const deliveryNo = order.shipping?.deliveryNo || buildDeliveryNo(cfg.deliveryPrefix);
-  const country = { name: 'Türkiye' };
 
   const payload: hj.HjDeliveryOrder = {
     company: { name: cfg.companyName, abbreviationCode: cfg.companyCode },
@@ -126,14 +162,7 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
       deliveryDateOriginal: istanbulDate(),
       deliveryType: 'RETAIL',
       product: { productCode: cfg.productCode },
-      senderAddress: {
-        companyAddressId: cfg.senderAddressId,
-        country,
-        city: { name: cfg.senderCity },
-        town: { name: cfg.senderTown },
-        district: { name: cfg.senderDistrict || cfg.senderTown },
-        addressLine1: cfg.senderAddressLine,
-      },
+      senderAddress: merchantAddressBlock(cfg),
       receiver: {
         companyCustomerId: uuidFrom(`customer:${order.id}`),
         firstName: addr.firstName,
@@ -142,14 +171,7 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
         phone2: '',
         email: order.user?.email ?? '',
       },
-      recipientAddress: {
-        companyAddressId: uuidFrom(`address:${order.id}`),
-        country,
-        city: { name: addr.city },
-        town: { name: addr.district },
-        district: { name: neighborhood },
-        addressLine1: addr.address,
-      },
+      recipientAddress: customerAddressBlock(addr, `address:${order.id}`),
       recipientPerson: `${addr.firstName} ${addr.lastName}`.trim(),
       recipientPersonPhone1: phone,
     },
@@ -214,6 +236,154 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
   return { trackingNumber, deliveryNo, hasLabel: Boolean(barcodeData), carrier: 'HepsiJET' };
 }
 
+// ─── İade gönderisi (deliveryType: RETURNED) ─────────────────────────────────
+
+type ReturnForShipment = Prisma.OrderReturnGetPayload<{
+  include: {
+    order: {
+      include: {
+        address: true;
+        user: { select: { email: true; profile: { select: { phone: true } } } };
+      };
+    };
+  };
+}>;
+
+async function loadReturn(returnId: string): Promise<ReturnForShipment> {
+  const ret = await prisma.orderReturn.findUnique({
+    where: { id: returnId },
+    include: {
+      order: {
+        include: {
+          address: true,
+          user: { select: { email: true, profile: { select: { phone: true } } } },
+        },
+      },
+    },
+  });
+  if (!ret) throw Object.assign(new Error('İade talebi bulunamadı'), { status: 404 });
+  if (!ret.order.address) throw Object.assign(new Error('Siparişte teslimat adresi yok'), { status: 400 });
+  return ret;
+}
+
+/**
+ * İade talebi için HepsiJET iade gönderisi oluşturur.
+ *
+ * Giden gönderinin tersi: gönderici müşteri adresi, alıcı mağaza deposudur ve
+ * deliveryType 'RETURNED' gider. Sonuç OrderReturn kaydına yazılır; aynı talep
+ * için tekrar denendiğinde aynı customerDeliveryNo yeniden kullanılır.
+ */
+export async function createReturnShipment(returnId: string): Promise<ShipmentResult> {
+  const cfg = await hj.getConfig();
+  hj.assertConfigured(cfg);
+
+  const ret = await loadReturn(returnId);
+  const order = ret.order;
+  const addr = order.address!;
+
+  if (ret.status === 'REJECTED') {
+    throw Object.assign(new Error('Reddedilmiş iade talebi için kargo oluşturulamaz'), { status: 400 });
+  }
+  if (ret.trackingNumber) {
+    throw Object.assign(
+      new Error(`Bu iade için zaten kargo oluşturulmuş (${ret.trackingNumber}).`),
+      { status: 409 },
+    );
+  }
+
+  const customerPhone = normalizePhone(addr.phone || order.user?.profile?.phone);
+  if (!customerPhone) {
+    throw Object.assign(new Error('Teslimat adresinde geçerli telefon numarası yok'), { status: 400 });
+  }
+
+  // İadede alıcı mağazanın kendisi; iletişim bilgisi Ayarlar > Genel'den gelir.
+  const general = await getSettingsGroup('general_').catch(() => ({} as Record<string, string>));
+  const storePhone = normalizePhone(general.phone);
+  if (!storePhone) {
+    throw Object.assign(
+      new Error('Mağaza telefonu tanımlı değil. Ayarlar > Genel > İletişim Bilgileri bölümünden ekleyin.'),
+      { status: 400 },
+    );
+  }
+
+  const deliveryNo = ret.deliveryNo || buildDeliveryNo(cfg.deliveryPrefix);
+
+  const payload: hj.HjDeliveryOrder = {
+    company: { name: cfg.companyName, abbreviationCode: cfg.companyCode },
+    delivery: {
+      customerDeliveryNo: deliveryNo,
+      customerOrderId: ret.id.slice(-8).toUpperCase(),
+      totalParcels: '1',
+      desi: cfg.defaultDesi,
+      deliverySlotOriginal: slotFor(cfg.returnProductCode),
+      deliveryDateOriginal: istanbulDate(),
+      deliveryType: 'RETURNED',
+      product: { productCode: cfg.returnProductCode },
+      senderAddress: customerAddressBlock(addr, `return-sender:${ret.id}`),
+      receiver: {
+        companyCustomerId: uuidFrom(`return-receiver:${cfg.companyCode}`),
+        firstName: cfg.companyName,
+        lastName: '',
+        phone1: storePhone,
+        phone2: '',
+        email: general.email ?? '',
+      },
+      recipientAddress: merchantAddressBlock(cfg),
+      recipientPerson: cfg.companyName,
+      recipientPersonPhone1: storePhone,
+    },
+    currentXDock: { abbreviationCode: cfg.xdockCode },
+  };
+
+  let response: hj.HjEnhancedResponse;
+  try {
+    response = await hj.sendDeliveryOrderEnhanced(cfg, payload);
+  } catch (err) {
+    const msg = String(err);
+    // 409: bu numarayla gönderi HepsiJET'te zaten var → idempotent davran.
+    if (/\b409\b|kay[ıi]tl[ıi]/i.test(msg)) {
+      const trackingNumber = ret.trackingNumber || deliveryNo;
+      await prisma.orderReturn
+        .update({ where: { id: returnId }, data: { trackingNumber, deliveryNo } })
+        .catch(() => {});
+      logger.info('HepsiJET iade gönderisi zaten mevcut (409)', { returnId, deliveryNo });
+      return { trackingNumber, deliveryNo, hasLabel: Boolean(ret.barcodeData), carrier: 'HepsiJET', alreadyExists: true };
+    }
+    // Başarısız denemede de deliveryNo saklanır ki tekrarda aynısı kullanılsın.
+    await prisma.orderReturn.update({
+      where: { id: returnId },
+      data: { deliveryNo, shipmentPayload: { request: payload as object, error: String(err) } },
+    });
+    throw err;
+  }
+
+  const trackingNumber = response.data?.trackingNumber ?? deliveryNo;
+  const barcodeData = response.data?.barcodeData ?? null;
+
+  await prisma.orderReturn.update({
+    where: { id: returnId },
+    data: {
+      trackingNumber,
+      deliveryNo,
+      barcodeData,
+      shipmentPayload: { request: payload as object, response: response as object },
+    },
+  });
+
+  logger.info('HepsiJET iade gönderisi oluşturuldu', { returnId, deliveryNo, trackingNumber });
+
+  return { trackingNumber, deliveryNo, hasLabel: Boolean(barcodeData), carrier: 'HepsiJET' };
+}
+
+/** İade gönderisinin ZPL etiketini döner. */
+export async function getReturnLabel(returnId: string): Promise<string> {
+  const ret = await prisma.orderReturn.findUnique({ where: { id: returnId } });
+  if (!ret?.barcodeData) {
+    throw Object.assign(new Error('Bu iade için kayıtlı kargo etiketi yok'), { status: 404 });
+  }
+  return ret.barcodeData;
+}
+
 export interface TrackingResult {
   trackingNumber: string | null;
   trackingUrl: string | null;
@@ -262,7 +432,6 @@ export async function previewPayload(orderId: string): Promise<object> {
   const cfg = await hj.getConfig();
   const order = await loadOrder(orderId);
   const addr = order.address!;
-  const country = { name: 'Türkiye' };
   const phone = normalizePhone(addr.phone || order.user?.profile?.phone);
   return {
     company: { name: cfg.companyName, abbreviationCode: cfg.companyCode },
@@ -275,14 +444,7 @@ export async function previewPayload(orderId: string): Promise<object> {
       deliveryDateOriginal: istanbulDate(),
       deliveryType: 'RETAIL',
       product: { productCode: cfg.productCode },
-      senderAddress: {
-        companyAddressId: cfg.senderAddressId,
-        country,
-        city: { name: cfg.senderCity },
-        town: { name: cfg.senderTown },
-        district: { name: cfg.senderDistrict || cfg.senderTown },
-        addressLine1: cfg.senderAddressLine,
-      },
+      senderAddress: merchantAddressBlock(cfg),
       receiver: {
         companyCustomerId: uuidFrom(`customer:${order.id}`),
         firstName: addr.firstName,
@@ -291,14 +453,7 @@ export async function previewPayload(orderId: string): Promise<object> {
         phone2: '',
         email: order.user?.email ?? '',
       },
-      recipientAddress: {
-        companyAddressId: uuidFrom(`address:${order.id}`),
-        country,
-        city: { name: addr.city },
-        town: { name: addr.district },
-        district: { name: addr.neighborhood?.trim() || addr.district },
-        addressLine1: addr.address,
-      },
+      recipientAddress: customerAddressBlock(addr, `address:${order.id}`),
       recipientPerson: `${addr.firstName} ${addr.lastName}`.trim(),
       recipientPersonPhone1: phone,
     },

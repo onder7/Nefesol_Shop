@@ -62,6 +62,8 @@ router.post('/orders/:id/shipment', shipmentCtrl.create);
 router.post('/orders/:id/shipment/refresh-tracking', shipmentCtrl.refreshTracking);
 router.get('/orders/:id/shipment/label', shipmentCtrl.label);
 router.get('/orders/:id/shipment/preview', shipmentCtrl.preview);
+router.post('/returns/:returnId/shipment', shipmentCtrl.createReturn);
+router.get('/returns/:returnId/shipment/label', shipmentCtrl.returnLabel);
 
 // Reviews (moderasyon — onaylanmadan müşteri tarafında görünmez)
 router.get('/reviews', ctrl.listReviews);

@@ -493,6 +493,12 @@ model OrderReturn {
   approvedAt   DateTime?    @map("approved_at")
   rejectedAt   DateTime?    @map("rejected_at")
 
+  // HepsiJET iade gönderisi (deliveryType: RETURNED) — müşteriden alınıp depoya döner
+  deliveryNo      String? @map("delivery_no")   // customerDeliveryNo, tekrar denemede korunur
+  trackingNumber  String? @map("tracking_number")
+  barcodeData     String? @map("barcode_data") @db.Text // ZPL etiket verisi
+  shipmentPayload Json?   @map("shipment_payload")      // istek + yanıt (hata ayıklama)
+
   order Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user  User              @relation(fields: [userId], references: [id])
   items OrderReturnItem[]

@@ -208,7 +208,12 @@ export async function listReturns(filters?: { status?: ReturnStatus; limit?: num
     }),
     prisma.orderReturn.count({ where }),
   ]);
-  return { items, total };
+  // ZPL etiketi ve HepsiJET payload'ı listede işe yaramaz, kaydı şişirir — ayrı uçtan alınır.
+  const lean = items.map(({ barcodeData, shipmentPayload, ...rest }) => ({
+    ...rest,
+    hasLabel: Boolean(barcodeData),
+  }));
+  return { items: lean, total };
 }
 
 export async function getReturn(returnId: string) {

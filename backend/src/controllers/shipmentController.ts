@@ -37,6 +37,28 @@ export async function label(req: AuthRequest, res: Response, next: NextFunction)
   }
 }
 
+/** İade talebi için HepsiJET iade gönderisi (RETURNED) oluşturur. */
+export async function createReturn(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const result = await shipmentService.createReturnShipment(String(req.params.returnId));
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** İade gönderisinin kargo etiketini (ZPL) indirir. */
+export async function returnLabel(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const zpl = await shipmentService.getReturnLabel(String(req.params.returnId));
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="hepsijet-iade-${req.params.returnId}.zpl"`);
+    res.send(zpl);
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** HepsiJET'e gönderilecek payload önizlemesi (hata ayıklama). */
 export async function preview(req: AuthRequest, res: Response, next: NextFunction) {
   try {

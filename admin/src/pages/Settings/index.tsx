@@ -839,6 +839,19 @@ function ShippingTab() {
               <option value="HJ_DT">HJ_DT — Kapıdan Kapıya</option>
             </select>
           </Field>
+          <Field label="İade Gönderi Tipi" hint="İade kargolarında (deliveryType: RETURNED) kullanılır. Boşsa yukarıdaki tip geçerlidir.">
+            <select
+              className={inputCls}
+              value={g.hepsijet_return_product_code ?? ''}
+              onChange={(e) => s.set('hepsijet_return_product_code', e.target.value)}
+            >
+              <option value="">Gönderi tipiyle aynı</option>
+              <option value="HX_STD">HX_STD — Standart Teslimat</option>
+              <option value="HX_SD">HX_SD — Aynı Gün</option>
+              <option value="HX_ND">HX_ND — Ertesi Gün</option>
+              <option value="HJ_DT">HJ_DT — Kapıdan Kapıya</option>
+            </select>
+          </Field>
           <Field label="Kullanıcı Adı">
             <input
               className={inputCls}
@@ -871,8 +884,8 @@ function ShippingTab() {
           <Field label="Firma Kodu" hint="company.abbreviationCode">
             <input className={inputCls} value={g.hepsijet_company_code ?? ''} onChange={(e) => s.set('hepsijet_company_code', e.target.value)} />
           </Field>
-          <Field label="Gönderi No Öneki" hint="3 haneli — customerDeliveryNo bu kodla başlamak zorunda">
-            <input className={inputCls} maxLength={3} value={g.hepsijet_delivery_prefix ?? ''} onChange={(e) => s.set('hepsijet_delivery_prefix', e.target.value)} placeholder="örn. 123" />
+          <Field label="Gönderi No Öneki" hint="customerDeliveryNo bu kodla başlamak zorunda — HepsiJET'in verdiği firma kısaltması (toplam 8-21 karakter)">
+            <input className={inputCls} maxLength={9} value={g.hepsijet_delivery_prefix ?? ''} onChange={(e) => s.set('hepsijet_delivery_prefix', e.target.value)} placeholder="örn. MABridge" />
           </Field>
           <Field label="XDock Kodu" hint="currentXDock.abbreviationCode — örn. ETMS123">
             <input className={inputCls} value={g.hepsijet_xdock ?? ''} onChange={(e) => s.set('hepsijet_xdock', e.target.value)} />
@@ -929,7 +942,7 @@ function ShippingTab() {
           {pingResult && (
             <span className={`text-xs font-medium ${pingResult.ok ? 'text-green-600' : 'text-red-600'}`}>
               {pingResult.ok
-                ? `✓ Bağlantı başarılı (${pingResult.mode}${pingResult.xdock ? ` · XDock: ${pingResult.xdock}` : ''})`
+                ? `✓ Bağlantı başarılı (${pingResult.mode}${pingResult.xdock ? ` · XDock: ${pingResult.xdock}` : ''}${pingResult.company ? ` · Firma kodu: ${pingResult.company}` : ''})`
                 : `✗ ${pingResult.message}`}
             </span>
           )}

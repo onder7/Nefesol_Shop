@@ -29,6 +29,7 @@ export interface HepsijetConfig {
   senderDistrict: string;
   senderAddressLine: string;
   productCode: string;      // HX_STD | HX_SD | HX_ND | HJ_DT
+  returnProductCode: string; // iade gönderisinin ürün kodu (genelde giden ile aynı)
   defaultDesi: string;
 }
 
@@ -52,6 +53,7 @@ export async function getConfig(): Promise<HepsijetConfig> {
     senderDistrict: s.hepsijet_sender_district ?? '',
     senderAddressLine: s.hepsijet_sender_address ?? '',
     productCode: s.hepsijet_product_code || 'HX_STD',
+    returnProductCode: s.hepsijet_return_product_code || s.hepsijet_product_code || 'HX_STD',
     defaultDesi: s.hepsijet_default_desi || '4',
   };
 }
