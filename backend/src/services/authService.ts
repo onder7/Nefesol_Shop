@@ -5,6 +5,7 @@ import { prisma } from '../config/database';
 import { redis } from '../config/redis';
 import { env } from '../config/env';
 import { AppError } from '../types';
+import { logger } from '../config/logger';
 import { getSettingsGroup } from './settingsService';
 
 // ─── E-posta doğrulama ───────────────────────────────────────────────────────
@@ -378,6 +379,10 @@ export async function login(input: LoginInput): Promise<(TokenPair & { user: obj
     throw new AppError('Hesabınız devre dışı bırakılmış. Lütfen bizimle iletişime geçin.', 403);
   }
 
+  // Şifresini bilerek giren misafir artık gerçek üye sayılır (şifreyi sıfırlama
+  // linkiyle almış olabilir; o durumda aktivasyon kartı sonsuza dek kalıyordu).
+  await promoteGuestToMember(user);
+
   // MFA kontrol et
   const userAny = user as any;
   if (userAny.mfaEnabled || userAny.mfa_enabled) {
@@ -529,10 +534,37 @@ export async function resetPassword(token: string, newPassword: string): Promise
   const userId = await redis.get(`reset:${token}`);
   if (!userId) throw new AppError('Şifre sıfırlama linki geçersiz veya süresi dolmuş', 400);
 
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('Kullanıcı bulunamadı', 404);
+
   const hashed = await bcrypt.hash(newPassword, 12);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: hashed } });
+  // Sıfırlama linki e-posta sahipliğini kanıtlar → misafir üyeliğe yükselir.
+  // Yükseltilmezse "Hesabınızı Aktifleştirin" uyarısı kalır, aktivasyon da
+  // "zaten bir şifre belirlenmiş" deyip reddeder; hesap kilitlenirdi.
+  await promoteGuestToMember(user);
   await redis.del(`reset:${token}`);
   await revokeRefreshToken(userId);
+}
+
+/**
+ * Misafir hesabını gerçek üyeliğe yükseltir. Zaten üyeyse hiçbir şey yapmaz.
+ *
+ * isGuest bayrağını eskiden yalnızca activateGuest kaldırıyordu, o da hesapta
+ * şifre varsa reddediyor. Şifre sıfırlama / sosyal giriş / şifreyle giriş
+ * yollarının üçü de e-posta sahipliğini kanıtladığı için yükseltme burada
+ * ortaklandı. isActive'e dokunulmuyor — yönetici kapattıysa kapalı kalmalı.
+ */
+export async function promoteGuestToMember(
+  user: { id: string; isGuest: boolean; emailVerifiedAt: Date | null },
+): Promise<boolean> {
+  if (!user.isGuest) return false;
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { isGuest: false, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
+  });
+  logger.info('Misafir hesabı üyeliğe yükseltildi', { userId: user.id });
+  return true;
 }
 
 // ─── Misafir hesabı aktivasyonu ───────────────────────────────────────────────
@@ -547,7 +579,15 @@ export async function activateGuest(userId: string, newPassword: string): Promis
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
   if (!user) throw new AppError('Kullanıcı bulunamadı', 404);
   if (!user.isGuest) throw new AppError('Bu hesap zaten aktif bir üyelik hesabıdır.', 400);
-  if (user.passwordHash) throw new AppError('Bu hesapta zaten bir şifre belirlenmiş.', 400);
+  // Şifreyi ezmiyoruz: mevcut şifreyi bilmeden değiştirmek, oturum çalınması
+  // hâlinde hesabı devretmek olurdu (changePassword bu yüzden mevcut şifreyi
+  // ister). Giriş yapmak zaten üyeliğe yükseltiyor, kullanıcıyı oraya yönlendir.
+  if (user.passwordHash) {
+    throw new AppError(
+      'Bu hesapta şifre sıfırlama ile bir şifre belirlenmiş. Çıkış yapıp e-posta ve şifrenizle giriş yapın; üyeliğiniz otomatik aktifleşecek.',
+      400,
+    );
+  }
 
   const hashed = await bcrypt.hash(newPassword, 12);
   const updated = await prisma.user.update({

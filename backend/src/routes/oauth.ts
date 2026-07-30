@@ -5,6 +5,7 @@ import * as jwt from 'jsonwebtoken';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 import { getGoogleClientId } from '../services/settingsService';
+import { promoteGuestToMember } from '../services/authService';
 
 const router = Router();
 
@@ -30,6 +31,13 @@ async function findOrCreateUser(profile: OAuthProfile) {
   });
 
   if (user) {
+    // Sosyal sağlayıcı e-posta sahipliğini doğruluyor → misafir hesabı üyeliğe
+    // yükselt. Yükseltilmezse "Hesabınızı Aktifleştirin" kartı kalıcı olur ve
+    // aktivasyon, şifre sıfırlamayla şifre kazanmış hesabı reddeder.
+    if (await promoteGuestToMember(user)) {
+      user = (await prisma.user.findUnique({ where: { id: user.id } }))!;
+    }
+
     // Mevcut kullanıcı - OAuth ID'yi ekle + eksik profil alanlarını Google verisiyle tamamla
     const userProfile = await prisma.userProfile.findUnique({
       where: { userId: user.id }
