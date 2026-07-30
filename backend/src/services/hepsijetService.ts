@@ -236,13 +236,41 @@ export interface HjDeliveryOrder {
   currentXDock: { abbreviationCode: string };
 }
 
+/** zplBarcodeDTOList elemanı — gönderi başına bir barkod/etiket. */
+export interface HjZplBarcode {
+  barcodeNo?: string;    // HepsiJET barkodu (customerDeliveryNo ile aynı geliyor)
+  zplBarcode?: string;   // ZPL etiket verisi
+  trackingUrl?: string;
+  [k: string]: unknown;
+}
+
 export interface HjEnhancedResponse {
   status: string;
   data?: {
-    id?: number;
-    barcodeData?: string;
-    trackingNumber?: string;
+    customerDeliveryNo?: string;
+    zplBarcodeDTOList?: HjZplBarcode[];
     [k: string]: unknown;
+  };
+}
+
+export interface HjShipmentOutcome {
+  trackingNumber: string | null;
+  barcodeData: string | null;
+  trackingUrl: string | null;
+}
+
+/**
+ * sendDeliveryOrderEnhanced yanıtından takip no / ZPL etiketi çıkarır.
+ *
+ * Gerçek yanıt (2026-07-30, test ortamı) barkodu düz `barcodeData` alanında
+ * değil `data.zplBarcodeDTOList[0]` içinde döndürüyor.
+ */
+export function readShipmentOutcome(res: HjEnhancedResponse): HjShipmentOutcome {
+  const first = res.data?.zplBarcodeDTOList?.[0];
+  return {
+    trackingNumber: first?.barcodeNo ?? null,
+    barcodeData: first?.zplBarcode ?? null,
+    trackingUrl: first?.trackingUrl ?? null,
   };
 }
 

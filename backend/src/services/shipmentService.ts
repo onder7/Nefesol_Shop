@@ -85,12 +85,12 @@ type CustomerAddress = {
 /**
  * Müşteri adresini HepsiJET adres bloğuna çevirir.
  *
- * DİKKAT — town/district eşlemesi kesinleşmedi: HepsiJET'in tanım mailinde
- * GÖNDERİCİ adresi için town=mahalle (KIZILTOPRAK), district=ilçe (MURATPAŞA)
- * verildi; dokümanda ve findAvailableDeliveryDatesV2 örneğinde ise town=ilçe.
+ * town = ilçe, district = mahalle. HepsiJET'in tanım mailinde GÖNDERİCİ adresi
+ * için tersi verilmişti (town=KIZILTOPRAK mahallesi); doğrusu bu eşleme:
+ * 2026-07-30 test gönderisinde HepsiJET yanıtı receiverTown='SEYHAN' döndü ve
+ * gönderiyi SEYHAN XDock'una yönlendirdi, yani town'u ilçe olarak okuyor.
  * Müşteri adresi her iki yönde de (giden gönderide alıcı, iade gönderisinde
- * gönderici) buradan üretiliyor — HepsiJET test gönderilerini inceleyip
- * düzeltme isterse yalnızca bu fonksiyon değişecek.
+ * gönderici) buradan üretilir.
  *
  * neighborhood opsiyonel; boşsa ilçe gönderilir (mahalle zaten adres satırında).
  */
@@ -209,8 +209,9 @@ export async function createShipment(orderId: string): Promise<ShipmentResult> {
 
   // HepsiJET takibi customerDeliveryNo (barkod) üzerinden yapılır; ayrı bir takip no
   // dönmezse barkodu takip numarası olarak kullanırız (müşteri bununla takip eder).
-  const trackingNumber = response.data?.trackingNumber ?? deliveryNo;
-  const barcodeData = response.data?.barcodeData ?? null;
+  const outcome = hj.readShipmentOutcome(response);
+  const trackingNumber = outcome.trackingNumber ?? deliveryNo;
+  const barcodeData = outcome.barcodeData;
 
   await prisma.shipping.upsert({
     where: { orderId },
@@ -357,8 +358,9 @@ export async function createReturnShipment(returnId: string): Promise<ShipmentRe
     throw err;
   }
 
-  const trackingNumber = response.data?.trackingNumber ?? deliveryNo;
-  const barcodeData = response.data?.barcodeData ?? null;
+  const outcome = hj.readShipmentOutcome(response);
+  const trackingNumber = outcome.trackingNumber ?? deliveryNo;
+  const barcodeData = outcome.barcodeData;
 
   await prisma.orderReturn.update({
     where: { id: returnId },
