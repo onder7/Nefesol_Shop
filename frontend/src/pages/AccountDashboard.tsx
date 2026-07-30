@@ -508,6 +508,14 @@ export function AccountDashboard() {
       ]
     : menuItems;
 
+  // Misafirlikten çıkmış kullanıcı /hesabim/aktiflestir'de kalırsa sayfa boş
+  // görünür — GuestActivationCard üye hesapta hiçbir şey basmıyor. Özete al.
+  useEffect(() => {
+    if (activeSection === 'activation' && !isGuest) {
+      navigate('/hesabim', { replace: true });
+    }
+  }, [activeSection, isGuest, navigate]);
+
   return (
     <main className="container mx-auto px-4 py-8">
       {/* Eksik profil uyarısı (tanımlı adres / telefon yok) */}
