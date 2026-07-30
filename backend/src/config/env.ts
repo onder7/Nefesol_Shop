@@ -13,8 +13,8 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
-  FRONTEND_URL: z.string().default('http://localhost'),
-  ADMIN_URL: z.string().default('http://localhost/admin'),
+  FRONTEND_URL: z.string().default('http://localhost').transform(s => s.replace(/\/+$/, '')),
+  ADMIN_URL: z.string().default('http://localhost/admin').transform(s => s.replace(/\/+$/, '')),
   ADMIN_PASSWORD: z.string().default('Admin123!'),
 
   SMTP_HOST: z.string().optional(),

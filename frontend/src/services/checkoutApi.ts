@@ -62,7 +62,7 @@ export const checkoutApi = {
   initialize: (addressId: string, couponCode?: string, billing?: BillingInfo) =>
     api.post<{ success: boolean; data: CheckoutInitResponse }>('/checkout/initialize', { addressId, couponCode, billing }),
 
-  placeOrder: (addressId: string, method: 'cod' | 'havale', couponCode?: string, billing?: BillingInfo) =>
+  placeOrder: (addressId: string, method: 'cod' | 'havale' | 'free', couponCode?: string, billing?: BillingInfo) =>
     api.post<{ success: boolean; data: PlaceOrderResponse }>('/checkout/place-order', { addressId, method, couponCode, billing }),
 
   // Orders

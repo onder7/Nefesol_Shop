@@ -26,7 +26,7 @@ const initSchema = z.object({
 
 const placeOrderSchema = z.object({
   addressId: z.string().min(1),
-  method: z.enum(['cod', 'havale']),
+  method: z.enum(['cod', 'havale', 'free']),
   couponCode: z.string().optional(),
   billing: billingSchema,
 });

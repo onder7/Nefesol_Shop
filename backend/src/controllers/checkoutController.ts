@@ -442,10 +442,10 @@ export async function placeOrder(req: AuthRequest, res: Response, next: NextFunc
     const userId = req.user!.id;
     // E-posta doğrulaması zorunluysa, doğrulanmamış kullanıcı sipariş veremez.
     await assertEmailVerifiedForOrder(userId);
-    const { addressId, method, couponCode } = req.body as { addressId: string; method: 'cod' | 'havale'; couponCode?: string };
+    const { addressId, method, couponCode } = req.body as { addressId: string; method: 'cod' | 'havale' | 'free'; couponCode?: string };
     const billing = normalizeBilling((req.body as { billing?: unknown }).billing);
 
-    if (!addressId || !['cod', 'havale'].includes(method)) {
+    if (!addressId || !['cod', 'havale', 'free'].includes(method)) {
       return res.status(400).json({ success: false, error: 'Geçersiz istek' });
     }
 
@@ -458,14 +458,31 @@ export async function placeOrder(req: AuthRequest, res: Response, next: NextFunc
       return res.status(400).json({ success: false, error: 'Havale/EFT ödemesi şu an aktif değil' });
     }
 
+    // free method: toplam ₺0 olmalı (ör. %100 indirim kuponu)
+    if (method === 'free') {
+      const cart = await orderSvc.getCartForCheckout(userId);
+      const subtotal = cart.items.reduce((s, i) => s + Number(i.priceAtAdd) * i.quantity, 0);
+      const shippingConfig = await getShippingConfig();
+      const shippingFee = computeShipping(subtotal, shippingConfig);
+      let discount = 0;
+      if (couponCode) {
+        const result = await validateCoupon(couponCode, userId, subtotal);
+        if (result.ok) discount = result.discountAmount;
+      }
+      const total = subtotal - discount + shippingFee;
+      if (total > 0) {
+        return res.status(400).json({ success: false, error: 'Toplam tutar sıfır değil, ödeme gerekli' });
+      }
+    }
+
     const order = await orderSvc.createOrder(userId, addressId, couponCode, billing);
 
     await prisma.payment.create({
       data: {
         orderId: order.id,
-        provider: method === 'cod' ? 'cod' : 'havale',
+        provider: method === 'free' ? 'free' : method === 'cod' ? 'cod' : 'havale',
         amount: order.total,
-        status: method === 'cod' ? 'PENDING' : 'PENDING',
+        status: method === 'free' ? 'SUCCESS' : 'PENDING',
         transactionId: `${method.toUpperCase()}_${Date.now()}`,
       },
     });

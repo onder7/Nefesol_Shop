@@ -45,6 +45,7 @@ export const SECTION_TO_PATH: Record<string, string> = {
   questions: '/hesabim/sorularim',
   coupons:   '/hesabim/indirimlerim',
   profile:   '/hesabim/profil',
+  addresses: '/hesabim/adresler',
   activation:'/hesabim/aktiflestir',
 };
 
@@ -480,6 +481,12 @@ export function AccountDashboard() {
       label: 'Profil Bilgileri',
       badge: null,
     },
+    {
+      id: 'addresses',
+      icon: MapPin,
+      label: 'Kayıtlı Adresler',
+      badge: addressesData.length > 0 ? String(addressesData.length) : null,
+    },
   ];
 
   const isGuest = useAuthStore(selectIsGuest);
@@ -523,12 +530,13 @@ export function AccountDashboard() {
                   </Link>
                 )}
                 {missingPhone && (
-                  <button
-                    onClick={() => { setActiveSection('profile'); setIsEditingProfile(true); }}
+                  <Link
+                    to="/hesabim/profil"
+                    onClick={() => setIsEditingProfile(true)}
                     className="inline-flex items-center gap-1.5 rounded-md border border-amber-600 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
                   >
                     <Phone size={14} /> Telefon Ekle
-                  </button>
+                  </Link>
                 )}
               </div>
             </div>

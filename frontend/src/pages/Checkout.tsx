@@ -355,7 +355,7 @@ export function Checkout() {
 
   // COD / Havale place order
   const placeOrderMut = useMutation({
-    mutationFn: ({ addressId, method, billing }: { addressId: string; method: 'cod' | 'havale'; billing?: BillingInfo }) =>
+    mutationFn: ({ addressId, method, billing }: { addressId: string; method: 'cod' | 'havale' | 'free'; billing?: BillingInfo }) =>
       checkoutApi.placeOrder(addressId, method, appliedCoupon?.code, billing),
     onSuccess: (res) => {
       setCart(null);
@@ -436,7 +436,9 @@ export function Checkout() {
 
     lastPayloadRef.current = { addressId: selectedAddress.id, billing: billingPayload };
 
-    if (payMethod === 'card') {
+    if (total <= 0) {
+      placeOrderMut.mutate({ addressId: selectedAddress.id, method: 'free', billing: billingPayload });
+    } else if (payMethod === 'card') {
       initMut.mutate({ addressId: selectedAddress.id, billing: billingPayload });
     } else {
       placeOrderMut.mutate({ addressId: selectedAddress.id, method: payMethod, billing: billingPayload });
@@ -452,7 +454,7 @@ export function Checkout() {
     if (action === 'init') {
       initMut.mutate(payload);
     } else {
-      placeOrderMut.mutate({ ...payload, method: payMethod as 'cod' | 'havale' });
+      placeOrderMut.mutate({ ...payload, method: total <= 0 ? 'free' : payMethod as 'cod' | 'havale' });
     }
   };
 
@@ -569,54 +571,66 @@ export function Checkout() {
         )}
       </div>
 
-      {/* Payment method selection */}
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-3">
-          <CreditCard className="h-5 w-5 text-primary" />
-          Ödeme Yöntemi
-        </h2>
+      {/* Payment method selection — toplam ₺0 ise ödeme gerekmez */}
+      {total > 0 ? (
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-3">
+            <CreditCard className="h-5 w-5 text-primary" />
+            Ödeme Yöntemi
+          </h2>
 
-        <div className="space-y-2">
-          {methods.card.enabled && (
-            <PayMethodCard
-              id="card"
-              selected={payMethod === 'card'}
-              onSelect={() => setPayMethod('card')}
-              icon={<CreditCard className="h-5 w-5" />}
-              title="Kredi / Banka Kartı"
-              subtitle="Güvenli ödeme altyapısı ile online ödeme"
-            />
-          )}
-          {methods.cod.enabled && (
-            <PayMethodCard
-              id="cod"
-              selected={payMethod === 'cod'}
-              onSelect={() => setPayMethod('cod')}
-              icon={<Truck className="h-5 w-5" />}
-              title="Kapıda Ödeme"
-              subtitle="Sipariş tesliminde nakit veya kartla ödeyin"
-              badge={methods.cod.fee > 0 ? `+${formatPrice(methods.cod.fee)}` : undefined}
-            />
-          )}
-          {methods.havale.enabled && (
-            <PayMethodCard
-              id="havale"
-              selected={payMethod === 'havale'}
-              onSelect={() => setPayMethod('havale')}
-              icon={<Banknote className="h-5 w-5" />}
-              title="Havale / EFT"
-              subtitle="Banka havalesi veya EFT ile ödeme yapın"
-            />
+          <div className="space-y-2">
+            {methods.card.enabled && (
+              <PayMethodCard
+                id="card"
+                selected={payMethod === 'card'}
+                onSelect={() => setPayMethod('card')}
+                icon={<CreditCard className="h-5 w-5" />}
+                title="Kredi / Banka Kartı"
+                subtitle="Güvenli ödeme altyapısı ile online ödeme"
+              />
+            )}
+            {methods.cod.enabled && (
+              <PayMethodCard
+                id="cod"
+                selected={payMethod === 'cod'}
+                onSelect={() => setPayMethod('cod')}
+                icon={<Truck className="h-5 w-5" />}
+                title="Kapıda Ödeme"
+                subtitle="Sipariş tesliminde nakit veya kartla ödeyin"
+                badge={methods.cod.fee > 0 ? `+${formatPrice(methods.cod.fee)}` : undefined}
+              />
+            )}
+            {methods.havale.enabled && (
+              <PayMethodCard
+                id="havale"
+                selected={payMethod === 'havale'}
+                onSelect={() => setPayMethod('havale')}
+                icon={<Banknote className="h-5 w-5" />}
+                title="Havale / EFT"
+                subtitle="Banka havalesi veya EFT ile ödeme yapın"
+              />
+            )}
+          </div>
+
+          {/* Havale bilgilendirme notu — banka bilgileri sonraki adımda gösterilir */}
+          {payMethod === 'havale' && (
+            <div className="mt-3">
+              <HavaleInfo info={methods.havale} noteOnly />
+            </div>
           )}
         </div>
-
-        {/* Havale bilgilendirme notu — banka bilgileri sonraki adımda gösterilir */}
-        {payMethod === 'havale' && (
-          <div className="mt-3">
-            <HavaleInfo info={methods.havale} noteOnly />
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4">
+          <p className="text-sm font-semibold text-green-800 dark:text-green-200 flex items-center gap-2">
+            <Check className="h-4 w-4" />
+            Ödeme Gerekmiyor
+          </p>
+          <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+            İndirim kuponu sayesinde sipariş tutarınız ₺0 olmuştur. Ödeme yapmanıza gerek yoktur.
+          </p>
+        </div>
+      )}
 
       {/* Fatura bilgileri (e-Fatura / e-Arşiv) */}
       <div>
@@ -732,6 +746,8 @@ export function Checkout() {
         >
           {isProcessing ? (
             <><Loader2 className="h-4 w-4 animate-spin mr-2" />İşleniyor...</>
+          ) : total <= 0 ? (
+            <><Check className="h-4 w-4 mr-2" />Siparişi Tamamla</>
           ) : payMethod === 'card' ? (
             <><CreditCard className="h-4 w-4 mr-2" />Kartla Öde</>
           ) : payMethod === 'cod' ? (
